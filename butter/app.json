@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Butter",
+    "slug": "butter",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "butter",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.butter.expensetracker"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFBF2",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      },
+      "package": "com.butter.expensetracker"
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      [
+        "expo-sqlite",
+        {
+          "enableFTS": false,
+          "useSQLCipher": false
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

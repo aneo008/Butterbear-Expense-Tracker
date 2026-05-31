@@ -1,0 +1,17 @@
+# Root-level ignores (the Expo app has its own butter/.gitignore too)
+
+# macOS
+.DS_Store
+
+# Dependencies / build output (defensive — also covered under butter/)
+node_modules/
+dist/
+web-build/
+.expo/
+
+# Claude Code local settings (machine-specific)
+.claude/settings.local.json
+
+# Environment
+.env
+.env*.local
