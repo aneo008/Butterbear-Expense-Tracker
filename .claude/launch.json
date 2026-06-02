@@ -4,7 +4,7 @@
     {
       "name": "web",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-lc", "source ~/.nvm/nvm.sh && nvm use 22 >/dev/null && cd butter && exec npx expo start --web --port 8081"],
+      "runtimeArgs": ["-c", "export PATH=\"$HOME/.nvm/versions/node/v22.22.3/bin:$PATH\" && cd butter && exec npx expo start --web --port 8081"],
       "port": 8081
     }
   ]
