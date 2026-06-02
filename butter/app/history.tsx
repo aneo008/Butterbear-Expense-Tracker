@@ -8,7 +8,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { Stack } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '../src/lib/haptics';
 import { useExpenseStore } from '../src/store/useExpenseStore';
 import { Expense, getAllExpenses } from '../src/db/queries';
 import { formatDateLabel, formatMonthLong } from '../src/lib/date';

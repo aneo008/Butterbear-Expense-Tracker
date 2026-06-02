@@ -1,24 +1,16 @@
 import { getDb } from './database';
 import { Category } from '../constants/categories';
 import { todayISO, addDaysISO } from '../lib/date';
+import {
+  Expense,
+  GameState,
+  CategoryBreakdownRow,
+  BudgetRow,
+  GameStateFull,
+  Snapshot,
+} from './types';
 
-export type Expense = {
-  id: string;
-  amount: number;
-  category_id: string;
-  note: string | null;
-  spent_at: string;
-  created_at: string;
-};
-
-export type GameState = {
-  streak_count: number;
-  last_log_date: string | null;
-  longest_streak: number;
-  total_entries: number;
-  coins: number;
-  coins_earned_today: number;
-};
+export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, GameStateFull, Snapshot } from './types';
 
 export function insertExpense(expense: Omit<Expense, 'created_at'>): void {
   const db = getDb();
@@ -89,12 +81,6 @@ export function getExpensesByCategoryForMonth(categoryId: string, month: string)
     [categoryId, month]
   );
 }
-
-export type CategoryBreakdownRow = {
-  category_id: string;
-  total: number;
-  count: number;
-};
 
 /** Spending grouped by category for a given YYYY-MM, biggest first. */
 export function getMonthBreakdown(month: string): CategoryBreakdownRow[] {
@@ -214,11 +200,6 @@ export function getExpensesBetween(start: string, end: string): Expense[] {
   );
 }
 
-export type BudgetRow = {
-  monthly_budget: number | null;
-  currency: string;
-};
-
 export function getBudget(): BudgetRow {
   const db = getDb();
   return db.getFirstSync<BudgetRow>('SELECT monthly_budget, currency FROM budget WHERE id = 1')
@@ -226,12 +207,6 @@ export function getBudget(): BudgetRow {
 }
 
 /** Full game_state row (all columns) for backups. */
-export type GameStateFull = GameState & {
-  owned_items: string;
-  equipped_items: string;
-  story_progress: number;
-};
-
 export function getGameStateFull(): GameStateFull {
   const db = getDb();
   return db.getFirstSync<GameStateFull>('SELECT * FROM game_state WHERE id = 1') ?? {
@@ -246,13 +221,6 @@ export function getGameStateFull(): GameStateFull {
     story_progress: 0,
   };
 }
-
-export type Snapshot = {
-  expenses: Expense[];
-  categories: Category[];
-  game_state: GameStateFull;
-  budget: BudgetRow;
-};
 
 /** Read the complete app state for a JSON backup. */
 export function getSnapshot(): Snapshot {

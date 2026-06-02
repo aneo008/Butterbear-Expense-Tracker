@@ -10,13 +10,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  Alert,
 } from 'react-native';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '../lib/haptics';
+import { Alert } from '../lib/dialog';
 import { useExpenseStore } from '../store/useExpenseStore';
 import { CATEGORY_ICON_CHOICES, CATEGORY_COLOR_CHOICES } from '../constants/categories';
-import { todayISO, addDaysISO, isoToDate, dateToISO, formatDateLabel } from '../lib/date';
+import { todayISO } from '../lib/date';
+import DateField from './DateField';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'];
 
@@ -38,7 +38,6 @@ export default function AddExpenseSheet() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [date, setDate] = useState(todayISO());
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Category creator state
   const [creatingCategory, setCreatingCategory] = useState(false);
@@ -49,7 +48,6 @@ export default function AddExpenseSheet() {
   // Prefill (edit) or reset (add) whenever the sheet opens.
   useEffect(() => {
     if (!isAddSheetOpen) return;
-    setShowDatePicker(false);
     setCreatingCategory(false);
     if (editingExpense) {
       setAmount(String(editingExpense.amount));
@@ -132,14 +130,6 @@ export default function AddExpenseSheet() {
     ]);
   }, [editingExpense, removeExpense, handleClose]);
 
-  const onChangeDate = useCallback((event: DateTimePickerEvent, picked?: Date) => {
-    // Android fires once and dismisses; iOS keeps the inline picker open.
-    if (Platform.OS === 'android') setShowDatePicker(false);
-    if (event.type === 'set' && picked) {
-      setDate(dateToISO(picked));
-    }
-  }, []);
-
   const handleCreateCategory = useCallback(() => {
     const name = newCatName.trim();
     if (!name) return;
@@ -153,8 +143,6 @@ export default function AddExpenseSheet() {
   }, [newCatName, newCatIcon, newCatColor, createCategory]);
 
   const canSave = parseFloat(amount) > 0;
-  const today = todayISO();
-  const yesterday = addDaysISO(today, -1);
 
   // ----- Category creator view -----
   const renderCreator = () => (
@@ -297,29 +285,8 @@ export default function AddExpenseSheet() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Date row + quick chips */}
-      <View style={styles.metaRow}>
-        <Text style={styles.metaLabel}>Date</Text>
-        <View style={styles.dateControls}>
-          <TouchableOpacity
-            onPress={() => setDate(today)}
-            style={[styles.dateChip, date === today && styles.dateChipActive]}
-          >
-            <Text style={[styles.dateChipText, date === today && styles.dateChipTextActive]}>Today</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setDate(yesterday)}
-            style={[styles.dateChip, date === yesterday && styles.dateChipActive]}
-          >
-            <Text style={[styles.dateChipText, date === yesterday && styles.dateChipTextActive]}>Yesterday</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateChip}>
-            <Text style={styles.dateChipText}>
-              {date !== today && date !== yesterday ? formatDateLabel(date) : '📅'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      {/* Date row + quick chips (platform-specific picker) */}
+      <DateField value={date} onChange={setDate} />
 
       <TextInput
         style={styles.noteInput}
@@ -349,35 +316,6 @@ export default function AddExpenseSheet() {
         <TouchableOpacity onPress={handleDelete} style={styles.deleteBtn}>
           <Text style={styles.deleteText}>Delete expense</Text>
         </TouchableOpacity>
-      )}
-
-      {/* Date picker — Android dialog vs iOS inline-in-modal */}
-      {showDatePicker && Platform.OS === 'android' && (
-        <DateTimePicker
-          value={isoToDate(date)}
-          mode="date"
-          display="default"
-          maximumDate={new Date()}
-          onChange={onChangeDate}
-        />
-      )}
-      {showDatePicker && Platform.OS === 'ios' && (
-        <Modal transparent animationType="fade" visible onRequestClose={() => setShowDatePicker(false)}>
-          <Pressable style={styles.pickerOverlay} onPress={() => setShowDatePicker(false)}>
-            <Pressable style={styles.pickerCard}>
-              <DateTimePicker
-                value={isoToDate(date)}
-                mode="date"
-                display="inline"
-                maximumDate={new Date()}
-                onChange={onChangeDate}
-              />
-              <TouchableOpacity onPress={() => setShowDatePicker(false)} style={styles.pickerDone}>
-                <Text style={styles.pickerDoneText}>Done</Text>
-              </TouchableOpacity>
-            </Pressable>
-          </Pressable>
-        </Modal>
       )}
     </KeyboardAvoidingView>
   );

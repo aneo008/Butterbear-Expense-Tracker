@@ -6,11 +6,11 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '../../src/lib/haptics';
+import { Alert } from '../../src/lib/dialog';
 import { useExpenseStore } from '../../src/store/useExpenseStore';
 import {
   getSnapshot,

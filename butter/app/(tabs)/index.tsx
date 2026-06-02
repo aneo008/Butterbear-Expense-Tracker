@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import { useExpenseStore } from '../../src/store/useExpenseStore';
 import { Expense } from '../../src/db/queries';
 import { formatDateLabel } from '../../src/lib/date';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '../../src/lib/haptics';
 
 function formatCurrency(amount: number): string {
   return amount.toFixed(2);
