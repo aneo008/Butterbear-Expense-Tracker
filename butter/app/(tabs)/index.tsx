@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,8 @@ import { useExpenseStore } from '../../src/store/useExpenseStore';
 import { Expense } from '../../src/db/queries';
 import { formatDateLabel } from '../../src/lib/date';
 import { moodFromState, speechLine } from '../../src/lib/mascotMood';
-import Mascot from '../../src/components/Mascot';
+import Mascot, { MascotHandle } from '../../src/components/Mascot';
+import Coachmark from '../../src/components/Coachmark';
 import { colors, radius, fonts, cardShadow, softShadow } from '../../src/constants/theme';
 import * as Haptics from '../../src/lib/haptics';
 
@@ -50,8 +51,10 @@ function ExpenseRow({
 }
 
 export default function HomeScreen() {
-  const { expenses, todayTotal, categories, gameState, openAddSheet, openEditSheet } = useExpenseStore();
+  const { expenses, todayTotal, categories, gameState, openAddSheet, openEditSheet, celebrationSignal } = useExpenseStore();
   const router = useRouter();
+
+  const mascotRef = useRef<MascotHandle>(null);
 
   const mood = useMemo(() => moodFromState(gameState), [gameState]);
   // Recompute the line only when the relevant state changes (not every render).
@@ -59,6 +62,18 @@ export default function HomeScreen() {
     () => speechLine(gameState),
     [gameState.last_log_date, gameState.streak_count]
   );
+
+  // Fire the celebration burst when a new expense is added (skip the initial 0).
+  const lastSignal = useRef(celebrationSignal);
+  useEffect(() => {
+    if (celebrationSignal !== lastSignal.current) {
+      lastSignal.current = celebrationSignal;
+      mascotRef.current?.celebrate();
+    }
+  }, [celebrationSignal]);
+
+  // Hide the persistent hint once the user has logged a few times.
+  const showHint = gameState.total_entries < 3;
 
   const handleMascotPress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -101,10 +116,13 @@ export default function HomeScreen() {
           <View style={styles.bubbleTail} />
         </View>
         <Pressable onPress={handleMascotPress} accessibilityRole="button" accessibilityLabel="Add an expense">
-          <Mascot mood={mood} size={180} />
+          <Mascot ref={mascotRef} mood={mood} size={180} />
         </Pressable>
-        <Text style={styles.mascotHint}>Tap Butter to add an expense</Text>
+        {showHint && <Text style={styles.mascotHint}>Tap Butter to add an expense</Text>}
       </View>
+
+      <Coachmark />
+
 
       {/* Recent entries */}
       <View style={styles.sectionHeaderRow}>

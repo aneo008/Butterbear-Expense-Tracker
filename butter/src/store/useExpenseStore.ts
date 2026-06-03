@@ -25,6 +25,9 @@ type ExpenseStore = {
   // (e.g. Insights, the category detail screen) can refresh after an edit
   // made through the global modal sheet, which fires no navigation focus event.
   dataVersion: number;
+  // Bumped only when a NEW expense is added (not edit/delete), so Home can fire
+  // Butter's celebration burst. Home watches this and ignores the initial 0.
+  celebrationSignal: number;
 
   loadData: () => void;
   addExpense: (expense: Omit<Expense, 'id' | 'created_at'>) => void;
@@ -51,6 +54,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   isAddSheetOpen: false,
   editingExpense: null,
   dataVersion: 0,
+  celebrationSignal: 0,
 
   loadData: () => {
     const expenses = getRecentExpenses(30);
@@ -65,6 +69,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     insertExpense({ ...expense, id });
     updateGameStateAfterLog();
     get().loadData();
+    set({ celebrationSignal: get().celebrationSignal + 1 });
   },
 
   editExpense: (id, fields) => {
