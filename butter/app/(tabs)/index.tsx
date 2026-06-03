@@ -53,7 +53,7 @@ function ExpenseRow({
 }
 
 export default function HomeScreen() {
-  const { expenses, todayTotal, categories, gameState, openAddSheet, openEditSheet, celebrationSignal, lastCelebration } = useExpenseStore();
+  const { expenses, todayTotal, categories, gameState, equippedItems, openAddSheet, openEditSheet, celebrationSignal, lastCelebration } = useExpenseStore();
   const router = useRouter();
 
   const mascotRef = useRef<MascotHandle>(null);
@@ -116,6 +116,14 @@ export default function HomeScreen() {
           <View style={styles.statChip}>
             <Text style={styles.statText}>🪙 {gameState.coins}</Text>
           </View>
+          <Pressable
+            onPress={() => router.push('/closet' as any)}
+            style={styles.statChip}
+            accessibilityRole="button"
+            accessibilityLabel="Open wardrobe"
+          >
+            <Text style={styles.statText}>🧥</Text>
+          </Pressable>
         </View>
       </View>
 
@@ -136,7 +144,7 @@ export default function HomeScreen() {
         </View>
         <View>
           <Pressable onPress={handleMascotPress} accessibilityRole="button" accessibilityLabel="Add an expense">
-            <Mascot ref={mascotRef} mood={mood} size={180} />
+            <Mascot ref={mascotRef} mood={mood} size={180} equipped={equippedItems} />
           </Pressable>
           {/* confetti overlays the mascot, centred on it */}
           <View pointerEvents="none" style={styles.confettiLayer}>

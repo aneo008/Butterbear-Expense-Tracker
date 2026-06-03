@@ -9,6 +9,7 @@ import {
   GameStateFull,
   Snapshot,
 } from './types';
+import { Slot, EquippedMap } from '../constants/storeItems';
 
 export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, GameStateFull, Snapshot } from './types';
 
@@ -315,5 +316,86 @@ export function setMeta(key: string, value: string): void {
   db.runSync(
     'INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
     [key, value]
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4: Wardrobe (buy / equip)
+// ---------------------------------------------------------------------------
+
+export function getOwnedItems(): string[] {
+  const db = getDb();
+  const row = db.getFirstSync<{ owned_items: string }>(
+    'SELECT owned_items FROM game_state WHERE id = 1'
+  );
+  try { return JSON.parse(row?.owned_items ?? '[]'); } catch { return []; }
+}
+
+export function getEquippedItems(): EquippedMap {
+  const db = getDb();
+  const row = db.getFirstSync<{ equipped_items: string }>(
+    'SELECT equipped_items FROM game_state WHERE id = 1'
+  );
+  try { return JSON.parse(row?.equipped_items ?? '{}'); } catch { return {}; }
+}
+
+/**
+ * Deduct coins and append itemId to owned_items.
+ * Returns false (no-op) if already owned or insufficient coins.
+ */
+export function buyItem(itemId: string, price: number): boolean {
+  const db = getDb();
+  const row = db.getFirstSync<{ coins: number; owned_items: string }>(
+    'SELECT coins, owned_items FROM game_state WHERE id = 1'
+  );
+  if (!row) return false;
+  let owned: string[];
+  try { owned = JSON.parse(row.owned_items); } catch { owned = []; }
+  if (owned.includes(itemId)) return false;
+  if (row.coins < price) return false;
+  owned.push(itemId);
+  db.runSync(
+    'UPDATE game_state SET coins = coins - ?, owned_items = ? WHERE id = 1',
+    [price, JSON.stringify(owned)]
+  );
+  return true;
+}
+
+/** Set the equipped item for a slot. */
+export function equipItem(itemId: string, slot: Slot): void {
+  const db = getDb();
+  const row = db.getFirstSync<{ equipped_items: string }>(
+    'SELECT equipped_items FROM game_state WHERE id = 1'
+  );
+  let equipped: EquippedMap;
+  try { equipped = JSON.parse(row?.equipped_items ?? '{}'); } catch { equipped = {}; }
+  equipped[slot] = itemId;
+  db.runSync(
+    'UPDATE game_state SET equipped_items = ? WHERE id = 1',
+    [JSON.stringify(equipped)]
+  );
+}
+
+/** Remove an item from the equipped slot. */
+export function unequipItem(slot: Slot): void {
+  const db = getDb();
+  const row = db.getFirstSync<{ equipped_items: string }>(
+    'SELECT equipped_items FROM game_state WHERE id = 1'
+  );
+  let equipped: EquippedMap;
+  try { equipped = JSON.parse(row?.equipped_items ?? '{}'); } catch { equipped = {}; }
+  delete equipped[slot];
+  db.runSync(
+    'UPDATE game_state SET equipped_items = ? WHERE id = 1',
+    [JSON.stringify(equipped)]
+  );
+}
+
+/** Replace the entire equipped map (bulk equip, used by Pass C changing room). */
+export function equipLook(look: EquippedMap): void {
+  const db = getDb();
+  db.runSync(
+    'UPDATE game_state SET equipped_items = ? WHERE id = 1',
+    [JSON.stringify(look)]
   );
 }

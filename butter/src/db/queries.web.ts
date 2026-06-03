@@ -11,6 +11,7 @@ import {
   GameStateFull,
   Snapshot,
 } from './types';
+import { Slot, EquippedMap } from '../constants/storeItems';
 
 export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, GameStateFull, Snapshot } from './types';
 
@@ -313,5 +314,57 @@ export function getMeta(key: string): string | null {
 
 export function setMeta(key: string, value: string): void {
   db.app_meta[key] = value;
+  persist();
+}
+
+// ---------------------------------------------------------------------------
+// Phase 4: Wardrobe (buy / equip)
+// ---------------------------------------------------------------------------
+
+export function getOwnedItems(): string[] {
+  try { return JSON.parse(db.game_state.owned_items); } catch { return []; }
+}
+
+export function getEquippedItems(): EquippedMap {
+  try { return JSON.parse(db.game_state.equipped_items); } catch { return {}; }
+}
+
+/**
+ * Deduct coins and append itemId to owned_items.
+ * Returns false (no-op) if already owned or insufficient coins.
+ */
+export function buyItem(itemId: string, price: number): boolean {
+  let owned: string[];
+  try { owned = JSON.parse(db.game_state.owned_items); } catch { owned = []; }
+  if (owned.includes(itemId)) return false;
+  if (db.game_state.coins < price) return false;
+  owned.push(itemId);
+  db.game_state.owned_items = JSON.stringify(owned);
+  db.game_state.coins -= price;
+  persist();
+  return true;
+}
+
+/** Set the equipped item for a slot. */
+export function equipItem(itemId: string, slot: Slot): void {
+  let equipped: EquippedMap;
+  try { equipped = JSON.parse(db.game_state.equipped_items); } catch { equipped = {}; }
+  equipped[slot] = itemId;
+  db.game_state.equipped_items = JSON.stringify(equipped);
+  persist();
+}
+
+/** Remove an item from the equipped slot. */
+export function unequipItem(slot: Slot): void {
+  let equipped: EquippedMap;
+  try { equipped = JSON.parse(db.game_state.equipped_items); } catch { equipped = {}; }
+  delete equipped[slot];
+  db.game_state.equipped_items = JSON.stringify(equipped);
+  persist();
+}
+
+/** Replace the entire equipped map (bulk equip, used by Pass C changing room). */
+export function equipLook(look: EquippedMap): void {
+  db.game_state.equipped_items = JSON.stringify(look);
   persist();
 }

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "/Users/anthony/.nvm/versions/node/v22.22.3/bin/node",
+      "runtimeArgs": ["/Users/anthony/.nvm/versions/node/v22.22.3/bin/npx", "expo", "start", "--web", "--port", "8081"],
+      "port": 8081
+    }
+  ]
+}

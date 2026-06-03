@@ -12,8 +12,15 @@ import {
   deleteExpense,
   addCategory,
   updateGameStateAfterLog,
+  getOwnedItems,
+  getEquippedItems,
+  buyItem as buyItemQuery,
+  equipItem as equipItemQuery,
+  unequipItem as unequipItemQuery,
+  equipLook as equipLookQuery,
 } from '../db/queries';
 import { todayISO } from '../lib/date';
+import { Slot, EquippedMap } from '../constants/storeItems';
 
 export type CelebrationTier = 'normal' | 'big';
 export type Celebration = {
@@ -44,6 +51,9 @@ type ExpenseStore = {
   todayTotal: number;
   categories: Category[];
   gameState: GameState;
+  // Phase 4: wardrobe state (separate from gameState to avoid regressions)
+  ownedItems: string[];       // item IDs the user owns
+  equippedItems: EquippedMap; // {slot → itemId} currently worn
   isAddSheetOpen: boolean;
   editingExpense: Expense | null;
   // Bumped on every data mutation so screens that query SQLite directly
@@ -65,6 +75,11 @@ type ExpenseStore = {
   openAddSheet: () => void;
   openEditSheet: (expense: Expense) => void;
   closeAddSheet: () => void;
+  // Phase 4: wardrobe actions
+  buyItem: (itemId: string, price: number) => boolean;
+  equipItem: (itemId: string, slot: Slot) => void;
+  unequipItem: (slot: Slot) => void;
+  equipLook: (equipped: EquippedMap) => void;
 };
 
 export const useExpenseStore = create<ExpenseStore>((set, get) => ({
@@ -79,6 +94,8 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     coins: 0,
     coins_earned_today: 0,
   },
+  ownedItems: [],
+  equippedItems: {},
   isAddSheetOpen: false,
   editingExpense: null,
   dataVersion: 0,
@@ -90,7 +107,9 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     const todayTotal = getTodayTotal();
     const categories = getAllCategories();
     const gameState = getGameState();
-    set({ expenses, todayTotal, categories, gameState, dataVersion: get().dataVersion + 1 });
+    const ownedItems = getOwnedItems();
+    const equippedItems = getEquippedItems();
+    set({ expenses, todayTotal, categories, gameState, ownedItems, equippedItems, dataVersion: get().dataVersion + 1 });
   },
 
   addExpense: (expense) => {
@@ -126,4 +145,23 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   openAddSheet: () => set({ isAddSheetOpen: true, editingExpense: null }),
   openEditSheet: (expense) => set({ isAddSheetOpen: true, editingExpense: expense }),
   closeAddSheet: () => set({ isAddSheetOpen: false }),
+
+  // Phase 4: wardrobe actions — each persists via the query then refreshes store
+  buyItem: (itemId, price) => {
+    const ok = buyItemQuery(itemId, price);
+    if (ok) get().loadData();
+    return ok;
+  },
+  equipItem: (itemId, slot) => {
+    equipItemQuery(itemId, slot);
+    get().loadData();
+  },
+  unequipItem: (slot) => {
+    unequipItemQuery(slot);
+    get().loadData();
+  },
+  equipLook: (equipped) => {
+    equipLookQuery(equipped);
+    get().loadData();
+  },
 }));
