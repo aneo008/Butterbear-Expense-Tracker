@@ -1,5 +1,5 @@
 import { GameState } from '../db/types';
-import { Mood } from '../constants/mascotSvgs';
+import { Mood } from '../constants/mascotLayers';
 import { todayISO } from './date';
 
 // Derive Butter's resting mood from game state. (worried = budget-driven,

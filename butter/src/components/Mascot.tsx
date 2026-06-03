@@ -1,72 +1,87 @@
-import React, { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { Animated, View, StyleSheet, Easing, Platform } from 'react-native';
+import React, { useImperativeHandle, forwardRef } from 'react';
+import { Animated, View, StyleSheet } from 'react-native';
 import { SvgXml } from 'react-native-svg';
-import { MASCOT_SVGS, Mood } from '../constants/mascotSvgs';
-import { useMascotIdle } from '../lib/useMascotIdle';
+import { Mood, getLayers, PIVOTS, VIEWBOX } from '../constants/mascotLayers';
+import { useMascotAnimation } from '../lib/useMascotAnimation';
 
-const NO_NATIVE = { useNativeDriver: false };
+export type MascotHandle = { celebrate: () => void };
 
-export type MascotHandle = {
-  celebrate: () => void;
-};
+type Props = { mood: Mood; size?: number };
 
-type Props = {
-  mood: Mood;
-  size?: number;
-};
-
-// Butter the bear. Renders the current mood SVG, runs the idle animation system
-// (breathing + mood-flavored flourishes via useMascotIdle), and can play a
-// one-shot celebration burst on demand (celebrating pose + pop, then settle).
+// Layered, jointed Butter. A root transform moves the whole bear together (so
+// nothing detaches), while the head and right arm add their own pivoted rotation
+// on top for overlapping action (drag) and the wave. Spring-based motion gives
+// soft overshoot/settle; hops use volume-preserving squash & stretch.
 const Mascot = forwardRef<MascotHandle, Props>(({ mood, size = 200 }, ref) => {
-  const [celebrating, setCelebrating] = useState(false);
-  const pop = useRef(new Animated.Value(0)).current;
+  const a = useMascotAnimation(mood);
+  useImperativeHandle(ref, () => ({ celebrate: a.celebrate }), [a.celebrate]);
 
-  // Idle pauses while the celebration plays.
-  const idle = useMascotIdle(mood, !celebrating);
+  const width = size;
+  const height = size * (VIEWBOX.h / VIEWBOX.w);
+  const sx = width / VIEWBOX.w; // viewBox px -> screen px
+  const sy = height / VIEWBOX.h;
+  const layers = getLayers(a.shownMood, a.facing);
 
-  const celebrate = useCallback(() => {
-    setCelebrating(true);
-    pop.setValue(0);
-    Animated.sequence([
-      Animated.timing(pop, { toValue: 1, duration: 220, easing: Easing.out(Easing.back(2)), ...NO_NATIVE }),
-      Animated.delay(900),
-      Animated.timing(pop, { toValue: 0, duration: 260, easing: Easing.in(Easing.quad), ...NO_NATIVE }),
-    ]).start(() => setCelebrating(false));
-  }, [pop]);
+  // Breathing: subtle scale + rise, plus a soft belly squash so it isn't rigid.
+  const breathSY = a.breath.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] });
+  const breathSX = a.breath.interpolate({ inputRange: [0, 1], outputRange: [1, 0.992] });
+  const breathTY = a.breath.interpolate({ inputRange: [0, 1], outputRange: [0, -3] });
 
-  useImperativeHandle(ref, () => ({ celebrate }), [celebrate]);
+  const rootRotDeg = a.rootRot.interpolate({ inputRange: [-30, 30], outputRange: ['-30deg', '30deg'] });
+  // Spin: rootRotY 0->1 collapses width to 0 (edge-on), art swaps, opens back up.
+  const spinSX = a.rootRotY.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
+  const headRotDeg = a.headRot.interpolate({ inputRange: [-30, 30], outputRange: ['-30deg', '30deg'] });
+  const armRotDeg = a.armRRot.interpolate({ inputRange: [-90, 90], outputRange: ['-90deg', '90deg'] });
 
-  const shown: Mood = celebrating ? 'celebrating' : mood;
-  const height = size * (260 / 240);
+  // Pivot origins in screen px (transformOrigin is relative to the view box).
+  const feet = { x: PIVOTS.feet.x * sx, y: PIVOTS.feet.y * sy };
+  const neck = { x: PIVOTS.neck.x * sx, y: PIVOTS.neck.y * sy };
+  const rShoulder = { x: PIVOTS.rightShoulder.x * sx, y: PIVOTS.rightShoulder.y * sy };
 
-  // Pop scale during celebration (a little bounce up to 1.12).
-  const popScale = pop.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] });
-
-  // Foot-anchored rotation: translate the pivot to the base, rotate, translate
-  // back — so flourishes tip the bear from his feet, not spin around center.
-  const halfH = height / 2;
+  const layerStyle = StyleSheet.absoluteFillObject;
 
   return (
     <Animated.View
-      style={[
-        styles.wrap,
-        {
-          transform: [
-            { translateY: idle.breathTransY },
-            { translateY: idle.transY },
-            { scaleY: idle.breathScaleY },
-            { scale: popScale },
-            // foot-anchored rotate
-            { translateY: halfH },
-            { rotateZ: idle.rotZDeg },
-            { translateY: -halfH },
-          ],
-        },
-      ]}
+      style={{
+        width,
+        height,
+        transformOrigin: `${feet.x}px ${feet.y}px`,
+        transform: [
+          { translateY: breathTY },
+          { translateY: a.rootTY },
+          { rotateZ: rootRotDeg },
+          { scaleX: Animated.multiply(Animated.multiply(a.rootSX, breathSX), spinSX) },
+          { scaleY: Animated.multiply(a.rootSY, breathSY) },
+        ],
+      }}
     >
-      <View style={{ width: size, height }}>
-        <SvgXml xml={MASCOT_SVGS[shown]} width="100%" height="100%" />
+      {/* body (back-most) */}
+      <View style={layerStyle}>
+        <SvgXml xml={layers.body} width="100%" height="100%" />
+      </View>
+
+      {/* left arm */}
+      <View style={layerStyle}>
+        <SvgXml xml={layers.leftArm} width="100%" height="100%" />
+      </View>
+
+      {/* right arm — pivots at the shoulder for the wave */}
+      <Animated.View
+        style={[layerStyle, { transformOrigin: `${rShoulder.x}px ${rShoulder.y}px`, transform: [{ rotateZ: armRotDeg }] }]}
+      >
+        <SvgXml xml={layers.rightArm} width="100%" height="100%" />
+      </Animated.View>
+
+      {/* head — pivots at the neck, lags the body for drag/overlap */}
+      <Animated.View
+        style={[layerStyle, { transformOrigin: `${neck.x}px ${neck.y}px`, transform: [{ rotateZ: headRotDeg }] }]}
+      >
+        <SvgXml xml={layers.head} width="100%" height="100%" />
+      </Animated.View>
+
+      {/* decor (Zzz / sparkles / confetti) — never deforms with the body */}
+      <View style={layerStyle} pointerEvents="none">
+        <SvgXml xml={layers.decor} width="100%" height="100%" />
       </View>
     </Animated.View>
   );
@@ -74,7 +89,3 @@ const Mascot = forwardRef<MascotHandle, Props>(({ mood, size = 200 }, ref) => {
 
 Mascot.displayName = 'Mascot';
 export default Mascot;
-
-const styles = StyleSheet.create({
-  wrap: { alignItems: 'center', justifyContent: 'center' },
-});
