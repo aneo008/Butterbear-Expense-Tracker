@@ -11,6 +11,8 @@
 // Each layer is a full 240x260 SVG with a transparent background.
 // Z-order (back -> front): leftArm, rightArm, body, feet, head, decor.
 
+import { EquippedMap, itemFragment } from './storeItems';
+
 export type Mood = 'happy' | 'content' | 'sleepy' | 'excited' | 'worried' | 'celebrating';
 export type Facing = 'front' | 'back';
 export type ArmPose = 'rest' | 'waveHalf' | 'waveUp' | 'up';
@@ -19,9 +21,13 @@ export type BodyPose = 'stand' | 'air';
 export type MascotLayers = {
   leftArm: string;
   rightArm: string;
-  body: string;
+  body: string;        // base torso
+  bodyItem: string;    // equipped body garment (over torso, under arms)
   feet: string;
-  head: string;
+  head: string;        // ears + dome + face
+  neckItem: string;    // equipped neck item (over body/head junction)
+  headItem: string;    // equipped head item (on top of head)
+  held: string;        // equipped held item (near paw)
   decor: string;
 };
 
@@ -234,15 +240,32 @@ export function defaultArmPose(mood: Mood): ArmPose {
   return mood === 'excited' || mood === 'celebrating' ? 'up' : 'rest';
 }
 
-export function getLayers(mood: Mood, facing: Facing, armPose: ArmPose, bodyPose: BodyPose = 'stand'): MascotLayers {
+export function getLayers(
+  mood: Mood,
+  facing: Facing,
+  armPose: ArmPose,
+  bodyPose: BodyPose = 'stand',
+  equipped: EquippedMap = {}
+): MascotLayers {
   const air = bodyPose === 'air';
+  // back items: only head/body/neck have meaningful back views; face/held hidden.
+  const headFrag = itemFragment(equipped, 'head', facing);
+  const neckFrag = itemFragment(equipped, 'neck', facing);
+  const bodyFrag = itemFragment(equipped, 'body', facing);
+  const faceFrag = facing === 'front' ? itemFragment(equipped, 'face', 'front') : '';
+  const heldFrag = facing === 'front' ? itemFragment(equipped, 'held', 'front') : '';
+
   if (facing === 'back') {
     return {
       leftArm: getArm('left', armPose, 'back'),
       rightArm: getArm('right', armPose, 'back'),
       body: svg(BODY_BACK),
+      bodyItem: svg(bodyFrag),
       feet: svg(air ? FEET_AIR_BACK : FEET_BACK),
       head: svg(HEAD_BACK),
+      neckItem: svg(neckFrag),
+      headItem: svg(headFrag),
+      held: svg(''),
       decor: svg(DECOR[mood] ?? ''),
     };
   }
@@ -250,8 +273,12 @@ export function getLayers(mood: Mood, facing: Facing, armPose: ArmPose, bodyPose
     leftArm: getArm('left', armPose, 'front'),
     rightArm: getArm('right', armPose, 'front'),
     body: svg(BODY_FRONT),
+    bodyItem: svg(bodyFrag),
     feet: svg(air ? FEET_AIR : FEET_FRONT),
-    head: svg(HEAD_BASE_FRONT + FACES[mood]),
+    head: svg(HEAD_BASE_FRONT + FACES[mood] + faceFrag),
+    neckItem: svg(neckFrag),
+    headItem: svg(headFrag),
+    held: svg(heldFrag),
     decor: svg(DECOR[mood] ?? ''),
   };
 }
