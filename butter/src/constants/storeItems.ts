@@ -100,48 +100,50 @@ const PEARLS = Array.from({ length: 13 }).map((_, i) => {
   return `<circle cx="${x}" cy="${y}" r="3.6" fill="#FBF3E0" stroke="#E6D6BA" stroke-width="0.7"/>`;
 }).join('');
 
-// ---------------- BODY (torso-width, sit below neck) ----------------
+// ---------------- BODY ----------------
+// Garments TRACE the torso ellipse contour (cx120 cy196 rx60 ry56) so they hug
+// the rounded body, and the bodice reaches up to ~y150 so a raised arm never
+// reveals bare fur at the armpit. Skirts flare below the waist.
 
 const APRON = `
-  <path d="M62,184 Q120,198 178,184 L182,234 Q120,248 58,234 Z" fill="#FFFFFF"/>
-  <path d="M58,232 q12.2,8 24.4,0 q12.2,8 24.4,0 q12.2,8 24.4,0 q12.2,8 24.4,0 q12.2,8 24.4,0" fill="#FFFFFF"/>
-  <path d="M58,232 q12.2,8 24.4,0 q12.2,8 24.4,0 q12.2,8 24.4,0 q12.2,8 24.4,0 q12.2,8 24.4,0" fill="none" stroke="#EFE3CC" stroke-width="2.2"/>
-  <rect x="62" y="178" width="116" height="11" rx="5" fill="${CHEEK}"/>
-  <ellipse cx="120" cy="206" rx="15" ry="14" fill="#F7EFE0" stroke="#EFE3CC" stroke-width="1.4"/>`;
+  <path d="M80,156 Q120,170 160,156 Q176,162 178,184 Q180,202 170,212 Q120,224 70,212 Q60,202 62,184 Q64,162 80,156 Z" fill="#FFFFFF"/>
+  <path d="M70,208 Q120,222 170,208 L180,234 Q120,246 60,234 Z" fill="#FFFFFF"/>
+  <path d="M60,232 q12,8 24,0 q12,8 24,0 q12,8 24,0 q12,8 24,0 q12,8 24,0" fill="#FFFFFF"/>
+  <path d="M60,232 q12,8 24,0 q12,8 24,0 q12,8 24,0 q12,8 24,0 q12,8 24,0" fill="none" stroke="#EFE3CC" stroke-width="2"/>
+  <rect x="80" y="156" width="80" height="9" rx="4" fill="${CHEEK}"/>
+  <ellipse cx="120" cy="194" rx="15" ry="14" fill="#F7EFE0" stroke="#EFE3CC" stroke-width="1.4"/>`;
 const APRON_BACK = `
-  <rect x="62" y="178" width="116" height="11" rx="5" fill="${CHEEK}"/>
-  <path d="M110,184 Q120,176 130,184 Q126,194 120,190 Q114,194 110,184 Z" fill="#EC8D88"/>`;
+  <path d="M80,156 Q120,170 160,156 Q176,162 178,184 Q180,202 170,212 Q120,224 70,212 Q60,202 62,184 Q64,162 80,156 Z" fill="#F4EEE2"/>
+  <path d="M70,208 Q120,222 170,208 L180,234 Q120,246 60,234 Z" fill="#F4EEE2"/>
+  <rect x="80" y="156" width="80" height="9" rx="4" fill="${CHEEK}"/>
+  <path d="M110,168 Q120,160 130,168 Q126,178 120,174 Q114,178 110,168 Z" fill="#EC8D88"/>`;
 
 const OVERALLS = `
-  <path d="M60,182 Q120,196 180,182 L182,244 Q120,252 58,244 Z" fill="#6E9BC4"/>
-  <path d="M92,172 Q120,180 148,172 L148,196 Q120,204 92,196 Z" fill="#6E9BC4"/>
-  <rect x="102" y="178" width="36" height="14" rx="3" fill="none" stroke="#5784AE" stroke-width="2"/>
-  <circle cx="98" cy="176" r="3.2" fill="#E8C06A"/><circle cx="142" cy="176" r="3.2" fill="#E8C06A"/>
-  <path d="M94,174 Q86,166 80,170" stroke="#6E9BC4" stroke-width="8" fill="none" stroke-linecap="round"/>
-  <path d="M146,174 Q154,166 160,170" stroke="#6E9BC4" stroke-width="8" fill="none" stroke-linecap="round"/>
-  <path d="M120,204 L120,244" stroke="#5784AE" stroke-width="1.6"/>
-  <path d="M58,242 q62,8 124,0" stroke="#5784AE" stroke-width="2" fill="none"/>`;
+  <path d="M80,154 Q120,168 160,154 Q176,160 178,184 Q180,212 174,238 Q120,250 66,238 Q60,212 62,184 Q64,160 80,154 Z" fill="#6E9BC4"/>
+  <rect x="100" y="166" width="40" height="16" rx="3" fill="none" stroke="#5784AE" stroke-width="2"/>
+  <circle cx="98" cy="160" r="3.2" fill="#E8C06A"/><circle cx="142" cy="160" r="3.2" fill="#E8C06A"/>
+  <path d="M120,184 L120,240" stroke="#5784AE" stroke-width="1.6"/>
+  <path d="M66,236 q54,8 108,0" stroke="#5784AE" stroke-width="2" fill="none"/>`;
 const OVERALLS_BACK = `
-  <path d="M60,182 Q120,196 180,182 L182,244 Q120,252 58,244 Z" fill="#5C87B0"/>
-  <path d="M94,174 Q86,166 80,170" stroke="#5C87B0" stroke-width="8" fill="none" stroke-linecap="round"/>
-  <path d="M146,174 Q154,166 160,170" stroke="#5C87B0" stroke-width="8" fill="none" stroke-linecap="round"/>
-  <rect x="100" y="196" width="40" height="22" rx="3" fill="none" stroke="#4A739B" stroke-width="1.6"/>`;
+  <path d="M80,154 Q120,168 160,154 Q176,160 178,184 Q180,212 174,238 Q120,250 66,238 Q60,212 62,184 Q64,160 80,154 Z" fill="#5C87B0"/>
+  <rect x="100" y="196" width="40" height="22" rx="3" fill="none" stroke="#4A739B" stroke-width="1.6"/>
+  <path d="M66,236 q54,8 108,0" stroke="#4A739B" stroke-width="2" fill="none"/>`;
 
 const DRESS = `
-  <path d="M86,172 Q120,184 154,172 L160,202 Q120,212 80,202 Z" fill="#FFFFFF"/>
-  <path d="M76,198 Q120,212 164,198 L172,228 Q120,238 68,228 Z" fill="#FFFFFF"/>
-  <path d="M62,224 Q120,242 178,224 L184,248 Q120,258 56,248 Z" fill="#FFFFFF"/>
-  <path d="M56,246 q12.3,8 24.6,0 q12.3,8 24.6,0 q12.3,8 24.6,0 q12.3,8 24.6,0 q12.3,8 24.6,0" fill="#FFFFFF"/>
-  <path d="M76,198 q44,11 88,0" stroke="#EFE3CC" stroke-width="2" fill="none"/>
-  <path d="M62,224 q58,13 116,0" stroke="#EFE3CC" stroke-width="2" fill="none"/>
-  <path d="M120,176 l-7,-5 0,10 z" fill="${CHEEK}"/><path d="M120,176 l7,-5 0,10 z" fill="${CHEEK}"/>
-  <circle cx="120" cy="177" r="2.8" fill="#EC8D88"/>`;
+  <path d="M80,150 Q120,166 160,150 Q176,156 178,180 Q180,200 170,212 Q120,224 70,212 Q60,200 62,180 Q64,156 80,150 Z" fill="#FFFFFF"/>
+  <path d="M70,208 Q120,222 170,208 L180,232 Q120,244 60,232 Z" fill="#FFFFFF"/>
+  <path d="M60,230 Q120,248 180,230 L186,252 Q120,262 54,252 Z" fill="#FFFFFF"/>
+  <path d="M54,250 q13.2,8 26.4,0 q13.2,8 26.4,0 q13.2,8 26.4,0 q13.2,8 26.4,0 q13.2,8 26.4,0" fill="#FFFFFF"/>
+  <path d="M70,208 q50,12 100,0" stroke="#EFE3CC" stroke-width="2" fill="none"/>
+  <path d="M60,230 q60,14 120,0" stroke="#EFE3CC" stroke-width="2" fill="none"/>
+  <path d="M120,158 l-7,-5 0,10 z" fill="${CHEEK}"/><path d="M120,158 l7,-5 0,10 z" fill="${CHEEK}"/>
+  <circle cx="120" cy="159" r="2.8" fill="#EC8D88"/>`;
 const DRESS_BACK = `
-  <path d="M86,172 Q120,184 154,172 L160,202 Q120,212 80,202 Z" fill="#F4EEE2"/>
-  <path d="M76,198 Q120,212 164,198 L172,228 Q120,238 68,228 Z" fill="#F4EEE2"/>
-  <path d="M62,224 Q120,242 178,224 L184,248 Q120,258 56,248 Z" fill="#F4EEE2"/>
-  <path d="M56,246 q12.3,8 24.6,0 q12.3,8 24.6,0 q12.3,8 24.6,0 q12.3,8 24.6,0 q12.3,8 24.6,0" fill="#F4EEE2"/>
-  <path d="M110,178 Q120,170 130,178 Q126,188 120,184 Q114,188 110,178 Z" fill="#E8DFCE"/>`;
+  <path d="M80,150 Q120,166 160,150 Q176,156 178,180 Q180,200 170,212 Q120,224 70,212 Q60,200 62,180 Q64,156 80,150 Z" fill="#F4EEE2"/>
+  <path d="M70,208 Q120,222 170,208 L180,232 Q120,244 60,232 Z" fill="#F4EEE2"/>
+  <path d="M60,230 Q120,248 180,230 L186,252 Q120,262 54,252 Z" fill="#F4EEE2"/>
+  <path d="M54,250 q13.2,8 26.4,0 q13.2,8 26.4,0 q13.2,8 26.4,0 q13.2,8 26.4,0 q13.2,8 26.4,0" fill="#F4EEE2"/>
+  <path d="M110,156 Q120,148 130,156 Q126,166 120,162 Q114,166 110,156 Z" fill="#E8DFCE"/>`;
 
 // ---------------- HELD (near the right paw) ----------------
 
