@@ -47,7 +47,6 @@ const PODIUM_SVG = `<svg viewBox="0 0 120 18" xmlns="http://www.w3.org/2000/svg"
 export default function ClosetScreen() {
   const router = useRouter();
   const { gameState, equippedItems, ownedItems, buyItem, equipLook } = useExpenseStore();
-  const mood = moodFromState(gameState);
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const PANEL_WIDTH = Math.round(SCREEN_WIDTH * 0.7);
 
@@ -66,6 +65,12 @@ export default function ClosetScreen() {
   const [activeSlot, setActiveSlot] = useState<SlotFilter>('all');
 
   // ── Derived ──────────────────────────────────────────────────────────────────
+  // Play: mood matches Home (tied to expense logging).
+  // Changing room: fixed 'happy' so Butter just breathes calmly on the podium
+  // regardless of streaks/logging. Reverts to playMood the moment inRoom = false.
+  const playMood = moodFromState(gameState);
+  const mood = inRoom ? 'happy' : playMood;
+
   // Save is only offered when the user has actually changed something
   const canSave = JSON.stringify(fittingEquipped) !== JSON.stringify(equippedItems);
   const mascotSize   = inRoom && panelOpen ? 90 : inRoom ? 140 : 150;
