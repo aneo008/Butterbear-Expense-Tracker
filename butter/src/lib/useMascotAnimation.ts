@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Animated, Easing } from 'react-native';
-import { Mood, Facing, ArmPose, defaultArmPose } from '../constants/mascotLayers';
+import { Mood, Facing, ArmPose, BodyPose, defaultArmPose } from '../constants/mascotLayers';
 
 // Built-in Animated only. useNativeDriver MUST be false (web requires it; can't
 // mix drivers on one value). Hybrid model: body/feet via transforms, arms via
@@ -27,7 +27,8 @@ export type MascotAnim = {
   facing: Facing;
   shownMood: Mood;
   armPose: ArmPose;          // drawn arm frame
-  celebrate: () => void;
+  bodyPose: BodyPose;        // stand / air (mid-jump feet)
+  celebrate: (big?: boolean) => void;
 };
 
 export function useMascotAnimation(mood: Mood, enabledExternally = true): MascotAnim {
@@ -42,6 +43,7 @@ export function useMascotAnimation(mood: Mood, enabledExternally = true): Mascot
   const [facing, setFacing] = useState<Facing>('front');
   const [celebrating, setCelebrating] = useState(false);
   const [armPose, setArmPose] = useState<ArmPose>(defaultArmPose(mood));
+  const [bodyPose, setBodyPose] = useState<BodyPose>('stand');
   const busy = celebrating;
   const shownMood: Mood = celebrating ? 'celebrating' : mood;
 
@@ -62,7 +64,7 @@ export function useMascotAnimation(mood: Mood, enabledExternally = true): Mascot
     [bodyRot, rootTY, rootSX, rootSY, rootRotY, headRot].forEach(v => v.stopAnimation());
     bodyRot.setValue(0); rootTY.setValue(0); rootSX.setValue(1);
     rootSY.setValue(1); rootRotY.setValue(0); headRot.setValue(0);
-    setFacing('front'); setArmPose(defaultArmPose(mood));
+    setFacing('front'); setArmPose(defaultArmPose(mood)); setBodyPose('stand');
   }, [bodyRot, rootTY, rootSX, rootSY, rootRotY, headRot, mood]);
 
   // ---------- flourishes ----------
@@ -83,23 +85,47 @@ export function useMascotAnimation(mood: Mood, enabledExternally = true): Mascot
     ]);
   }, [bodyRot, headRot]);
 
-  // Hop with anticipation + volume-preserving squash/stretch.
-  const hop = useCallback(() => {
-    return Animated.sequence([
-      Animated.parallel([timing(rootSY, 0.9, 160), timing(rootSX, 1.08, 160), timing(rootTY, 6, 160)]),
-      Animated.parallel([
-        timing(rootSY, 1.12, 150, Easing.out(Easing.quad)),
-        timing(rootSX, 0.92, 150, Easing.out(Easing.quad)),
-        timing(rootTY, -22, 150, Easing.out(Easing.quad)),
-      ]),
-      Animated.parallel([
-        timing(rootSY, 0.92, 130, Easing.in(Easing.quad)),
-        timing(rootSX, 1.07, 130, Easing.in(Easing.quad)),
-        timing(rootTY, 4, 130, Easing.in(Easing.quad)),
-      ]),
-      Animated.parallel([spring(rootSY, 1), spring(rootSX, 1), spring(rootTY, 0)]),
-    ]);
-  }, [rootSX, rootSY, rootTY]);
+  // Hop: drawn frames (crouch on ground -> AIR pose: feet together + arms up ->
+  // land squash) combined with the transform stretch. Manual orchestration so we
+  // can swap bodyPose/armPose at the right beats.
+  const hop = useCallback((): Animated.CompositeAnimation => {
+    let stopped = false;
+    return {
+      start: (done?: (r: { finished: boolean }) => void) => {
+        const finish = () => done?.({ finished: !stopped });
+        // anticipation: crouch + squash (feet on ground)
+        Animated.parallel([timing(rootSY, 0.88, 170), timing(rootSX, 1.1, 170), timing(rootTY, 8, 170)])
+          .start(({ finished }) => {
+            if (!finished || stopped) return finish();
+            // launch: go airborne — feet tuck up, arms raise, stretch tall
+            setBodyPose('air'); setArmPose('up');
+            Animated.parallel([
+              timing(rootSY, 1.13, 160, Easing.out(Easing.quad)),
+              timing(rootSX, 0.92, 160, Easing.out(Easing.quad)),
+              timing(rootTY, -24, 160, Easing.out(Easing.quad)),
+            ]).start(({ finished: f2 }) => {
+              if (!f2 || stopped) return finish();
+              // brief hang
+              setTimeout(() => {
+                if (stopped) return finish();
+                // land: feet back down, squash
+                setBodyPose('stand'); setArmPose(defaultArmPose(mood));
+                Animated.sequence([
+                  Animated.parallel([
+                    timing(rootSY, 0.93, 130, Easing.in(Easing.quad)),
+                    timing(rootSX, 1.06, 130, Easing.in(Easing.quad)),
+                    timing(rootTY, 4, 130, Easing.in(Easing.quad)),
+                  ]),
+                  Animated.parallel([spring(rootSY, 1), spring(rootSX, 1), spring(rootTY, 0)]),
+                ]).start(() => finish());
+              }, 110);
+            });
+          });
+      },
+      stop: () => { stopped = true; setBodyPose('stand'); setArmPose(defaultArmPose(mood)); },
+      reset: () => {},
+    } as Animated.CompositeAnimation;
+  }, [rootSX, rootSY, rootTY, mood]);
 
   const sway = useCallback(() => {
     const dir = Math.random() < 0.5 ? 1 : -1;
@@ -211,21 +237,48 @@ export function useMascotAnimation(mood: Mood, enabledExternally = true): Mascot
   }, [mood, busy, enabledExternally]);
 
   // ---------- celebration ----------
-  const celebrate = useCallback(() => {
+  // Normal log -> a quick happy bounce. Big (milestone) -> an airborne jump with
+  // arms up + the celebrating pose + a giggle (confetti is rendered by Home).
+  const celebrate = useCallback((big = false) => {
+    if (!big) {
+      // small bounce — no pose change, doesn't pause idle long
+      resetGesture();
+      Animated.sequence([
+        Animated.parallel([timing(rootSY, 1.07, 130, Easing.out(Easing.quad)), timing(rootSX, 0.96, 130), timing(rootTY, -10, 130)]),
+        Animated.parallel([spring(rootSY, 1, SOFT), spring(rootSX, 1, SOFT), spring(rootTY, 0, SOFT)]),
+      ]).start();
+      return;
+    }
     setCelebrating(true);
-    resetGesture();
-    Animated.sequence([
-      Animated.parallel([
-        timing(rootSY, 1.14, 160, Easing.out(Easing.quad)),
-        timing(rootSX, 0.9, 160, Easing.out(Easing.quad)),
-        timing(rootTY, -20, 160, Easing.out(Easing.quad)),
-      ]),
-      Animated.parallel([timing(rootSY, 0.94, 140), timing(rootSX, 1.06, 140), timing(rootTY, 0, 140)]),
-      Animated.parallel([spring(rootSY, 1.05, SOFT), spring(rootSX, 0.97, SOFT)]),
-      Animated.parallel([spring(rootSY, 0.98, SOFT), spring(rootSX, 1.02, SOFT)]),
-      Animated.parallel([spring(rootSY, 1, SOFT), spring(rootSX, 1, SOFT)]),
-    ]).start(() => setCelebrating(false));
-  }, [rootSX, rootSY, rootTY, resetGesture]);
+    // reset transforms but NOT the pose (we're about to set it).
+    [bodyRot, rootTY, rootSX, rootSY, rootRotY, headRot].forEach(v => v.stopAnimation());
+    bodyRot.setValue(0); rootRotY.setValue(0); headRot.setValue(0);
+    // crouch first (on the ground), THEN go airborne — so the air pose is clearly
+    // tied to the upward stretch.
+    Animated.parallel([timing(rootSY, 0.9, 150), timing(rootSX, 1.08, 150), timing(rootTY, 8, 150)]).start(({ finished }) => {
+      if (!finished) return;
+      setBodyPose('air'); setArmPose('up');
+      Animated.sequence([
+        Animated.parallel([
+          timing(rootSY, 1.16, 180, Easing.out(Easing.quad)),
+          timing(rootSX, 0.9, 180, Easing.out(Easing.quad)),
+          timing(rootTY, -30, 180, Easing.out(Easing.quad)),
+        ]),
+        // hang at the top a beat so the airborne pose is visible
+        Animated.delay(140),
+        Animated.parallel([timing(rootSY, 0.94, 150), timing(rootSX, 1.06, 150), timing(rootTY, 0, 150)]),
+      ]).start(({ finished: f2 }) => {
+        setBodyPose('stand'); setArmPose(defaultArmPose(mood));
+        if (!f2) { setCelebrating(false); return; }
+        // landing giggle
+        Animated.sequence([
+          Animated.parallel([spring(rootSY, 1.05, SOFT), spring(rootSX, 0.97, SOFT)]),
+          Animated.parallel([spring(rootSY, 0.98, SOFT), spring(rootSX, 1.02, SOFT)]),
+          Animated.parallel([spring(rootSY, 1, SOFT), spring(rootSX, 1, SOFT)]),
+        ]).start(() => setCelebrating(false));
+      });
+    });
+  }, [rootSX, rootSY, rootTY, bodyRot, rootRotY, headRot, resetGesture, mood]);
 
-  return { breath, bodyRot, rootTY, rootSX, rootSY, rootRotY, headRot, facing, shownMood, armPose, celebrate };
+  return { breath, bodyRot, rootTY, rootSX, rootSY, rootRotY, headRot, facing, shownMood, armPose, bodyPose, celebrate };
 }

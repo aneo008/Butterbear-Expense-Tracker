@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useEffect } from 'react';
+import React, { useCallback, useMemo, useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import { formatDateLabel } from '../../src/lib/date';
 import { moodFromState, speechLine } from '../../src/lib/mascotMood';
 import Mascot, { MascotHandle } from '../../src/components/Mascot';
 import Coachmark from '../../src/components/Coachmark';
+import ConfettiBurst from '../../src/components/ConfettiBurst';
+import CoinFly from '../../src/components/CoinFly';
 import { colors, radius, fonts, cardShadow, softShadow } from '../../src/constants/theme';
 import * as Haptics from '../../src/lib/haptics';
 
@@ -51,24 +53,41 @@ function ExpenseRow({
 }
 
 export default function HomeScreen() {
-  const { expenses, todayTotal, categories, gameState, openAddSheet, openEditSheet, celebrationSignal } = useExpenseStore();
+  const { expenses, todayTotal, categories, gameState, openAddSheet, openEditSheet, celebrationSignal, lastCelebration } = useExpenseStore();
   const router = useRouter();
 
   const mascotRef = useRef<MascotHandle>(null);
 
+  // Burst triggers + transient milestone bubble line.
+  const [confettiKey, setConfettiKey] = useState(0);
+  const [coinKey, setCoinKey] = useState(0);
+  const [milestoneLine, setMilestoneLine] = useState<string | null>(null);
+
   const mood = useMemo(() => moodFromState(gameState), [gameState]);
-  // Recompute the line only when the relevant state changes (not every render).
-  const line = useMemo(
+  const baseLine = useMemo(
     () => speechLine(gameState),
     [gameState.last_log_date, gameState.streak_count]
   );
+  const line = milestoneLine ?? baseLine;
 
-  // Fire the celebration burst when a new expense is added (skip the initial 0).
+  // On a new log: fire the tiered celebration (skip the initial 0).
   const lastSignal = useRef(celebrationSignal);
   useEffect(() => {
-    if (celebrationSignal !== lastSignal.current) {
-      lastSignal.current = celebrationSignal;
-      mascotRef.current?.celebrate();
+    if (celebrationSignal === lastSignal.current) return;
+    lastSignal.current = celebrationSignal;
+
+    const big = lastCelebration.tier === 'big';
+    mascotRef.current?.celebrate(big);
+    setCoinKey(k => k + 1); // coin-fly every log
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    if (big) {
+      setConfettiKey(k => k + 1);
+      if (lastCelebration.reason) {
+        setMilestoneLine(lastCelebration.reason);
+        const t = setTimeout(() => setMilestoneLine(null), 2600);
+        return () => clearTimeout(t);
+      }
     }
   }, [celebrationSignal]);
 
@@ -115,11 +134,20 @@ export default function HomeScreen() {
           <Text style={styles.bubbleText}>{line}</Text>
           <View style={styles.bubbleTail} />
         </View>
-        <Pressable onPress={handleMascotPress} accessibilityRole="button" accessibilityLabel="Add an expense">
-          <Mascot ref={mascotRef} mood={mood} size={180} />
-        </Pressable>
+        <View>
+          <Pressable onPress={handleMascotPress} accessibilityRole="button" accessibilityLabel="Add an expense">
+            <Mascot ref={mascotRef} mood={mood} size={180} />
+          </Pressable>
+          {/* confetti overlays the mascot, centred on it */}
+          <View pointerEvents="none" style={styles.confettiLayer}>
+            <ConfettiBurst playKey={confettiKey} size={300} />
+          </View>
+        </View>
         {showHint && <Text style={styles.mascotHint}>Tap Butter to add an expense</Text>}
       </View>
+
+      {/* coin-fly: from the mascot up to the coin chip in the header */}
+      <CoinFly playKey={coinKey} from={{ x: 200, y: 320 }} to={{ x: 250, y: 30 }} />
 
       <Coachmark />
 
@@ -194,6 +222,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: 12,
     paddingBottom: 8,
+  },
+  confettiLayer: {
+    position: 'absolute',
+    top: -60,
+    left: -60,
+    right: -60,
+    bottom: -60,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bubble: {
     backgroundColor: colors.bgCard,

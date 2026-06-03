@@ -14,6 +14,7 @@
 export type Mood = 'happy' | 'content' | 'sleepy' | 'excited' | 'worried' | 'celebrating';
 export type Facing = 'front' | 'back';
 export type ArmPose = 'rest' | 'waveHalf' | 'waveUp' | 'up';
+export type BodyPose = 'stand' | 'air';
 
 export type MascotLayers = {
   leftArm: string;
@@ -47,7 +48,7 @@ const BODY_BACK = `
   <ellipse cx="120" cy="196" rx="60" ry="56" fill="${DARK}"/>
   <ellipse cx="120" cy="220" rx="15" ry="14" fill="${FUR}"/>`;
 
-// ---------------- FEET (planted layer) ----------------
+// ---------------- FEET (planted layer; 'air' pose for mid-jump) ----------------
 
 const FEET_FRONT = `
   <ellipse cx="96" cy="250" rx="24" ry="15" fill="${FUR}"/>
@@ -55,9 +56,20 @@ const FEET_FRONT = `
   <ellipse cx="96" cy="253" rx="11" ry="6.5" fill="${LIGHT}"/>
   <ellipse cx="144" cy="253" rx="11" ry="6.5" fill="${LIGHT}"/>`;
 
+// Airborne: feet pulled together under the centre, dangling down (rounded).
+const FEET_AIR = `
+  <ellipse cx="108" cy="248" rx="13" ry="19" fill="${FUR}"/>
+  <ellipse cx="132" cy="248" rx="13" ry="19" fill="${FUR}"/>
+  <ellipse cx="108" cy="256" rx="7" ry="6" fill="${LIGHT}"/>
+  <ellipse cx="132" cy="256" rx="7" ry="6" fill="${LIGHT}"/>`;
+
 const FEET_BACK = `
   <ellipse cx="96" cy="250" rx="24" ry="15" fill="${DARK}"/>
   <ellipse cx="144" cy="250" rx="24" ry="15" fill="${DARK}"/>`;
+
+const FEET_AIR_BACK = `
+  <ellipse cx="108" cy="248" rx="13" ry="19" fill="${DARK}"/>
+  <ellipse cx="132" cy="248" rx="13" ry="19" fill="${DARK}"/>`;
 
 // ---------------- ARMS (pose frames) ----------------
 // Right arm = viewer-right (the waving arm). Left arm = viewer-left.
@@ -222,13 +234,14 @@ export function defaultArmPose(mood: Mood): ArmPose {
   return mood === 'excited' || mood === 'celebrating' ? 'up' : 'rest';
 }
 
-export function getLayers(mood: Mood, facing: Facing, armPose: ArmPose): MascotLayers {
+export function getLayers(mood: Mood, facing: Facing, armPose: ArmPose, bodyPose: BodyPose = 'stand'): MascotLayers {
+  const air = bodyPose === 'air';
   if (facing === 'back') {
     return {
       leftArm: getArm('left', armPose, 'back'),
       rightArm: getArm('right', armPose, 'back'),
       body: svg(BODY_BACK),
-      feet: svg(FEET_BACK),
+      feet: svg(air ? FEET_AIR_BACK : FEET_BACK),
       head: svg(HEAD_BACK),
       decor: svg(DECOR[mood] ?? ''),
     };
@@ -237,7 +250,7 @@ export function getLayers(mood: Mood, facing: Facing, armPose: ArmPose): MascotL
     leftArm: getArm('left', armPose, 'front'),
     rightArm: getArm('right', armPose, 'front'),
     body: svg(BODY_FRONT),
-    feet: svg(FEET_FRONT),
+    feet: svg(air ? FEET_AIR : FEET_FRONT),
     head: svg(HEAD_BASE_FRONT + FACES[mood]),
     decor: svg(DECOR[mood] ?? ''),
   };

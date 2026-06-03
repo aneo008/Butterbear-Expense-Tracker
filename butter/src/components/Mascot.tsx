@@ -4,7 +4,7 @@ import { SvgXml } from 'react-native-svg';
 import { Mood, getLayers, PIVOTS, VIEWBOX } from '../constants/mascotLayers';
 import { useMascotAnimation } from '../lib/useMascotAnimation';
 
-export type MascotHandle = { celebrate: () => void };
+export type MascotHandle = { celebrate: (big?: boolean) => void };
 
 type Props = { mood: Mood; size?: number };
 
@@ -19,7 +19,16 @@ const Mascot = forwardRef<MascotHandle, Props>(({ mood, size = 200 }, ref) => {
   const height = size * (VIEWBOX.h / VIEWBOX.w);
   const sx = width / VIEWBOX.w;
   const sy = height / VIEWBOX.h;
-  const layers = getLayers(a.shownMood, a.facing, a.armPose);
+  const layers = getLayers(a.shownMood, a.facing, a.armPose, a.bodyPose);
+  // Per-layer keys so each SvgXml remounts only when ITS art changes (SvgXml
+  // memoizes parsed xml and won't re-parse a changed string prop on its own).
+  // Scoped narrowly to avoid needless remounts (e.g. head shouldn't flicker
+  // while only the arm frame swaps during a wave).
+  const feetKey = `feet-${a.facing}-${a.bodyPose}`;
+  const armKey = `${a.facing}-${a.armPose}`;
+  const headKey = `head-${a.shownMood}-${a.facing}`;
+  const bodyKey = `body-${a.facing}`;
+  const decorKey = `decor-${a.shownMood}-${a.facing}`;
 
   const breathSY = a.breath.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] });
   const breathSX = a.breath.interpolate({ inputRange: [0, 1], outputRange: [1, 0.992] });
@@ -56,31 +65,31 @@ const Mascot = forwardRef<MascotHandle, Props>(({ mood, size = 200 }, ref) => {
     <Animated.View style={[{ width, height }, rootTransform]}>
       {/* planted feet — share root motion but NOT the lean */}
       <View style={layer}>
-        <SvgXml xml={layers.feet} width="100%" height="100%" />
+        <SvgXml key={feetKey} xml={layers.feet} width="100%" height="100%" />
       </View>
 
       {/* lean group: arms, body, head */}
       <Animated.View style={[layer, leanTransform]}>
         <View style={layer}>
-          <SvgXml xml={layers.leftArm} width="100%" height="100%" />
+          <SvgXml key={`la-${armKey}`} xml={layers.leftArm} width="100%" height="100%" />
         </View>
         <View style={layer}>
-          <SvgXml xml={layers.rightArm} width="100%" height="100%" />
+          <SvgXml key={`ra-${armKey}`} xml={layers.rightArm} width="100%" height="100%" />
         </View>
         <View style={layer}>
-          <SvgXml xml={layers.body} width="100%" height="100%" />
+          <SvgXml key={bodyKey} xml={layers.body} width="100%" height="100%" />
         </View>
         {/* head leans a touch more than the torso (drag) */}
         <Animated.View
           style={[layer, { transformOrigin: `${neck.x}px ${neck.y}px`, transform: [{ rotateZ: headRotDeg as unknown as string }] }]}
         >
-          <SvgXml xml={layers.head} width="100%" height="100%" />
+          <SvgXml key={headKey} xml={layers.head} width="100%" height="100%" />
         </Animated.View>
       </Animated.View>
 
       {/* decor never deforms */}
       <View style={layer} pointerEvents="none">
-        <SvgXml xml={layers.decor} width="100%" height="100%" />
+        <SvgXml key={decorKey} xml={layers.decor} width="100%" height="100%" />
       </View>
     </Animated.View>
   );

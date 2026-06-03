@@ -13,6 +13,31 @@ import {
   addCategory,
   updateGameStateAfterLog,
 } from '../db/queries';
+import { todayISO } from '../lib/date';
+
+export type CelebrationTier = 'normal' | 'big';
+export type Celebration = {
+  tier: CelebrationTier;
+  reason: string | null; // milestone label for the speech bubble (big only)
+  coinsEarned: number;
+};
+
+const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100, 200, 365];
+
+// Decide the celebration tier by diffing game state across a log.
+function computeCelebration(prev: GameState, next: GameState): Celebration {
+  const coinsEarned = Math.max(0, next.coins - prev.coins);
+  const firstLogToday = prev.last_log_date !== todayISO();
+  const hitStreak = STREAK_MILESTONES.includes(next.streak_count) && next.streak_count !== prev.streak_count;
+  const newLongest = next.longest_streak > prev.longest_streak && next.longest_streak >= 3;
+  const crossedCoins = Math.floor(next.coins / 100) > Math.floor(prev.coins / 100);
+
+  if (hitStreak) return { tier: 'big', reason: `${next.streak_count}-day streak! 🔥`, coinsEarned };
+  if (newLongest) return { tier: 'big', reason: `New best streak: ${next.longest_streak} days! ⭐`, coinsEarned };
+  if (firstLogToday) return { tier: 'big', reason: 'First log today! 🧈', coinsEarned };
+  if (crossedCoins) return { tier: 'big', reason: `${Math.floor(next.coins / 100) * 100} coins! 🪙`, coinsEarned };
+  return { tier: 'normal', reason: null, coinsEarned };
+}
 
 type ExpenseStore = {
   expenses: Expense[];
@@ -26,8 +51,11 @@ type ExpenseStore = {
   // made through the global modal sheet, which fires no navigation focus event.
   dataVersion: number;
   // Bumped only when a NEW expense is added (not edit/delete), so Home can fire
-  // Butter's celebration burst. Home watches this and ignores the initial 0.
+  // Butter's celebration. Home watches this and ignores the initial 0.
   celebrationSignal: number;
+  // Details of the most recent log's celebration (tier/reason/coins). Home reads
+  // this when celebrationSignal changes.
+  lastCelebration: Celebration;
 
   loadData: () => void;
   addExpense: (expense: Omit<Expense, 'id' | 'created_at'>) => void;
@@ -55,6 +83,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   editingExpense: null,
   dataVersion: 0,
   celebrationSignal: 0,
+  lastCelebration: { tier: 'normal', reason: null, coinsEarned: 0 },
 
   loadData: () => {
     const expenses = getRecentExpenses(30);
@@ -66,10 +95,13 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
 
   addExpense: (expense) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const prev = getGameState();
     insertExpense({ ...expense, id });
     updateGameStateAfterLog();
+    const next = getGameState();
+    const celebration = computeCelebration(prev, next);
     get().loadData();
-    set({ celebrationSignal: get().celebrationSignal + 1 });
+    set({ celebrationSignal: get().celebrationSignal + 1, lastCelebration: celebration });
   },
 
   editExpense: (id, fields) => {
