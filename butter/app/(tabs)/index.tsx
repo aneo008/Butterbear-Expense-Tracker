@@ -15,6 +15,7 @@ import { formatDateLabel } from '../../src/lib/date';
 import { moodFromState, speechLine } from '../../src/lib/mascotMood';
 import Mascot, { MascotHandle } from '../../src/components/Mascot';
 import Coachmark from '../../src/components/Coachmark';
+import StreakSheet from '../../src/components/StreakSheet';
 import ConfettiBurst from '../../src/components/ConfettiBurst';
 import CoinFly from '../../src/components/CoinFly';
 import { colors, radius, fonts, cardShadow, softShadow } from '../../src/constants/theme';
@@ -62,6 +63,7 @@ export default function HomeScreen() {
   const [confettiKey, setConfettiKey] = useState(0);
   const [coinKey, setCoinKey] = useState(0);
   const [milestoneLine, setMilestoneLine] = useState<string | null>(null);
+  const [streakOpen, setStreakOpen] = useState(false);
 
   const mood = useMemo(() => moodFromState(gameState), [gameState]);
   const baseLine = useMemo(
@@ -110,12 +112,22 @@ export default function HomeScreen() {
       <View style={styles.topBar}>
         <Text style={styles.appName}>Butter 🧈</Text>
         <View style={styles.statsRow}>
-          <View style={styles.statChip}>
+          <Pressable
+            onPress={() => setStreakOpen(true)}
+            style={styles.statChip}
+            accessibilityRole="button"
+            accessibilityLabel="View streak"
+          >
             <Text style={styles.statText}>🔥 {gameState.streak_count}</Text>
-          </View>
-          <View style={styles.statChip}>
+          </Pressable>
+          <Pressable
+            onPress={() => router.navigate('/shop')}
+            style={styles.statChip}
+            accessibilityRole="button"
+            accessibilityLabel="Open shop"
+          >
             <Text style={styles.statText}>🪙 {gameState.coins}</Text>
-          </View>
+          </Pressable>
           <Pressable
             onPress={() => router.push('/closet' as any)}
             style={styles.statChip}
@@ -158,6 +170,7 @@ export default function HomeScreen() {
       <CoinFly playKey={coinKey} from={{ x: 200, y: 320 }} to={{ x: 250, y: 30 }} />
 
       <Coachmark />
+      <StreakSheet visible={streakOpen} onClose={() => setStreakOpen(false)} />
 
 
       {/* Recent entries */}
