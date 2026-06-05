@@ -105,18 +105,21 @@ const PEARLS = Array.from({ length: 13 }).map((_, i) => {
 // the rounded body, and the bodice reaches up to ~y150 so a raised arm never
 // reveals bare fur at the armpit. Skirts flare below the waist.
 
+// Half-body bib apron (waist-down) — upper torso fur stays visible. A mint waist
+// tie sits at ~y188; a white bib hangs to ~y238 hugging the lower torso ellipse,
+// finished with a mint frilly ruffle. Matches the bakery-bear reference.
+const APRON_MINT = '#A8D8C8', APRON_MINT_D = '#8CC3B1';
 const APRON = `
-  <path d="M80,156 Q120,170 160,156 Q176,162 178,184 Q180,202 170,212 Q120,224 70,212 Q60,202 62,184 Q64,162 80,156 Z" fill="#FFFFFF"/>
-  <path d="M70,208 Q120,222 170,208 L180,234 Q120,246 60,234 Z" fill="#FFFFFF"/>
-  <path d="M60,232 q12,8 24,0 q12,8 24,0 q12,8 24,0 q12,8 24,0 q12,8 24,0" fill="#FFFFFF"/>
-  <path d="M60,232 q12,8 24,0 q12,8 24,0 q12,8 24,0 q12,8 24,0 q12,8 24,0" fill="none" stroke="#EFE3CC" stroke-width="2"/>
-  <rect x="80" y="156" width="80" height="9" rx="4" fill="${CHEEK}"/>
-  <ellipse cx="120" cy="194" rx="15" ry="14" fill="#F7EFE0" stroke="#EFE3CC" stroke-width="1.4"/>`;
+  <path d="M82,190 Q120,202 158,190 Q170,206 168,224 Q120,242 72,224 Q70,206 82,190 Z" fill="#FFFFFF"/>
+  <path d="M72,222 q12,8 24,0 q12,8 24,0 q12,8 24,0 q12,8 24,0" fill="#FFFFFF"/>
+  <path d="M72,222 q12,8 24,0 q12,8 24,0 q12,8 24,0 q12,8 24,0" fill="none" stroke="${APRON_MINT}" stroke-width="3.5"/>
+  <path d="M60,186 Q120,196 180,186 L178,193 Q120,203 62,193 Z" fill="${APRON_MINT}"/>
+  <path d="M60,186 Q120,196 180,186" fill="none" stroke="${APRON_MINT_D}" stroke-width="1.2"/>
+  <ellipse cx="120" cy="210" rx="13" ry="11" fill="#F7EFE0" stroke="${APRON_MINT}" stroke-width="1.6"/>`;
 const APRON_BACK = `
-  <path d="M80,156 Q120,170 160,156 Q176,162 178,184 Q180,202 170,212 Q120,224 70,212 Q60,202 62,184 Q64,162 80,156 Z" fill="#F4EEE2"/>
-  <path d="M70,208 Q120,222 170,208 L180,234 Q120,246 60,234 Z" fill="#F4EEE2"/>
-  <rect x="80" y="156" width="80" height="9" rx="4" fill="${CHEEK}"/>
-  <path d="M110,168 Q120,160 130,168 Q126,178 120,174 Q114,178 110,168 Z" fill="#EC8D88"/>`;
+  <path d="M60,186 Q120,196 180,186 L178,193 Q120,203 62,193 Z" fill="${APRON_MINT}"/>
+  <path d="M118,189 Q120,184 122,189 Q126,186 130,190 Q126,196 120,193 Q114,196 110,190 Q114,186 118,189 Z" fill="${APRON_MINT_D}"/>
+  <path d="M104,192 L98,210 M136,192 L142,210" stroke="${APRON_MINT}" stroke-width="2.5" fill="none" stroke-linecap="round"/>`;
 
 const OVERALLS = `
   <path d="M80,154 Q120,168 160,154 Q176,160 178,184 Q180,212 174,238 Q120,250 66,238 Q60,212 62,184 Q64,160 80,154 Z" fill="#6E9BC4"/>
@@ -145,15 +148,16 @@ const DRESS_BACK = `
   <path d="M54,250 q13.2,8 26.4,0 q13.2,8 26.4,0 q13.2,8 26.4,0 q13.2,8 26.4,0 q13.2,8 26.4,0" fill="#F4EEE2"/>
   <path d="M110,156 Q120,148 130,156 Q126,166 120,162 Q114,166 110,156 Z" fill="#E8DFCE"/>`;
 
-// ---------------- HELD (near the right paw) ----------------
+// ---------------- HELD (drawn at ORIGIN; getLayers anchors it to the paw) ------
+// Held fragments are centered on (0,0). getLayers wraps them in a translate to
+// the current paw anchor (per armPose), so the item rides along when Butter waves.
 
-const DOUGHNUT = `<g transform="translate(174,214)">
+const DOUGHNUT = `
   <circle r="15" fill="#E8A87C"/>
   <circle r="6" fill="${LIGHT}"/>
   <path d="M-12,-6 Q-6,-12 0,-10" stroke="#fff" stroke-width="2" fill="none"/>
   <circle cx="-6" cy="6" r="1.6" fill="${CHEEK}"/><circle cx="7" cy="-5" r="1.6" fill="#A8D8C8"/>
-  <circle cx="9" cy="6" r="1.6" fill="#F5C45E"/><circle cx="-9" cy="-3" r="1.6" fill="#A8D8C8"/>
-</g>`;
+  <circle cx="9" cy="6" r="1.6" fill="#F5C45E"/><circle cx="-9" cy="-3" r="1.6" fill="#A8D8C8"/>`;
 
 export const STORE_ITEMS: StoreItem[] = [
   { id: 'bow', name: 'Pink Bow', slot: 'head', price: 50, tier: 'starter', front: BOW, back: BOW },

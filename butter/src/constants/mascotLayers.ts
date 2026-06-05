@@ -240,6 +240,15 @@ export function defaultArmPose(mood: Mood): ArmPose {
   return mood === 'excited' || mood === 'celebrating' ? 'up' : 'rest';
 }
 
+// Right-paw centre for each arm pose (viewBox coords) — held items anchor here so
+// they ride along as the paw raises during a wave/hop. Read off the R_ARM paths.
+const PAW_ANCHOR: Record<ArmPose, { x: number; y: number }> = {
+  rest:     { x: 172, y: 208 },
+  waveHalf: { x: 192, y: 164 },
+  waveUp:   { x: 186, y: 144 },
+  up:       { x: 188, y: 140 },
+};
+
 export function getLayers(
   mood: Mood,
   facing: Facing,
@@ -253,7 +262,10 @@ export function getLayers(
   const neckFrag = itemFragment(equipped, 'neck', facing);
   const bodyFrag = itemFragment(equipped, 'body', facing);
   const faceFrag = facing === 'front' ? itemFragment(equipped, 'face', 'front') : '';
-  const heldFrag = facing === 'front' ? itemFragment(equipped, 'held', 'front') : '';
+  const heldRaw = facing === 'front' ? itemFragment(equipped, 'held', 'front') : '';
+  // Anchor the held item to the current paw position so it follows a wave/hop.
+  const paw = PAW_ANCHOR[armPose];
+  const heldFrag = heldRaw ? `<g transform="translate(${paw.x},${paw.y})">${heldRaw}</g>` : '';
 
   if (facing === 'back') {
     return {

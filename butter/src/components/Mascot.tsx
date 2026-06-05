@@ -42,7 +42,7 @@ const Mascot = forwardRef<MascotHandle, Props>(({ mood, size = 200, equipped, fa
   const bodyItemKey = `bi-${facing}-${equip.body ?? ''}`;
   const neckKey = `neck-${facing}-${equip.neck ?? ''}`;
   const headItemKey = `hi-${facing}-${equip.head ?? ''}`;
-  const heldKey = `held-${facing}-${equip.held ?? ''}`;
+  const heldKey = `held-${facing}-${a.armPose}-${equip.held ?? ''}`;
   const decorKey = `decor-${a.shownMood}-${facing}`;
 
   const breathSY = a.breath.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] });

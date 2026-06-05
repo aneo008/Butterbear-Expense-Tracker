@@ -71,9 +71,13 @@ export default function ClosetScreen() {
   const playMood = moodFromState(gameState);
   const mood = inRoom ? 'happy' : playMood;
 
-  // Save is only offered when the user has actually changed something
-  const canSave = JSON.stringify(fittingEquipped) !== JSON.stringify(equippedItems);
-  const mascotSize   = inRoom && panelOpen ? 90 : inRoom ? 140 : 150;
+  // Save is offered only when (a) something changed AND (b) every fitted item is
+  // owned — you can save a look of owned items without buying, but can't save a
+  // "Trying" (unowned/store) item. Buy it first, then it becomes savable.
+  const changed = JSON.stringify(fittingEquipped) !== JSON.stringify(equippedItems);
+  const allFittedOwned = Object.values(fittingEquipped).every(id => ownedItems.includes(id));
+  const canSave = changed && allFittedOwned;
+  const mascotSize   = inRoom && panelOpen ? 95 : inRoom ? 190 : 200;
   const stageEquipped = inRoom ? fittingEquipped : equippedItems;
 
   // Memoize so the same Animated.Interpolation object is reused across renders —
@@ -130,12 +134,23 @@ export default function ClosetScreen() {
     panelOpen ? springPanel(0, finish) : finish();
   }
 
+  // Tap the changing-room stage: closed → open the panel; open → close it.
+  // (Play mode does nothing here — Butter's play gestures land in a later pass.)
+  function togglePanelFromStage() {
+    if (!inRoom) return;
+    panelOpen ? closePanel() : openPanel();
+  }
+
   // ── Fitting mutations (local — no DB write) ──────────────────────────────────
   function fitItem(itemId: string, slot: Slot) {
     setFittingEquipped(prev => ({ ...prev, [slot]: itemId }));
   }
   function removeFit(slot: Slot) {
     setFittingEquipped(prev => { const n = { ...prev }; delete n[slot]; return n; });
+  }
+  // Reset the fitting preview — unequip everything (local only; Save persists it).
+  function resetFit() {
+    setFittingEquipped({});
   }
 
   // ── Filtered panel list ──────────────────────────────────────────────────────
@@ -303,13 +318,14 @@ export default function ClosetScreen() {
                   }
                 />
 
-                {/* Bottom bar: ← Leave always; Save Look only when changes exist */}
+                {/* Bottom bar: Reset (unequip all) always; Save Look only when
+                    something changed AND all fitted items are owned. */}
                 <View style={styles.panelBottom}>
                   <Pressable
-                    onPress={exitRoom}
-                    style={[styles.bottomBtn, styles.btnLeave, !canSave && styles.bottomBtnFull]}
+                    onPress={resetFit}
+                    style={[styles.bottomBtn, styles.btnReset, !canSave && styles.bottomBtnFull]}
                   >
-                    <Text style={styles.leaveText}>← Leave</Text>
+                    <Text style={styles.resetText}>Reset</Text>
                   </Pressable>
                   {canSave && (
                     <Pressable onPress={saveAndExit} style={[styles.bottomBtn, styles.btnSave]}>
@@ -345,8 +361,19 @@ export default function ClosetScreen() {
             </View>
           )}
 
+          {/* Full-stage tap target — tap anywhere to open the panel (closed) or
+              close it (open). Plain Views on top (Butter, podium) let the tap fall
+              through; the control buttons are Pressables and capture their own taps. */}
+          {inRoom && (
+            <Pressable
+              onPress={togglePanelFromStage}
+              style={StyleSheet.absoluteFillObject}
+              accessibilityLabel={panelOpen ? 'Close wardrobe panel' : 'Open wardrobe panel'}
+            />
+          )}
+
           {/* Butter on podium (or play pose) */}
-          <View style={styles.mascotWrap}>
+          <View style={styles.mascotWrap} pointerEvents="none">
             <Mascot
               mood={mood}
               size={mascotSize}
@@ -357,7 +384,7 @@ export default function ClosetScreen() {
               <View style={styles.podium}>
                 <SvgXml
                   xml={PODIUM_SVG}
-                  width={panelOpen ? 70 : 110}
+                  width={panelOpen ? 70 : 130}
                   height={18}
                 />
               </View>
@@ -367,25 +394,24 @@ export default function ClosetScreen() {
           {/* ── Room controls (panel closed) ── */}
           {inRoom && !panelOpen && (
             <View style={styles.roomControls}>
-              {/* Rotate Butter front ↔ back */}
-              <Pressable onPress={() => setFacing(f => f === 'front' ? 'back' : 'front')} style={styles.rotateBtn}>
-                <Text style={styles.rotateBtnText}>↺</Text>
-              </Pressable>
-              {/* Open the item panel */}
-              <Pressable onPress={openPanel} style={styles.openPanelBtn}>
-                <Text style={styles.openPanelBtnText}>👗  Wardrobe ›</Text>
-              </Pressable>
-              {/* Exit back to play */}
-              <Pressable onPress={exitRoom} style={styles.exitRoomBtn}>
-                <Text style={styles.exitRoomBtnText}>← Back to play</Text>
-              </Pressable>
+              <Text style={styles.tapHint}>Tap anywhere to open the wardrobe</Text>
+              <View style={styles.roomControlsRow}>
+                {/* Turn Butter front ↔ back */}
+                <Pressable onPress={() => setFacing(f => f === 'front' ? 'back' : 'front')} style={styles.turnBtn}>
+                  <Text style={styles.turnBtnText}>🔄  Turn</Text>
+                </Pressable>
+                {/* Exit back to play */}
+                <Pressable onPress={exitRoom} style={styles.leaveBtn}>
+                  <Text style={styles.leaveBtnText}>Leave</Text>
+                </Pressable>
+              </View>
             </View>
           )}
 
-          {/* ── Play mode: Dress Up entry ── */}
+          {/* ── Play mode: Fitting Room entry ── */}
           {!inRoom && (
             <Pressable onPress={enterRoom} style={styles.dressUpBtn}>
-              <Text style={styles.dressUpBtnText}>👗  Dress Up</Text>
+              <Text style={styles.dressUpBtnText}>👗  Fitting Room</Text>
             </Pressable>
           )}
 
@@ -498,9 +524,9 @@ const styles = StyleSheet.create({
   panelBottom:    { flexDirection: 'row', gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: colors.hairline },
   bottomBtn:      { flex: 1, paddingVertical: 10, borderRadius: radius.md, alignItems: 'center' },
   bottomBtnFull:  { flex: 1 }, // takes full width when Save is hidden
-  btnLeave:       { backgroundColor: '#F3EDE3' },
+  btnReset:       { backgroundColor: '#FBE9E7', borderWidth: 1, borderColor: '#E89B92' },
   btnSave:        { backgroundColor: colors.butter, ...cardShadow },
-  leaveText:      { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textSoft },
+  resetText:      { fontFamily: fonts.bodyBold,   fontSize: 13, color: '#D6584C' },
   saveText:       { fontFamily: fonts.bodyBold,   fontSize: 13, color: colors.textBrown },
 
   // Handle tab
@@ -553,29 +579,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  rotateBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  tapHint: { fontFamily: fonts.body, fontSize: 12, color: colors.textSoft, opacity: 0.85 },
+  roomControlsRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+
+  turnBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#F4F0FA',
+    borderRadius: radius.pill,
     borderWidth: 1.5,
     borderColor: ROOM_LINE,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 9,
   },
-  rotateBtnText: { fontSize: 22, color: colors.textBrown },
+  turnBtnText: { fontFamily: fonts.bodyBold, fontSize: 14, color: colors.textBrown },
 
-  openPanelBtn: {
+  leaveBtn: {
     backgroundColor: colors.butter,
     borderRadius: radius.pill,
-    paddingHorizontal: 20,
+    paddingHorizontal: 22,
     paddingVertical: 9,
     ...softShadow,
   },
-  openPanelBtnText: { fontFamily: fonts.bodyBold, fontSize: 14, color: colors.textBrown },
-
-  exitRoomBtn: { paddingVertical: 6 },
-  exitRoomBtnText: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textSoft },
+  leaveBtnText: { fontFamily: fonts.bodyBold, fontSize: 14, color: colors.textBrown },
 
   // Play mode entry
   dressUpBtn: {
