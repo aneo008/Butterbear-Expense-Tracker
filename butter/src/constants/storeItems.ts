@@ -9,7 +9,12 @@
 //  3. Garments sit on the visible torso BELOW the neck — never up under the head.
 
 export type Slot = 'head' | 'face' | 'neck' | 'body' | 'held';
-export type Tier = 'starter' | 'mid' | 'premium';
+
+// Item rarity, borrowed from the universal game loot ladder (Genshin's
+// gray→green→blue→gold tiles, MapleStory's grade colors): the price tier is
+// surfaced as a colored backing tile behind the item + a rarity badge.
+// Order (ascending): basic (white) → rare (green) → premium (blue) → prestige (gold).
+export type Tier = 'basic' | 'rare' | 'premium' | 'prestige';
 
 export type StoreItem = {
   id: string;
@@ -20,6 +25,31 @@ export type StoreItem = {
   front: string;       // SVG fragment (front view)
   back?: string;       // SVG fragment (back view); defaults handled in getLayers
 };
+
+// Rarity presentation. `tile` = the backing color behind the item thumbnail;
+// `badgeBg`/`badgeText` = the small rarity pill on the card.
+export const TIER_META: Record<Tier, { label: string; tile: string; badgeBg: string; badgeText: string }> = {
+  basic:    { label: 'Basic',    tile: '#F0EADD', badgeBg: '#E3D8C4', badgeText: '#8A7B66' },
+  rare:     { label: 'Rare',     tile: '#CFEBD9', badgeBg: '#7FBF98', badgeText: '#1F5A3A' },
+  premium:  { label: 'Premium',  tile: '#CFE0F5', badgeBg: '#6E9BC4', badgeText: '#FFFFFF' },
+  prestige: { label: 'Prestige', tile: '#F8E3AE', badgeBg: '#ECB13F', badgeText: '#5A4632' },
+};
+
+// Per-slot crop windows that frame each item nicely in a square thumbnail. Item
+// fragments are drawn on Butter's 240×260 body coords, so we zoom the viewBox to
+// the region that slot occupies. Held items are drawn at the origin.
+const SLOT_THUMB: Record<Slot, string> = {
+  head: '74 -6 92 92',
+  face: '62 62 116 116',
+  neck: '72 142 96 96',
+  body: '48 150 144 144',
+  held: '-21 -21 42 42',
+};
+
+// Standalone SVG thumbnail for an item (front view), framed for its slot.
+export function itemThumbSvg(item: StoreItem): string {
+  return `<svg viewBox="${SLOT_THUMB[item.slot]}" xmlns="http://www.w3.org/2000/svg">${item.front}</svg>`;
+}
 
 // palette (mirror of mascotLayers)
 const FUR = '#EBD2A8', LIGHT = '#F7E9CF', PAD = '#E8CBA0', CHEEK = '#F4A6A0';
@@ -160,20 +190,24 @@ const DOUGHNUT = `
   <circle cx="9" cy="6" r="1.6" fill="#F5C45E"/><circle cx="-9" cy="-3" r="1.6" fill="#A8D8C8"/>`;
 
 export const STORE_ITEMS: StoreItem[] = [
-  { id: 'bow', name: 'Pink Bow', slot: 'head', price: 50, tier: 'starter', front: BOW, back: BOW },
-  { id: 'party_hat', name: 'Party Hat', slot: 'head', price: 120, tier: 'mid', front: PARTY_HAT, back: PARTY_HAT },
-  { id: 'toque', name: 'Chef Toque', slot: 'head', price: 150, tier: 'mid', front: TOQUE, back: TOQUE },
-  { id: 'tiara', name: 'Tiara', slot: 'head', price: 200, tier: 'premium', front: TIARA, back: TIARA },
-  { id: 'crown', name: 'Gold Crown', slot: 'head', price: 350, tier: 'premium', front: CROWN, back: CROWN },
-  { id: 'glasses', name: 'Round Glasses', slot: 'face', price: 50, tier: 'starter', front: GLASSES },
-  { id: 'sunglasses', name: 'Sunglasses', slot: 'face', price: 150, tier: 'mid', front: SUNGLASSES },
-  { id: 'scarf', name: 'Red Scarf', slot: 'neck', price: 50, tier: 'starter', front: SCARF, back: SCARF_BACK },
-  { id: 'bowtie', name: 'Bow Tie', slot: 'neck', price: 120, tier: 'mid', front: BOWTIE, back: '' },
-  { id: 'pearls', name: 'Pearl Necklace', slot: 'neck', price: 250, tier: 'premium', front: PEARLS, back: '' },
-  { id: 'apron', name: 'Baker Apron', slot: 'body', price: 80, tier: 'starter', front: APRON, back: APRON_BACK },
-  { id: 'overalls', name: 'Denim Overalls', slot: 'body', price: 250, tier: 'premium', front: OVERALLS, back: OVERALLS_BACK },
-  { id: 'dress', name: 'Frilled Dress', slot: 'body', price: 450, tier: 'premium', front: DRESS, back: DRESS_BACK },
-  { id: 'doughnut', name: 'Doughnut', slot: 'held', price: 150, tier: 'mid', front: DOUGHNUT },
+  // Basic (white) — starter hooks
+  { id: 'bow', name: 'Pink Bow', slot: 'head', price: 50, tier: 'basic', front: BOW, back: BOW },
+  { id: 'scarf', name: 'Red Scarf', slot: 'neck', price: 70, tier: 'basic', front: SCARF, back: SCARF_BACK },
+  { id: 'glasses', name: 'Round Glasses', slot: 'face', price: 80, tier: 'basic', front: GLASSES },
+  { id: 'apron', name: 'Baker Apron', slot: 'body', price: 90, tier: 'basic', front: APRON, back: APRON_BACK },
+  // Rare (green) — mid
+  { id: 'party_hat', name: 'Party Hat', slot: 'head', price: 180, tier: 'rare', front: PARTY_HAT, back: PARTY_HAT },
+  { id: 'bowtie', name: 'Bow Tie', slot: 'neck', price: 220, tier: 'rare', front: BOWTIE, back: '' },
+  { id: 'doughnut', name: 'Doughnut', slot: 'held', price: 240, tier: 'rare', front: DOUGHNUT },
+  { id: 'toque', name: 'Chef Toque', slot: 'head', price: 280, tier: 'rare', front: TOQUE, back: TOQUE },
+  { id: 'sunglasses', name: 'Sunglasses', slot: 'face', price: 300, tier: 'rare', front: SUNGLASSES },
+  // Premium (blue)
+  { id: 'tiara', name: 'Tiara', slot: 'head', price: 500, tier: 'premium', front: TIARA, back: TIARA },
+  { id: 'pearls', name: 'Pearl Necklace', slot: 'neck', price: 650, tier: 'premium', front: PEARLS, back: '' },
+  { id: 'overalls', name: 'Denim Overalls', slot: 'body', price: 800, tier: 'premium', front: OVERALLS, back: OVERALLS_BACK },
+  { id: 'crown', name: 'Gold Crown', slot: 'head', price: 1000, tier: 'premium', front: CROWN, back: CROWN },
+  // Prestige (gold) — capstone
+  { id: 'dress', name: 'Frilled Dress', slot: 'body', price: 2200, tier: 'prestige', front: DRESS, back: DRESS_BACK },
 ];
 
 export const ITEMS_BY_ID: Record<string, StoreItem> = Object.fromEntries(

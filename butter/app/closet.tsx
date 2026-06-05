@@ -13,7 +13,7 @@ import {
 import { SvgXml } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { useExpenseStore } from '../src/store/useExpenseStore';
-import { STORE_ITEMS, Slot, EquippedMap, StoreItem } from '../src/constants/storeItems';
+import { STORE_ITEMS, Slot, EquippedMap, StoreItem, TIER_META, itemThumbSvg } from '../src/constants/storeItems';
 import Mascot, { MascotHandle } from '../src/components/Mascot';
 import { moodFromState } from '../src/lib/mascotMood';
 import { colors, radius, fonts, cardShadow, softShadow } from '../src/constants/theme';
@@ -170,15 +170,26 @@ export default function ClosetScreen() {
     const trying    = !owned && fitted;
     const canAfford = gameState.coins >= item.price;
 
+    const tierMeta = TIER_META[item.tier];
+
     return (
       <View style={styles.itemCard}>
-        {/* Left: info */}
+        {/* Left: item picture on a rarity-colored tile */}
+        <View style={[styles.thumbTile, { backgroundColor: tierMeta.tile }]}>
+          <SvgXml xml={itemThumbSvg(item)} width="100%" height="100%" />
+        </View>
+
+        {/* Middle: info */}
         <View style={styles.itemInfo}>
           <View style={styles.itemNameRow}>
             <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
             <View style={styles.slotTag}>
               <Text style={styles.slotTagText}>{SLOT_LABELS[item.slot]}</Text>
             </View>
+          </View>
+          {/* Rarity badge, just under the slot/type */}
+          <View style={[styles.tierBadge, { backgroundColor: tierMeta.badgeBg }]}>
+            <Text style={[styles.tierBadgeText, { color: tierMeta.badgeText }]}>{tierMeta.label}</Text>
           </View>
           {fitted && (
             <View style={[styles.statusBadge, trying ? styles.badgeTrying : styles.badgeFitted]}>
@@ -511,12 +522,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.hairline,
   },
+  // Rarity thumbnail tile (left of the card)
+  thumbTile: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.sm,
+    marginRight: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#00000010',
+  },
+
   itemInfo:    { flex: 1, marginRight: 8 },
   itemNameRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
   itemName:    { flex: 1, fontFamily: fonts.bodyBold, fontSize: 12, color: colors.textBrown },
 
   slotTag:     { backgroundColor: '#F3EDE3', borderRadius: radius.pill, paddingHorizontal: 5, paddingVertical: 1 },
   slotTagText: { fontFamily: fonts.body, fontSize: 9, color: colors.textSoft },
+
+  // Rarity badge (below the slot/type)
+  tierBadge:     { alignSelf: 'flex-start', borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 1.5, marginBottom: 3 },
+  tierBadgeText: { fontFamily: fonts.bodyBold, fontSize: 9, letterSpacing: 0.3 },
 
   statusBadge:      { borderRadius: radius.sm, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'flex-start', marginBottom: 3 },
   badgeFitted:      { backgroundColor: '#E8F5E9' },
