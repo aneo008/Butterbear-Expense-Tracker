@@ -1,5 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 import { DEFAULT_CATEGORIES } from '../constants/categories';
+import { WELCOME_GRANT } from '../lib/streak';
 
 let db: SQLite.SQLiteDatabase | null = null;
 
@@ -69,11 +70,12 @@ export async function initDatabase(): Promise<void> {
     insert.finalizeSync();
   }
 
-  // Seed game_state row if empty
+  // Seed game_state row if empty (new players start with a welcome coin grant)
   const gs = database.getFirstSync<{ id: number }>('SELECT id FROM game_state WHERE id = 1');
   if (!gs) {
     database.runSync(
-      "INSERT INTO game_state (id) VALUES (1)"
+      'INSERT INTO game_state (id, coins) VALUES (1, ?)',
+      [WELCOME_GRANT]
     );
   }
 

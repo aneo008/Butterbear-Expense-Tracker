@@ -1,6 +1,7 @@
 import { getDb } from './database';
 import { Category } from '../constants/categories';
 import { todayISO, addDaysISO } from '../lib/date';
+import { coinsForLog, dailyCap, chestFor, WELCOME_GRANT } from '../lib/streak';
 import {
   Expense,
   GameState,
@@ -132,7 +133,7 @@ export function getGameState(): GameState {
     last_log_date: null,
     longest_streak: 0,
     total_entries: 0,
-    coins: 0,
+    coins: WELCOME_GRANT,
     coins_earned_today: 0,
   };
 }
@@ -144,34 +145,26 @@ export function updateGameStateAfterLog(): void {
 
   let newStreak = gs.streak_count;
   let newLongest = gs.longest_streak;
-  let coinsEarned = 5; // base per entry
   let coinsEarnedToday = gs.coins_earned_today;
-  const DAILY_CAP = 60;
 
   const isFirstLogToday = gs.last_log_date !== today;
 
   if (isFirstLogToday) {
-    // Determine streak continuation
+    // Continue the streak if yesterday was logged, otherwise reset to 1.
     const yesterdayISO = addDaysISO(today, -1);
-
-    if (gs.last_log_date === yesterdayISO) {
-      newStreak = gs.streak_count + 1;
-    } else if (gs.last_log_date === today) {
-      newStreak = gs.streak_count; // already counted
-    } else {
-      newStreak = 1; // reset
-    }
+    newStreak = gs.last_log_date === yesterdayISO ? gs.streak_count + 1 : 1;
     newLongest = Math.max(newStreak, gs.longest_streak);
-    coinsEarned += 10; // first log of day bonus
-    coinsEarnedToday = 0; // reset for fresh day
+    coinsEarnedToday = 0; // fresh day
   }
 
-  // Streak bonus
-  coinsEarned += Math.floor(5 * (newStreak / 7));
+  // Multiplier-based per-log reward, clamped to the streak-scaled daily cap.
+  const coinsEarned = coinsForLog(newStreak, isFirstLogToday);
+  const cap = dailyCap(newStreak);
+  const actualCoins = Math.min(coinsEarned, Math.max(0, cap - coinsEarnedToday));
 
-  // Apply daily cap
-  const remaining = DAILY_CAP - coinsEarnedToday;
-  const actualCoins = Math.min(coinsEarned, Math.max(0, remaining));
+  // One-time milestone chest on the first log of a milestone day. Bypasses the
+  // cap and is NOT counted toward coins_earned_today (so it never suppresses income).
+  const chest = isFirstLogToday ? chestFor(newStreak) : 0;
 
   db.runSync(
     `UPDATE game_state SET
@@ -182,7 +175,7 @@ export function updateGameStateAfterLog(): void {
       coins = coins + ?,
       coins_earned_today = ?
     WHERE id = 1`,
-    [newStreak, today, newLongest, actualCoins, coinsEarnedToday + actualCoins]
+    [newStreak, today, newLongest, actualCoins + chest, coinsEarnedToday + actualCoins]
   );
 }
 

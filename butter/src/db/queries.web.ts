@@ -3,6 +3,7 @@
 // mutation — no SQLite/WASM, so it works on static hosts like GitHub Pages.
 import { Category, DEFAULT_CATEGORIES } from '../constants/categories';
 import { todayISO, addDaysISO } from '../lib/date';
+import { coinsForLog, dailyCap, chestFor, WELCOME_GRANT } from '../lib/streak';
 import {
   Expense,
   GameState,
@@ -31,7 +32,7 @@ function defaultGameState(): GameStateFull {
     last_log_date: null,
     longest_streak: 0,
     total_entries: 0,
-    coins: 0,
+    coins: WELCOME_GRANT,
     coins_earned_today: 0,
     owned_items: '[]',
     equipped_items: '{}',
@@ -220,30 +221,29 @@ export function updateGameStateAfterLog(): void {
 
   let newStreak = gs.streak_count;
   let newLongest = gs.longest_streak;
-  let coinsEarned = 5;
   let coinsEarnedToday = gs.coins_earned_today;
-  const DAILY_CAP = 60;
 
   const isFirstLogToday = gs.last_log_date !== today;
   if (isFirstLogToday) {
     const yesterdayISO = addDaysISO(today, -1);
-    if (gs.last_log_date === yesterdayISO) newStreak = gs.streak_count + 1;
-    else if (gs.last_log_date === today) newStreak = gs.streak_count;
-    else newStreak = 1;
+    newStreak = gs.last_log_date === yesterdayISO ? gs.streak_count + 1 : 1;
     newLongest = Math.max(newStreak, gs.longest_streak);
-    coinsEarned += 10;
-    coinsEarnedToday = 0;
+    coinsEarnedToday = 0; // fresh day
   }
 
-  coinsEarned += Math.floor(5 * (newStreak / 7));
-  const remaining = DAILY_CAP - coinsEarnedToday;
-  const actualCoins = Math.min(coinsEarned, Math.max(0, remaining));
+  // Multiplier-based per-log reward, clamped to the streak-scaled daily cap.
+  const coinsEarned = coinsForLog(newStreak, isFirstLogToday);
+  const cap = dailyCap(newStreak);
+  const actualCoins = Math.min(coinsEarned, Math.max(0, cap - coinsEarnedToday));
+
+  // One-time milestone chest (bypasses the cap; not counted toward the daily total).
+  const chest = isFirstLogToday ? chestFor(newStreak) : 0;
 
   gs.streak_count = newStreak;
   gs.last_log_date = today;
   gs.longest_streak = newLongest;
   gs.total_entries = gs.total_entries + 1;
-  gs.coins = gs.coins + actualCoins;
+  gs.coins = gs.coins + actualCoins + chest;
   gs.coins_earned_today = coinsEarnedToday + actualCoins;
   persist();
 }
