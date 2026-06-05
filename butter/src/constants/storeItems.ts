@@ -30,8 +30,8 @@ export type StoreItem = {
 // `badgeBg`/`badgeText` = the small rarity pill on the card.
 export const TIER_META: Record<Tier, { label: string; tile: string; badgeBg: string; badgeText: string }> = {
   basic:    { label: 'Basic',    tile: '#F0EADD', badgeBg: '#E3D8C4', badgeText: '#8A7B66' },
-  rare:     { label: 'Rare',     tile: '#CFEBD9', badgeBg: '#7FBF98', badgeText: '#1F5A3A' },
-  premium:  { label: 'Premium',  tile: '#CFE0F5', badgeBg: '#6E9BC4', badgeText: '#FFFFFF' },
+  rare:     { label: 'Rare',     tile: '#CFE0F5', badgeBg: '#6E9BC4', badgeText: '#FFFFFF' },
+  premium:  { label: 'Premium',  tile: '#E6DCF5', badgeBg: '#9C7FC7', badgeText: '#FFFFFF' },
   prestige: { label: 'Prestige', tile: '#F8E3AE', badgeBg: '#ECB13F', badgeText: '#5A4632' },
 };
 
