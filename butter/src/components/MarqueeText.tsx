@@ -59,17 +59,17 @@ export default function MarqueeText({ text, style, speed = 28 }: Props) {
     <View style={styles.clip}>
       {/* invisible clamped copy — gives the row its height + reliable measurement */}
       <Text ref={measureRef} numberOfLines={1} onLayout={measure} style={[style, styles.measure]}>{text}</Text>
-      {/* visible copy — absolute; when overflowing it's sized to full width and slides */}
-      <Animated.Text
-        numberOfLines={1}
-        style={[
-          style,
-          styles.floating,
-          animating ? { width: natural, transform: [{ translateX: tx }] } : null,
-        ]}
-      >
-        {text}
-      </Animated.Text>
+      {/* visible copy — absolute. While sliding we drop numberOfLines so there's
+          NO ellipsis, and size the box to the full natural width (+a small buffer)
+          so the whole name stays on one line and is fully revealed as it travels.
+          When it fits, a plain clamped single line is enough. */}
+      {animating ? (
+        <Animated.Text style={[style, styles.floating, { width: natural + 8, transform: [{ translateX: tx }] }]}>
+          {text}
+        </Animated.Text>
+      ) : (
+        <Text numberOfLines={1} style={[style, styles.floating]}>{text}</Text>
+      )}
     </View>
   );
 }
@@ -77,5 +77,6 @@ export default function MarqueeText({ text, style, speed = 28 }: Props) {
 const styles = StyleSheet.create({
   clip: { overflow: 'hidden', alignSelf: 'stretch' },
   measure: { opacity: 0 },
+  // no numberOfLines on the animating copy => no ellipsis; the explicit width keeps it 1 line
   floating: { position: 'absolute', left: 0, top: 0 },
 });
