@@ -29,6 +29,8 @@ export type MascotAnim = {
   armPose: ArmPose;          // drawn arm frame
   bodyPose: BodyPose;        // stand / air (mid-jump feet)
   celebrate: (big?: boolean) => void;
+  tap: () => void;           // play-mode tap: fire a mood-appropriate gesture immediately
+  pet: () => void;           // play-mode hold: cozy rock + happy face
 };
 
 export function useMascotAnimation(mood: Mood, enabledExternally = true): MascotAnim {
@@ -42,10 +44,11 @@ export function useMascotAnimation(mood: Mood, enabledExternally = true): Mascot
 
   const [facing, setFacing] = useState<Facing>('front');
   const [celebrating, setCelebrating] = useState(false);
+  const [petting, setPetting] = useState(false);
   const [armPose, setArmPose] = useState<ArmPose>(defaultArmPose(mood));
   const [bodyPose, setBodyPose] = useState<BodyPose>('stand');
   const busy = celebrating;
-  const shownMood: Mood = celebrating ? 'celebrating' : mood;
+  const shownMood: Mood = celebrating ? 'celebrating' : petting ? 'happy' : mood;
 
   // keep arm at the mood's resting pose when not mid-gesture
   useEffect(() => { setArmPose(defaultArmPose(mood)); }, [mood]);
@@ -280,5 +283,46 @@ export function useMascotAnimation(mood: Mood, enabledExternally = true): Mascot
     });
   }, [rootSX, rootSY, rootTY, bodyRot, rootRotY, headRot, resetGesture, mood]);
 
-  return { breath, bodyRot, rootTY, rootSX, rootSY, rootRotY, headRot, facing, shownMood, armPose, bodyPose, celebrate };
+  // ---------- tap (play mode: fire a random mood-appropriate gesture immediately) ----------
+  // Uses same pattern as small-celebrate: no gesturing state, just cancels the current
+  // idle animation and starts a new one. Idle scheduler reschedules naturally on its
+  // next cadence tick. Doesn't block celebrate.
+  const tap = useCallback((): void => {
+    if (celebrating) return;
+    resetGesture();
+    const pool: Array<() => Animated.CompositeAnimation> =
+      mood === 'sleepy'   ? [drowsyTip] :
+      mood === 'excited'  ? [turnShake, hop, sway] :
+      mood === 'happy'    ? [waveGiggle, hop, sway] :
+      mood === 'content'  ? [sway, waveGiggle] :
+      [sway];
+    pool[Math.floor(Math.random() * pool.length)]().start();
+  }, [celebrating, mood, resetGesture, drowsyTip, turnShake, hop, sway, waveGiggle]);
+
+  // ---------- pet (play mode: cozy body-rock, happy face for duration) ----------
+  const pet = useCallback((): void => {
+    if (celebrating) return;
+    resetGesture();
+    setPetting(true);
+    Animated.parallel([
+      Animated.sequence([
+        timing(bodyRot,  3, 500, Easing.inOut(Easing.sin)),
+        timing(bodyRot, -2, 500, Easing.inOut(Easing.sin)),
+        spring(bodyRot, 0, SOFT_SLOW),
+      ]),
+      Animated.sequence([
+        Animated.delay(80),
+        timing(headRot,  5, 480, Easing.inOut(Easing.sin)),
+        timing(headRot, -3, 500, Easing.inOut(Easing.sin)),
+        spring(headRot, 0, SOFT_SLOW),
+      ]),
+      Animated.sequence([
+        Animated.parallel([timing(rootSY, 0.97, 300), timing(rootSX, 1.02, 300)]),
+        Animated.delay(500),
+        Animated.parallel([spring(rootSY, 1, SOFT), spring(rootSX, 1, SOFT)]),
+      ]),
+    ]).start(() => setPetting(false));
+  }, [celebrating, resetGesture, bodyRot, headRot, rootSY, rootSX]);
+
+  return { breath, bodyRot, rootTY, rootSX, rootSY, rootRotY, headRot, facing, shownMood, armPose, bodyPose, celebrate, tap, pet };
 }

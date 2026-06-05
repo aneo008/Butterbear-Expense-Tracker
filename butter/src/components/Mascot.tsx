@@ -5,7 +5,11 @@ import { Mood, getLayers, PIVOTS, VIEWBOX } from '../constants/mascotLayers';
 import { EquippedMap } from '../constants/storeItems';
 import { useMascotAnimation } from '../lib/useMascotAnimation';
 
-export type MascotHandle = { celebrate: (big?: boolean) => void };
+export type MascotHandle = {
+  celebrate: (big?: boolean) => void;
+  tap: () => void;
+  pet: () => void;
+};
 
 const EMPTY: EquippedMap = {};
 
@@ -23,7 +27,7 @@ type Props = {
 // poke out), head/neck items over the head.
 const Mascot = forwardRef<MascotHandle, Props>(({ mood, size = 200, equipped, facingOverride }, ref) => {
   const a = useMascotAnimation(mood);
-  useImperativeHandle(ref, () => ({ celebrate: a.celebrate }), [a.celebrate]);
+  useImperativeHandle(ref, () => ({ celebrate: a.celebrate, tap: a.tap, pet: a.pet }), [a.celebrate, a.tap, a.pet]);
 
   const equip = equipped ?? EMPTY;
   const facing = facingOverride ?? a.facing;

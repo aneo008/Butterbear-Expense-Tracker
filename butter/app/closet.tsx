@@ -14,9 +14,10 @@ import { SvgXml } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import { useExpenseStore } from '../src/store/useExpenseStore';
 import { STORE_ITEMS, Slot, EquippedMap, StoreItem } from '../src/constants/storeItems';
-import Mascot from '../src/components/Mascot';
+import Mascot, { MascotHandle } from '../src/components/Mascot';
 import { moodFromState } from '../src/lib/mascotMood';
 import { colors, radius, fonts, cardShadow, softShadow } from '../src/constants/theme';
+import * as Haptics from '../src/lib/haptics';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -49,6 +50,7 @@ export default function ClosetScreen() {
   const { gameState, equippedItems, ownedItems, buyItem, equipLook } = useExpenseStore();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const PANEL_WIDTH = Math.round(SCREEN_WIDTH * 0.7);
+  const mascotRef = useRef<MascotHandle>(null);
 
   // ── Core state ───────────────────────────────────────────────────────────────
   // inRoom  — whether the changing-room scene is active (vs. play mode)
@@ -372,24 +374,40 @@ export default function ClosetScreen() {
             />
           )}
 
-          {/* Butter on podium (or play pose) */}
-          <View style={styles.mascotWrap} pointerEvents="none">
-            <Mascot
-              mood={mood}
-              size={mascotSize}
-              equipped={stageEquipped}
-              facingOverride={inRoom ? facing : undefined}
-            />
-            {inRoom && (
+          {/* Butter — in the room he's non-interactive (pointerEvents none) so a
+              tap falls through to the stage catcher and toggles the panel. In play
+              mode (Mode 1) he's the interactive star: tap to react, hold to pet. */}
+          {inRoom ? (
+            <View style={styles.mascotWrap} pointerEvents="none">
+              <Mascot
+                ref={mascotRef}
+                mood={mood}
+                size={mascotSize}
+                equipped={stageEquipped}
+                facingOverride={facing}
+              />
               <View style={styles.podium}>
-                <SvgXml
-                  xml={PODIUM_SVG}
-                  width={panelOpen ? 70 : 130}
-                  height={18}
-                />
+                <SvgXml xml={PODIUM_SVG} width={panelOpen ? 70 : 130} height={18} />
               </View>
-            )}
-          </View>
+            </View>
+          ) : (
+            <View style={styles.mascotWrap}>
+              <Pressable
+                onPress={() => {
+                  mascotRef.current?.tap();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+                onLongPress={() => {
+                  mascotRef.current?.pet();
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }}
+                delayLongPress={400}
+                style={({ pressed }) => pressed && styles.mascotPressed}
+              >
+                <Mascot ref={mascotRef} mood={mood} size={mascotSize} equipped={stageEquipped} />
+              </Pressable>
+            </View>
+          )}
 
           {/* ── Room controls (panel closed) ── */}
           {inRoom && !panelOpen && (
@@ -568,8 +586,9 @@ const styles = StyleSheet.create({
   },
 
   // Mascot
-  mascotWrap: { alignItems: 'center' },
-  podium:     { marginTop: -6 },
+  mascotWrap:    { alignItems: 'center' },
+  mascotPressed: { opacity: 0.9 },
+  podium:        { marginTop: -6 },
 
   // Room controls (visible when in room, panel closed)
   roomControls: {
