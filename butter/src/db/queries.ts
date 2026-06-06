@@ -354,6 +354,33 @@ export function buyItem(itemId: string, price: number): boolean {
   return true;
 }
 
+/**
+ * Sell an owned item for 50% of its retail price. Unequips it from any slot it's
+ * worn in. Returns the refund amount (0 if not owned).
+ */
+export function sellItem(itemId: string, price: number): number {
+  const db = getDb();
+  const row = db.getFirstSync<{ owned_items: string; equipped_items: string }>(
+    'SELECT owned_items, equipped_items FROM game_state WHERE id = 1'
+  );
+  if (!row) return 0;
+  let owned: string[];
+  try { owned = JSON.parse(row.owned_items); } catch { owned = []; }
+  if (!owned.includes(itemId)) return 0;
+  owned = owned.filter(id => id !== itemId);
+  let equipped: EquippedMap;
+  try { equipped = JSON.parse(row.equipped_items); } catch { equipped = {}; }
+  for (const slot of Object.keys(equipped) as Slot[]) {
+    if (equipped[slot] === itemId) delete equipped[slot];
+  }
+  const refund = Math.floor(price / 2);
+  db.runSync(
+    'UPDATE game_state SET coins = coins + ?, owned_items = ?, equipped_items = ? WHERE id = 1',
+    [refund, JSON.stringify(owned), JSON.stringify(equipped)]
+  );
+  return refund;
+}
+
 /** Set the equipped item for a slot. */
 export function equipItem(itemId: string, slot: Slot): void {
   const db = getDb();

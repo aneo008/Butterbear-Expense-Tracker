@@ -15,6 +15,7 @@ import {
   getOwnedItems,
   getEquippedItems,
   buyItem as buyItemQuery,
+  sellItem as sellItemQuery,
   equipItem as equipItemQuery,
   unequipItem as unequipItemQuery,
   equipLook as equipLookQuery,
@@ -90,6 +91,7 @@ type ExpenseStore = {
   closeAddSheet: () => void;
   // Phase 4: wardrobe actions
   buyItem: (itemId: string, price: number) => boolean;
+  sellItem: (itemId: string, price: number) => number;
   equipItem: (itemId: string, slot: Slot) => void;
   unequipItem: (slot: Slot) => void;
   equipLook: (equipped: EquippedMap) => void;
@@ -164,6 +166,11 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     const ok = buyItemQuery(itemId, price);
     if (ok) get().loadData();
     return ok;
+  },
+  sellItem: (itemId, price) => {
+    const refund = sellItemQuery(itemId, price);
+    if (refund > 0) get().loadData();
+    return refund;
   },
   equipItem: (itemId, slot) => {
     equipItemQuery(itemId, slot);

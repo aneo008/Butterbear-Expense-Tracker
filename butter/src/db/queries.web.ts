@@ -345,6 +345,28 @@ export function buyItem(itemId: string, price: number): boolean {
   return true;
 }
 
+/**
+ * Sell an owned item for 50% of its retail price. Unequips it from any slot it's
+ * worn in. Returns the refund amount (0 if not owned).
+ */
+export function sellItem(itemId: string, price: number): number {
+  let owned: string[];
+  try { owned = JSON.parse(db.game_state.owned_items); } catch { owned = []; }
+  if (!owned.includes(itemId)) return 0;
+  owned = owned.filter(id => id !== itemId);
+  let equipped: EquippedMap;
+  try { equipped = JSON.parse(db.game_state.equipped_items); } catch { equipped = {}; }
+  for (const slot of Object.keys(equipped) as Slot[]) {
+    if (equipped[slot] === itemId) delete equipped[slot];
+  }
+  const refund = Math.floor(price / 2);
+  db.game_state.owned_items = JSON.stringify(owned);
+  db.game_state.equipped_items = JSON.stringify(equipped);
+  db.game_state.coins += refund;
+  persist();
+  return refund;
+}
+
 /** Set the equipped item for a slot. */
 export function equipItem(itemId: string, slot: Slot): void {
   let equipped: EquippedMap;

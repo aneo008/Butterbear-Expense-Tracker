@@ -16,6 +16,7 @@ import { useExpenseStore } from '../src/store/useExpenseStore';
 import { STORE_ITEMS, Slot, EquippedMap, StoreItem, TIER_META, itemThumbSvg } from '../src/constants/storeItems';
 import Mascot, { MascotHandle } from '../src/components/Mascot';
 import MarqueeText from '../src/components/MarqueeText';
+import ConfirmItemSheet from '../src/components/ConfirmItemSheet';
 import { moodFromState } from '../src/lib/mascotMood';
 import { colors, radius, fonts, cardShadow, softShadow } from '../src/constants/theme';
 import * as Haptics from '../src/lib/haptics';
@@ -48,7 +49,7 @@ const PODIUM_SVG = `<svg viewBox="0 0 120 18" xmlns="http://www.w3.org/2000/svg"
 
 export default function ClosetScreen() {
   const router = useRouter();
-  const { gameState, equippedItems, ownedItems, buyItem, equipLook } = useExpenseStore();
+  const { gameState, equippedItems, ownedItems, buyItem, sellItem, equipLook } = useExpenseStore();
   const { width: SCREEN_WIDTH } = useWindowDimensions();
   const PANEL_WIDTH = Math.round(SCREEN_WIDTH * 0.7);
   const mascotRef = useRef<MascotHandle>(null);
@@ -66,6 +67,9 @@ export default function ClosetScreen() {
   // ── Panel tab / filter ───────────────────────────────────────────────────────
   const [activeTab,  setActiveTab]  = useState<TabKey>('store');
   const [activeSlot, setActiveSlot] = useState<SlotFilter>('all');
+
+  // Pending buy/sell awaiting confirmation (null = no dialog).
+  const [confirm, setConfirm] = useState<{ item: StoreItem; action: 'buy' | 'sell' } | null>(null);
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   // Play: mood matches Home (tied to expense logging).
@@ -156,6 +160,20 @@ export default function ClosetScreen() {
     setFittingEquipped({});
   }
 
+  // Apply the confirmed buy/sell. Selling also drops the item from the fitting
+  // preview if it was on (it's no longer owned).
+  function runConfirm() {
+    if (!confirm) return;
+    const { item, action } = confirm;
+    if (action === 'buy') {
+      buyItem(item.id, item.price);
+    } else {
+      sellItem(item.id, item.price);
+      if (fittingEquipped[item.slot] === item.id) removeFit(item.slot);
+    }
+    setConfirm(null);
+  }
+
   // ── Filtered panel list ──────────────────────────────────────────────────────
   const panelItems = useMemo(() => {
     let items = STORE_ITEMS;
@@ -210,18 +228,26 @@ export default function ClosetScreen() {
         {/* Right: actions */}
         <View style={styles.itemActions}>
           {owned ? (
-            <Pressable
-              onPress={() => fitted ? removeFit(item.slot) : fitItem(item.id, item.slot)}
-              style={[styles.actionBtn, fitted ? styles.btnRemove : styles.btnFit]}
-            >
-              <Text style={[styles.actionBtnText, fitted && styles.textMuted]}>
-                {fitted ? 'Remove' : 'Fit'}
-              </Text>
-            </Pressable>
+            <>
+              <Pressable
+                onPress={() => fitted ? removeFit(item.slot) : fitItem(item.id, item.slot)}
+                style={[styles.actionBtn, fitted ? styles.btnRemove : styles.btnFit]}
+              >
+                <Text style={[styles.actionBtnText, fitted && styles.textMuted]}>
+                  {fitted ? 'Remove' : 'Fit'}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setConfirm({ item, action: 'sell' })}
+                style={[styles.actionBtn, styles.btnSell, { marginTop: 4 }]}
+              >
+                <Text style={[styles.actionBtnText, styles.sellText]}>Sell</Text>
+              </Pressable>
+            </>
           ) : trying ? (
             <>
               <Pressable
-                onPress={() => buyItem(item.id, item.price)}
+                onPress={() => setConfirm({ item, action: 'buy' })}
                 disabled={!canAfford}
                 style={[styles.actionBtn, styles.btnBuy, !canAfford && styles.btnDisabled]}
               >
@@ -243,7 +269,7 @@ export default function ClosetScreen() {
                 <Text style={styles.actionBtnText}>Try</Text>
               </Pressable>
               <Pressable
-                onPress={() => buyItem(item.id, item.price)}
+                onPress={() => setConfirm({ item, action: 'buy' })}
                 disabled={!canAfford}
                 style={[styles.actionBtn, styles.btnBuy, !canAfford && styles.btnDisabled, { marginTop: 4 }]}
               >
@@ -449,6 +475,15 @@ export default function ClosetScreen() {
         </View>
       </View>
 
+      {/* Buy / sell confirmation */}
+      <ConfirmItemSheet
+        item={confirm?.item ?? null}
+        action={confirm?.action ?? 'buy'}
+        equipped={confirm ? equippedItems[confirm.item.slot] === confirm.item.id : false}
+        onConfirm={runConfirm}
+        onCancel={() => setConfirm(null)}
+      />
+
     </SafeAreaView>
   );
 }
@@ -563,8 +598,10 @@ const styles = StyleSheet.create({
   btnRemove:     { backgroundColor: '#F3EDE3' },
   btnTry:        { backgroundColor: '#DCF0E8' },
   btnBuy:        { backgroundColor: colors.butter },
+  btnSell:       { backgroundColor: '#FBE9E7', borderWidth: 1, borderColor: '#E89B92' },
   btnDisabled:   { backgroundColor: '#EDE8DF', opacity: 0.55 },
   actionBtnText: { fontFamily: fonts.bodyBold, fontSize: 11, color: colors.textBrown },
+  sellText:      { color: '#D6584C' },
   textMuted:     { color: colors.textSoft },
 
   // Panel bottom bar
