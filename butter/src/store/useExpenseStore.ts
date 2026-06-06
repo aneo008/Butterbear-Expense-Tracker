@@ -19,7 +19,17 @@ import {
   equipItem as equipItemQuery,
   unequipItem as unequipItemQuery,
   equipLook as equipLookQuery,
+  devSetGameState as devSetGameStateQuery,
+  devResetAll as devResetAllQuery,
+  getSnapshot,
+  replaceAllData,
+  getMeta,
+  setMeta,
 } from '../db/queries';
+import { DevPatch } from '../db/types';
+import { serializeBackup, parseBackup } from '../lib/backup';
+
+const DEV_BACKUP_KEY = 'dev_backup';
 import { todayISO } from '../lib/date';
 import { Slot, EquippedMap } from '../constants/storeItems';
 import { dailyCap, chestFor } from '../lib/streak';
@@ -95,6 +105,13 @@ type ExpenseStore = {
   equipItem: (itemId: string, slot: Slot) => void;
   unequipItem: (slot: Slot) => void;
   equipLook: (equipped: EquippedMap) => void;
+  // Dev tools
+  devActive: boolean; // dev sandbox in effect this session (changes revert on exit)
+  devSetGameState: (patch: DevPatch) => void;
+  devResetAll: () => void;
+  enterDevSandbox: () => void;
+  leaveDevSandbox: () => void;
+  recoverDevOrphan: () => void;
 };
 
 export const useExpenseStore = create<ExpenseStore>((set, get) => ({
@@ -116,6 +133,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   dataVersion: 0,
   celebrationSignal: 0,
   lastCelebration: { tier: 'normal', reason: null, coinsEarned: 0, capReached: false, chestCoins: 0 },
+  devActive: false,
 
   loadData: () => {
     const expenses = getRecentExpenses(30);
@@ -183,5 +201,42 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   equipLook: (equipped) => {
     equipLookQuery(equipped);
     get().loadData();
+  },
+
+  // Dev tools
+  devSetGameState: (patch) => {
+    devSetGameStateQuery(patch);
+    get().loadData();
+  },
+  devResetAll: () => {
+    devResetAllQuery();
+    get().loadData();
+  },
+
+  // Dev sandbox: snapshot real data on enter, restore it on exit, so nothing done
+  // in dev mode persists. The backup lives in app_meta so it survives a crash.
+  enterDevSandbox: () => {
+    if (!getMeta(DEV_BACKUP_KEY)) {
+      setMeta(DEV_BACKUP_KEY, serializeBackup(getSnapshot()));
+    }
+    set({ devActive: true });
+  },
+  leaveDevSandbox: () => {
+    const backup = getMeta(DEV_BACKUP_KEY);
+    if (backup) {
+      replaceAllData(parseBackup(backup));
+      setMeta(DEV_BACKUP_KEY, '');
+      get().loadData();
+    }
+    set({ devActive: false });
+  },
+  // Cold-start safety: if a sandbox backup is left over (app closed mid-session),
+  // restore real data so dev changes can never leak out. Caller refreshes after.
+  recoverDevOrphan: () => {
+    const backup = getMeta(DEV_BACKUP_KEY);
+    if (backup) {
+      replaceAllData(parseBackup(backup));
+      setMeta(DEV_BACKUP_KEY, '');
+    }
   },
 }));

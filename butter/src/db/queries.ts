@@ -9,6 +9,7 @@ import {
   BudgetRow,
   GameStateFull,
   Snapshot,
+  DevPatch,
 } from './types';
 import { Slot, EquippedMap } from '../constants/storeItems';
 
@@ -309,6 +310,38 @@ export function setMeta(key: string, value: string): void {
   db.runSync(
     'INSERT INTO app_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
     [key, value]
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Dev tools (developer panel) — direct state mutation for testing.
+// ---------------------------------------------------------------------------
+
+const DEV_COLUMNS = [
+  'coins', 'streak_count', 'longest_streak', 'last_log_date', 'coins_earned_today',
+  'owned_items', 'equipped_items',
+] as const;
+
+/** Directly patch game_state fields (whitelisted columns only). */
+export function devSetGameState(patch: DevPatch): void {
+  const db = getDb();
+  const keys = Object.keys(patch).filter(k => (DEV_COLUMNS as readonly string[]).includes(k));
+  if (!keys.length) return;
+  const sets = keys.map(k => `${k} = ?`).join(', ');
+  const vals = keys.map(k => (patch as Record<string, unknown>)[k]);
+  db.runSync(`UPDATE game_state SET ${sets} WHERE id = 1`, vals as never[]);
+}
+
+/** Wipe everything to a fresh-install state (keeps the seeded categories). */
+export function devResetAll(): void {
+  const db = getDb();
+  db.runSync('DELETE FROM expenses');
+  db.runSync('DELETE FROM app_meta');
+  db.runSync(
+    `UPDATE game_state SET streak_count = 0, last_log_date = NULL, longest_streak = 0,
+      total_entries = 0, coins = ?, coins_earned_today = 0,
+      owned_items = '[]', equipped_items = '{}' WHERE id = 1`,
+    [WELCOME_GRANT]
   );
 }
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,9 +6,11 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   ActivityIndicator,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { VERSION_LABEL } from '../../src/lib/version';
 import * as Haptics from '../../src/lib/haptics';
 import { Alert } from '../../src/lib/dialog';
 import { useExpenseStore } from '../../src/store/useExpenseStore';
@@ -46,18 +48,55 @@ function daysSince(iso: string | null): number | null {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 }
 
+const DEV_KEY = 'dev_unlocked';
+
 export default function SettingsScreen() {
   const gameState = useExpenseStore(s => s.gameState);
   const loadData = useExpenseStore(s => s.loadData);
+  const leaveDevSandbox = useExpenseStore(s => s.leaveDevSandbox);
+  const router = useRouter();
 
   const [busy, setBusy] = useState(false);
   const [lastBackup, setLastBackup] = useState<string | null>(null);
 
+  // Dev-mode unlock: tap the version footer 7×.
+  const [devUnlocked, setDevUnlocked] = useState(() => getMeta(DEV_KEY) === '1');
+  const [tapHint, setTapHint] = useState<string | null>(null);
+  const tapCount = useRef(0);
+  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useFocusEffect(
     useCallback(() => {
       setLastBackup(getMeta(LAST_BACKUP_KEY));
+      setDevUnlocked(getMeta(DEV_KEY) === '1');
     }, [])
   );
+
+  const onVersionTap = useCallback(() => {
+    if (devUnlocked) return;
+    tapCount.current += 1;
+    const n = tapCount.current;
+    if (tapTimer.current) clearTimeout(tapTimer.current);
+    tapTimer.current = setTimeout(() => { tapCount.current = 0; setTapHint(null); }, 2500);
+
+    if (n >= 7) {
+      setMeta(DEV_KEY, '1');
+      setDevUnlocked(true);
+      setTapHint('🛠️ Developer mode unlocked');
+      tapCount.current = 0;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else if (n >= 4) {
+      setTapHint(`${7 - n} ${7 - n === 1 ? 'tap' : 'taps'} to Developer mode`);
+    }
+  }, [devUnlocked]);
+
+  const lockDev = useCallback(() => {
+    leaveDevSandbox();       // restore real data if a sandbox is active
+    setMeta(DEV_KEY, '');
+    setDevUnlocked(false);
+    setTapHint(null);
+    tapCount.current = 0;
+  }, [leaveDevSandbox]);
 
   // ---- Export JSON backup ----
   const exportBackup = useCallback(async () => {
@@ -239,7 +278,35 @@ export default function SettingsScreen() {
           <Text style={styles.statRow}>🪙 Total coins: {gameState.coins}</Text>
         </View>
 
+        {/* Developer section — appears once unlocked via the version footer */}
+        {devUnlocked && (
+          <>
+            <Text style={styles.sectionHeader}>Developer</Text>
+            <TouchableOpacity style={styles.action} onPress={() => router.push('/dev' as any)}>
+              <Text style={styles.actionIcon}>🛠️</Text>
+              <View style={styles.actionMid}>
+                <Text style={styles.actionTitle}>Developer tools</Text>
+                <Text style={styles.actionSub}>Edit coins, streak, wardrobe & more</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.action} onPress={lockDev}>
+              <Text style={styles.actionIcon}>🔒</Text>
+              <View style={styles.actionMid}>
+                <Text style={styles.actionTitle}>Lock developer mode</Text>
+                <Text style={styles.actionSub}>Hide these options</Text>
+              </View>
+            </TouchableOpacity>
+          </>
+        )}
+
         <Text style={styles.footnote}>Currency: SGD · more options coming later</Text>
+
+        {/* Version footer — tap 7× to unlock developer mode */}
+        <Pressable onPress={onVersionTap} style={styles.versionWrap}>
+          <Text selectable={false} style={styles.version}>{VERSION_LABEL}</Text>
+        </Pressable>
+        {tapHint && <Text style={styles.tapHint}>{tapHint}</Text>}
       </ScrollView>
     </SafeAreaView>
   );
@@ -303,4 +370,8 @@ const styles = StyleSheet.create({
   statRow: { fontSize: 15, color: '#5A4632', fontWeight: '500' },
 
   footnote: { fontSize: 12, color: '#9C8772', textAlign: 'center', marginTop: 20 },
+
+  versionWrap: { alignSelf: 'center', marginTop: 10, paddingVertical: 6, paddingHorizontal: 14 },
+  version: { fontSize: 12, color: '#C9A06E', textAlign: 'center', userSelect: 'none' },
+  tapHint: { fontSize: 12, color: '#9C8772', textAlign: 'center', marginTop: 2, fontWeight: '600' },
 });

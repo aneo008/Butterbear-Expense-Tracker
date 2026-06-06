@@ -44,3 +44,14 @@ export type Snapshot = {
   game_state: GameStateFull;
   budget: BudgetRow;
 };
+
+// Dev-only: directly patch game_state fields (used by the developer panel).
+export type DevPatch = Partial<{
+  coins: number;
+  streak_count: number;
+  longest_streak: number;
+  last_log_date: string | null;
+  coins_earned_today: number;
+  owned_items: string;     // JSON array string
+  equipped_items: string;  // JSON object string
+}>;

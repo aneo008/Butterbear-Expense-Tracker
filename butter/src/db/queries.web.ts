@@ -11,6 +11,7 @@ import {
   BudgetRow,
   GameStateFull,
   Snapshot,
+  DevPatch,
 } from './types';
 import { Slot, EquippedMap } from '../constants/storeItems';
 
@@ -314,6 +315,31 @@ export function getMeta(key: string): string | null {
 
 export function setMeta(key: string, value: string): void {
   db.app_meta[key] = value;
+  persist();
+}
+
+// ---------------------------------------------------------------------------
+// Dev tools (developer panel) — direct state mutation for testing.
+// ---------------------------------------------------------------------------
+
+/** Directly patch game_state fields. */
+export function devSetGameState(patch: DevPatch): void {
+  Object.assign(db.game_state, patch);
+  persist();
+}
+
+/** Wipe everything to a fresh-install state (keeps the seeded categories). */
+export function devResetAll(): void {
+  db.expenses = [];
+  db.app_meta = {};
+  db.game_state.streak_count = 0;
+  db.game_state.last_log_date = null;
+  db.game_state.longest_streak = 0;
+  db.game_state.total_entries = 0;
+  db.game_state.coins = WELCOME_GRANT;
+  db.game_state.coins_earned_today = 0;
+  db.game_state.owned_items = '[]';
+  db.game_state.equipped_items = '{}';
   persist();
 }
 

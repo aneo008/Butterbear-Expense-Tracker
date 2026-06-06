@@ -8,6 +8,7 @@ import { Nunito_400Regular, Nunito_600SemiBold, Nunito_700Bold } from '@expo-goo
 import { initDatabase } from '../src/db/database';
 import { useExpenseStore } from '../src/store/useExpenseStore';
 import { DialogHost } from '../src/lib/dialog';
+import DevBanner from '../src/components/DevBanner';
 import { colors } from '../src/constants/theme';
 
 export default function RootLayout() {
@@ -23,6 +24,8 @@ export default function RootLayout() {
 
   useEffect(() => {
     initDatabase().then(() => {
+      // If the app was closed mid dev-sandbox, revert to real data before loading.
+      useExpenseStore.getState().recoverDevOrphan();
       loadData();
     });
   }, []);
@@ -35,6 +38,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="dark" />
+      {/* In-flow banner: when the dev sandbox is active it sits above all screens
+          and pushes them down (no overlap); renders nothing otherwise. */}
+      <DevBanner />
       <Stack screenOptions={{ headerShown: false }} />
       <DialogHost />
     </GestureHandlerRootView>
