@@ -21,7 +21,7 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.4.5` — Phase 4, Pass E (in progress).
+**Current:** `v1.4.5` — Phase 4, **Pass E complete**; next is Pass G (What's-New popup, then backgrounds).
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 
@@ -34,7 +34,7 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | 1 | MVP expense tracker | ✅ done |
 | 2 | Mascot, theme & animation | ✅ done |
 | 3 | Data portability (export/import) | ✅ done |
-| **4** | **Gamification (Closet, coins, streaks)** | ◑ **in progress — Pass E** |
+| **4** | **Gamification (Closet, coins, streaks)** | ◑ **in progress — Passes A–E done; G next** |
 | 5 | Charts & ship polish | ⬜ planned |
 | 6 | Consumables & Invest | ⬜ planned |
 | 7 | Collections (sets & set effects) | ⬜ planned |
@@ -82,23 +82,22 @@ Dress up Butter, earn coins, build streaks.
 ### Pass D — Play gestures · `v1.4.4`
 - ✨ In the play room: **tap Butter** to react (mood-appropriate gesture), **hold to pet** (cosy rock + happy face).
 
-### Pass E — Streak economy + popups · `v1.4.5` *(in progress)*
+### Pass E — Streak economy + popups · `v1.4.5` ✅
 - ✨ **E1 — Coin multiplier economy:** streak multiplier ×1.0 → ×3.0 (at 3/7/14/30/100 days); daily coin **cap scales** with it (60 → 180); one-time **milestone chests**; new players get a **50-coin welcome grant**.
 - ✨ **E2 — Shop overhaul:** re-priced 4-tier ladder (50 → 2,200); **rarity** tiles & badges — Basic (white) · Rare (blue) · Premium (purple) · Prestige (gold); item pictures on the cards; long names gently scroll (marquee).
 - ✨ **Sell:** sell owned items for 50% back; **buy/sell confirmation** popup with the item picture + rarity.
-- ✨ **E3 — Streak popup:** tap the 🔥 chip to see your streak, multiplier, the full tier ladder + chests, and a "streak safe" nudge; 🪙 chip opens the Shop.
+- ✨ **E3 — Streak popup:** tap the 🔥 chip to see your streak, multiplier, the full tier ladder + chests, and a "streak safe" nudge.
 - ✨ **E4 — Developer mode:** tap the version 7× to unlock a sandboxed dev panel (edit coins/streak/wardrobe, triggers, inspector); changes are discarded on exit. App versioning (v1.4.5).
 - 🐛 **Fixes:** mascot no longer gets stuck on the celebrating face after a mood change; dev coins quick-add accumulates; Back works after a web refresh on any pushed screen; long-press to pet no longer selects text.
-- ⬜ **E5 — Daily-cap popup** *(next):* a friendly "daily coins maxed" message when a log hits the scaled cap.
+- ✨ **E5 — Coin popup:** tap the 🪙 chip for "Coins today" — a progress bar (today's earnings vs the daily limit, mint → gold), what each entry earns, and why the limit grows with your multiplier (`60 × ×mult`). Auto-opens (maxed state) when a log hits the cap.
 
 ---
 
 # Roadmap (upcoming)
 
 ## Phase 4 — remaining
-- **E5 — DailyCapSheet** — popup on crossing the daily coin cap (off the existing `capReached` signal). *Last stage of Pass E.*
-- **Pass F — Story panels** — narrative/onboarding panels (was the original Pass E, pushed back).
-- **Pass G — Polish** — playroom & changing-room **backgrounds**, transitions, sfx, **and the "What's New" update popup driven by this changelog**.
+- **Pass G — Polish** *(next — priority: the **"What's New" update popup** driven by this changelog, wanted ASAP)*: also playroom & changing-room **backgrounds**, transitions, sfx.
+- **Pass F — Story panels** — narrative/onboarding panels (was the original Pass E, pushed back). *Sequenced after G's What's-New popup ships.*
 
 ## Phase 5 — Charts & ship polish · `v1.5`
 - Deeper insights/charts, app icon + splash, empty-state & perf polish, store-ready pass.

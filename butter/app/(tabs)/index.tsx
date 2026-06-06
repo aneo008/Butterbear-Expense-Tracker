@@ -16,6 +16,7 @@ import { moodFromState, speechLine } from '../../src/lib/mascotMood';
 import Mascot, { MascotHandle } from '../../src/components/Mascot';
 import Coachmark from '../../src/components/Coachmark';
 import StreakSheet from '../../src/components/StreakSheet';
+import CoinSheet from '../../src/components/CoinSheet';
 import ConfettiBurst from '../../src/components/ConfettiBurst';
 import CoinFly from '../../src/components/CoinFly';
 import { colors, radius, fonts, cardShadow, softShadow } from '../../src/constants/theme';
@@ -64,6 +65,7 @@ export default function HomeScreen() {
   const [coinKey, setCoinKey] = useState(0);
   const [milestoneLine, setMilestoneLine] = useState<string | null>(null);
   const [streakOpen, setStreakOpen] = useState(false);
+  const [coinOpen, setCoinOpen] = useState(false);
 
   const mood = useMemo(() => moodFromState(gameState), [gameState]);
   const baseLine = useMemo(
@@ -82,6 +84,9 @@ export default function HomeScreen() {
     mascotRef.current?.celebrate(big);
     setCoinKey(k => k + 1); // coin-fly every log
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // Crossing today's coin limit auto-opens the coin popup (in its maxed state).
+    if (lastCelebration.capReached) setCoinOpen(true);
 
     if (big) {
       setConfettiKey(k => k + 1);
@@ -121,10 +126,10 @@ export default function HomeScreen() {
             <Text style={styles.statText}>🔥 {gameState.streak_count}</Text>
           </Pressable>
           <Pressable
-            onPress={() => router.navigate('/shop')}
+            onPress={() => setCoinOpen(true)}
             style={styles.statChip}
             accessibilityRole="button"
-            accessibilityLabel="Open shop"
+            accessibilityLabel="Coin details"
           >
             <Text style={styles.statText}>🪙 {gameState.coins}</Text>
           </Pressable>
@@ -171,6 +176,7 @@ export default function HomeScreen() {
 
       <Coachmark />
       <StreakSheet visible={streakOpen} onClose={() => setStreakOpen(false)} />
+      <CoinSheet visible={coinOpen} onClose={() => setCoinOpen(false)} />
 
 
       {/* Recent entries */}

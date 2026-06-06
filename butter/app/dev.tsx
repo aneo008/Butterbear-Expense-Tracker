@@ -10,6 +10,7 @@ import { todayISO, addDaysISO } from '../src/lib/date';
 import { setMeta } from '../src/db/queries';
 import { backOrHome } from '../src/lib/nav';
 import StreakSheet from '../src/components/StreakSheet';
+import CoinSheet from '../src/components/CoinSheet';
 import * as Haptics from '../src/lib/haptics';
 import { colors, radius, fonts, cardShadow } from '../src/constants/theme';
 import { VERSION_LABEL } from '../src/lib/version';
@@ -53,6 +54,7 @@ export default function DevScreen() {
   const [streak, setStreak] = useState(String(gameState.streak_count));
   const [longest, setLongest] = useState(String(gameState.longest_streak));
   const [streakOpen, setStreakOpen] = useState(false);
+  const [coinOpen, setCoinOpen] = useState(false);
 
   // Keep the inputs in sync with the live state (e.g. after a quick-add button).
   useEffect(() => { setCoins(String(gameState.coins)); }, [gameState.coins]);
@@ -183,6 +185,7 @@ export default function DevScreen() {
         <Section title="Triggers">
           <View style={styles.row}>
             <Btn label="Open StreakSheet" onPress={() => setStreakOpen(true)} />
+            <Btn label="Open CoinSheet" onPress={() => setCoinOpen(true)} />
             <Btn label="Quick-log $5" onPress={quickLog} />
             <Btn label="Reset onboarding" onPress={resetFlags} />
           </View>
@@ -214,6 +217,7 @@ export default function DevScreen() {
       </ScrollView>
 
       <StreakSheet visible={streakOpen} onClose={() => setStreakOpen(false)} />
+      <CoinSheet visible={coinOpen} onClose={() => setCoinOpen(false)} />
     </SafeAreaView>
   );
 }
