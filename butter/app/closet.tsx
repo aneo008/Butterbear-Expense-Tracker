@@ -20,6 +20,7 @@ import ConfirmItemSheet from '../src/components/ConfirmItemSheet';
 import { moodFromState } from '../src/lib/mascotMood';
 import { colors, radius, fonts, cardShadow, softShadow } from '../src/constants/theme';
 import * as Haptics from '../src/lib/haptics';
+import { backOrHome } from '../src/lib/nav';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -288,7 +289,7 @@ export default function ClosetScreen() {
 
       {/* ── Header ── */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+        <Pressable onPress={() => backOrHome(router)} style={styles.backBtn} hitSlop={8}>
           <Text style={styles.backText}>← Back</Text>
         </Pressable>
         <Text style={styles.headerTitle}>Wardrobe</Text>
@@ -441,7 +442,7 @@ export default function ClosetScreen() {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 }}
                 delayLongPress={400}
-                style={({ pressed }) => pressed && styles.mascotPressed}
+                style={({ pressed }) => [styles.mascotPlayPress, pressed && styles.mascotPressed]}
               >
                 <Mascot ref={mascotRef} mood={mood} size={mascotSize} equipped={stageEquipped} />
               </Pressable>
@@ -652,8 +653,10 @@ const styles = StyleSheet.create({
   },
 
   // Mascot
-  mascotWrap:    { alignItems: 'center' },
-  mascotPressed: { opacity: 0.9 },
+  mascotWrap:     { alignItems: 'center' },
+  // Long-press to pet must not start a text selection on web.
+  mascotPlayPress: { userSelect: 'none' },
+  mascotPressed:  { opacity: 0.9 },
   podium:        { marginTop: -6 },
 
   // Room controls (visible when in room, panel closed)

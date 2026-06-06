@@ -5,9 +5,11 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
+  Pressable,
   SafeAreaView,
 } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { backOrHome } from '../../src/lib/nav';
 import * as Haptics from '../../src/lib/haptics';
 import { useExpenseStore } from '../../src/store/useExpenseStore';
 import { Expense, getExpensesByCategoryForMonth } from '../../src/db/queries';
@@ -20,6 +22,7 @@ function formatCurrency(amount: number): string {
 const FALLBACK_CAT = { name: 'Category', icon: '📦', color: '#9C8772' };
 
 export default function CategoryDetailScreen() {
+  const router = useRouter();
   const params = useLocalSearchParams<{ categoryId: string; month: string }>();
   const categoryId = Array.isArray(params.categoryId) ? params.categoryId[0] : params.categoryId;
   const month = Array.isArray(params.month) ? params.month[0] : params.month;
@@ -50,11 +53,16 @@ export default function CategoryDetailScreen() {
         options={{
           headerShown: true,
           headerTitle: `${cat.icon} ${cat.name}`,
-          headerBackTitle: 'Insights',
           headerStyle: { backgroundColor: '#FFFBF2' },
           headerShadowVisible: false,
           headerTintColor: '#5A4632',
           headerTitleStyle: { color: '#5A4632', fontWeight: '700' },
+          // Custom back so it still works after a web refresh (empty history → Home).
+          headerLeft: () => (
+            <Pressable onPress={() => backOrHome(router)} hitSlop={8} style={{ paddingHorizontal: 4 }}>
+              <Text style={{ color: '#ECB13F', fontSize: 16, fontWeight: '600' }}>‹ Back</Text>
+            </Pressable>
+          ),
         }}
       />
 

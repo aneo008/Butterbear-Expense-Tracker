@@ -8,6 +8,7 @@ import { STORE_ITEMS } from '../src/constants/storeItems';
 import { dailyCap, streakMultiplier } from '../src/lib/streak';
 import { todayISO, addDaysISO } from '../src/lib/date';
 import { setMeta } from '../src/db/queries';
+import { backOrHome } from '../src/lib/nav';
 import StreakSheet from '../src/components/StreakSheet';
 import * as Haptics from '../src/lib/haptics';
 import { colors, radius, fonts, cardShadow } from '../src/constants/theme';
@@ -41,24 +42,31 @@ export default function DevScreen() {
   const {
     gameState, ownedItems, equippedItems, categories,
     devSetGameState, devResetAll, addExpense,
-    enterDevSandbox, leaveDevSandbox,
+    enterDevSandbox,
   } = useExpenseStore();
 
-  // Entering the panel snapshots the real data; it's restored on Exit (or app
-  // restart). Roaming other screens keeps the sandbox active until you Exit.
+  // Entering the panel snapshots the real data; it's restored when you Exit via
+  // the banner (or on app restart). Roaming other screens keeps the sandbox active.
   useEffect(() => { enterDevSandbox(); }, [enterDevSandbox]);
-
-  const exitDev = () => { leaveDevSandbox(); router.back(); };
 
   const [coins, setCoins] = useState(String(gameState.coins));
   const [streak, setStreak] = useState(String(gameState.streak_count));
   const [longest, setLongest] = useState(String(gameState.longest_streak));
   const [streakOpen, setStreakOpen] = useState(false);
 
+  // Keep the inputs in sync with the live state (e.g. after a quick-add button).
+  useEffect(() => { setCoins(String(gameState.coins)); }, [gameState.coins]);
+  useEffect(() => { setStreak(String(gameState.streak_count)); }, [gameState.streak_count]);
+  useEffect(() => { setLongest(String(gameState.longest_streak)); }, [gameState.longest_streak]);
+
   const applyNum = (text: string, field: 'coins' | 'streak_count' | 'longest_streak') => {
     const n = parseInt(text, 10);
     if (Number.isFinite(n)) devSetGameState({ [field]: Math.max(0, n) });
   };
+
+  // Read fresh coins each tap so rapid quick-adds accumulate (avoids a stale closure).
+  const addCoins = (delta: number) =>
+    devSetGameState({ coins: useExpenseStore.getState().gameState.coins + delta });
 
   const quickLog = () => {
     const cat = categories[0];
@@ -74,7 +82,7 @@ export default function DevScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.back} hitSlop={8}>
+        <Pressable onPress={() => backOrHome(router)} style={styles.back} hitSlop={8}>
           <Text style={styles.backText}>← Back</Text>
         </Pressable>
         <Text style={styles.title}>🛠️ Developer</Text>
@@ -85,8 +93,7 @@ export default function DevScreen() {
 
         {/* Sandbox */}
         <Section title="Sandbox">
-          <Text style={styles.note}>Changes here (and across the app) are discarded when you exit.</Text>
-          <Btn label="Exit dev mode (discard changes)" tone="accent" onPress={exitDev} />
+          <Text style={styles.note}>Changes here (and across the app) are discarded — use “Exit ✕” in the top banner to leave.</Text>
         </Section>
 
         {/* Coins */}
@@ -102,9 +109,9 @@ export default function DevScreen() {
             <Btn label="Set" onPress={() => applyNum(coins, 'coins')} tone="accent" />
           </View>
           <View style={styles.row}>
-            <Btn label="+100" onPress={() => devSetGameState({ coins: gameState.coins + 100 })} />
-            <Btn label="+1000" onPress={() => devSetGameState({ coins: gameState.coins + 1000 })} />
-            <Btn label="Set 0" onPress={() => { setCoins('0'); devSetGameState({ coins: 0 }); }} />
+            <Btn label="+100" onPress={() => addCoins(100)} />
+            <Btn label="+1000" onPress={() => addCoins(1000)} />
+            <Btn label="Set 0" onPress={() => devSetGameState({ coins: 0 })} />
           </View>
         </Section>
 

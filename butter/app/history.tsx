@@ -5,9 +5,11 @@ import {
   StyleSheet,
   SectionList,
   TouchableOpacity,
+  Pressable,
   SafeAreaView,
 } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
+import { backOrHome } from '../src/lib/nav';
 import * as Haptics from '../src/lib/haptics';
 import { useExpenseStore } from '../src/store/useExpenseStore';
 import { Expense, getAllExpenses } from '../src/db/queries';
@@ -40,6 +42,7 @@ function groupByMonth(expenses: Expense[]): Section[] {
 }
 
 export default function HistoryScreen() {
+  const router = useRouter();
   const categories = useExpenseStore(s => s.categories);
   const dataVersion = useExpenseStore(s => s.dataVersion);
   const openEditSheet = useExpenseStore(s => s.openEditSheet);
@@ -62,11 +65,16 @@ export default function HistoryScreen() {
         options={{
           headerShown: true,
           headerTitle: 'All Expenses',
-          headerBackTitle: 'Home',
           headerStyle: { backgroundColor: '#FFFBF2' },
           headerShadowVisible: false,
           headerTintColor: '#5A4632',
           headerTitleStyle: { color: '#5A4632', fontWeight: '700' },
+          // Custom back so it still works after a web refresh (empty history → Home).
+          headerLeft: () => (
+            <Pressable onPress={() => backOrHome(router)} hitSlop={8} style={{ paddingHorizontal: 4 }}>
+              <Text style={{ color: '#ECB13F', fontSize: 16, fontWeight: '600' }}>‹ Home</Text>
+            </Pressable>
+          ),
         }}
       />
 

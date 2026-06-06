@@ -259,7 +259,10 @@ export function useMascotAnimation(mood: Mood, enabledExternally = true): Mascot
     // crouch first (on the ground), THEN go airborne — so the air pose is clearly
     // tied to the upward stretch.
     Animated.parallel([timing(rootSY, 0.9, 150), timing(rootSX, 1.08, 150), timing(rootTY, 8, 150)]).start(({ finished }) => {
-      if (!finished) return;
+      // If the crouch was interrupted (e.g. a mood change stopped the animation),
+      // clear the flag — otherwise `celebrating` strands true and the face sticks
+      // on the celebrating pose.
+      if (!finished) { setCelebrating(false); return; }
       setBodyPose('air'); setArmPose('up');
       Animated.sequence([
         Animated.parallel([
