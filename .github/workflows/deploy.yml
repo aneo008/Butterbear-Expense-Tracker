@@ -40,9 +40,11 @@ jobs:
         run: npx expo export -p web
 
       - name: Add SPA fallback + Pages glue
-        # 404.html lets deep links (e.g. /category/[id]) resolve to the SPA;
-        # .nojekyll stops GitHub Pages from stripping the _expo/ asset folder.
+        # inject-web-head adds the apple-touch-icon + manifest tags (output:single
+        # ignores +html.tsx); 404.html lets deep links (e.g. /category/[id]) resolve
+        # to the SPA; .nojekyll stops Pages from stripping the _expo/ asset folder.
         run: |
+          node scripts/inject-web-head.mjs
           cp dist/index.html dist/404.html
           touch dist/.nojekyll
 

@@ -1,0 +1,15 @@
+{
+  "name": "Butter",
+  "short_name": "Butter",
+  "description": "A cosy, fast expense tracker.",
+  "start_url": "/Butterbear-Expense-Tracker/",
+  "scope": "/Butterbear-Expense-Tracker/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFFBF2",
+  "theme_color": "#F5C45E",
+  "icons": [
+    { "src": "/Butterbear-Expense-Tracker/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/Butterbear-Expense-Tracker/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

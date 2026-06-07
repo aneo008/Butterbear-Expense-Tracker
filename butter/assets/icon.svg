@@ -1,0 +1,33 @@
+<svg width="1024" height="1024" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Butter app icon. Composed from the in-app mascot face (src/constants/mascotLayers.ts)
+       on a buttery-yellow tile. Full-bleed square (no baked rounded corners) so iOS /
+       Android mask it cleanly. Source of truth — rasterized by scripts/gen-icons.mjs. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F8D27E"/>
+      <stop offset="1" stop-color="#F2BC4E"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.46" r="0.5">
+      <stop offset="0" stop-color="#FFF7E4" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#FFF7E4" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <circle cx="256" cy="250" r="190" fill="url(#glow)"/>
+  <g transform="translate(16,88) scale(2)">
+    <circle cx="72" cy="50" r="27" fill="#EBD2A8"/>
+    <circle cx="168" cy="50" r="27" fill="#EBD2A8"/>
+    <ellipse cx="72" cy="54" rx="13" ry="13" fill="#F7E9CF"/>
+    <ellipse cx="168" cy="54" rx="13" ry="13" fill="#F7E9CF"/>
+    <ellipse cx="120" cy="92" rx="72" ry="68" fill="#EBD2A8"/>
+    <ellipse cx="120" cy="118" rx="30" ry="23" fill="#F7E9CF"/>
+    <ellipse cx="80" cy="120" rx="13" ry="8.5" fill="#F4A6A0" opacity="0.75"/>
+    <ellipse cx="160" cy="120" rx="13" ry="8.5" fill="#F4A6A0" opacity="0.75"/>
+    <circle cx="96" cy="96" r="8" fill="#43321F"/><circle cx="144" cy="96" r="8" fill="#43321F"/>
+    <circle cx="93" cy="91" r="2.6" fill="#FFFFFF"/><circle cx="141" cy="91" r="2.6" fill="#FFFFFF"/>
+    <ellipse cx="120" cy="108" rx="6" ry="4.6" fill="#6B4A33"/>
+    <path d="M120,112 L120,117" stroke="#43321F" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <path d="M120,117 Q112,124 106,117" stroke="#43321F" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <path d="M120,117 Q128,124 134,117" stroke="#43321F" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>

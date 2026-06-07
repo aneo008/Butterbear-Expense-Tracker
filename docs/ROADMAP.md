@@ -107,7 +107,7 @@ Dress up Butter, earn coins, build streaks.
 # Roadmap (upcoming)
 
 ## Phase 4 — remaining
-- **Pass G — Polish** *(in progress)*: G1 What's-New popup ✅ shipped (`v1.4.6`); **G2 playroom & changing-room backgrounds** (next), then **G3 transitions/sfx**.
+- **Pass G — Polish** *(in progress)*: G1 What's-New popup ✅ shipped (`v1.4.6`); **G2 playroom & changing-room backgrounds** (next — designed; SVG vector scenes behind the stage, awaiting reference art from the user; also fixes Butter's legs rendering behind the changing-room podium), then **G3 transitions/sfx**.
 - **Pass F — Story panels** — narrative/onboarding panels (was the original Pass E, pushed back). *Sequenced after Pass G.*
 
 ## Phase 5 — Budget, charts & ship polish · `v1.5`
@@ -146,6 +146,11 @@ since Phase 1 but never surfaced).
 
 ## Phase 8 — Live content · `v1.8`
 - **Seasonal items** — limited-time drops with a **green "✦ Seasonal"** tag (a tag layered on top of rarity, *not* a 5th rarity tier — premium took purple, so green is free for seasonal); rotating/featured shop; first seasonal set.
+
+## Phase 9 — Home & room decor (buyable props) · `v1.9`
+- **Buyable scene decor** — extend the wardrobe/shop economy from Butter's outfits to the *rooms*: players buy props & backgrounds for the **Home screen** (and the play-room / changing-room scenes) — e.g. rugs, plants, windows, wall art, mirrors, furniture. A new shop category with its own owned/equipped state, rendered behind Butter.
+- **Foundation:** Pass G2 ships the static built-in scenes (playroom + changing-room) as a `variant`-driven `SceneBackground`; this phase makes those scenes **composable from purchasable props** (a "decor slot" model paralleling the outfit-slot system) and adds Home-screen decoration.
+- Sequencing TBD relative to Collections (7) / Live content (8); decor sets could also feed Phase 7 set-effects and Phase 8 seasonal drops.
 
 ---
 
