@@ -7,14 +7,17 @@ import { useExpenseStore } from '../src/store/useExpenseStore';
 import { STORE_ITEMS } from '../src/constants/storeItems';
 import { dailyCap, streakMultiplier } from '../src/lib/streak';
 import { todayISO, addDaysISO } from '../src/lib/date';
-import { setMeta } from '../src/db/queries';
+import { getMeta, setMeta } from '../src/db/queries';
 import { backOrHome } from '../src/lib/nav';
+import { RELEASES } from '../src/constants/changelog';
 import StreakSheet from '../src/components/StreakSheet';
 import CoinSheet from '../src/components/CoinSheet';
 import WhatsNewSheet from '../src/components/WhatsNewSheet';
 import * as Haptics from '../src/lib/haptics';
 import { colors, radius, fonts, cardShadow } from '../src/constants/theme';
-import { VERSION_LABEL } from '../src/lib/version';
+import { VERSION_LABEL, APP_VERSION } from '../src/lib/version';
+
+const WHATS_NEW_KEY = 'whatsnew_seen_version';
 
 // Developer panel — direct state mutation for testing. Reached from Settings →
 // Developer tools (unlocked by tapping the version 7×). Not part of the user flow.
@@ -66,6 +69,9 @@ export default function DevScreen() {
   const [streakOpen, setStreakOpen] = useState(false);
   const [coinOpen, setCoinOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const [previewSeen, setPreviewSeen] = useState('1.4.4');
+  const [storedSeen, setStoredSeen] = useState<string | null>(getMeta(WHATS_NEW_KEY));
+  const refreshStoredSeen = () => setStoredSeen(getMeta(WHATS_NEW_KEY));
 
   // Keep the inputs in sync with the live state (e.g. after a quick-add button).
   useEffect(() => { setCoins(String(gameState.coins)); }, [gameState.coins]);
@@ -211,10 +217,32 @@ export default function DevScreen() {
             <Btn label="Quick-log $5" onPress={quickLog} />
             <Btn label="Reset onboarding" onPress={resetFlags} />
           </View>
-          <View style={styles.row}>
-            <Btn label="Show What's New" onPress={() => setWhatsNewOpen(true)} />
-            <Btn label="Reset What's-New seen" onPress={() => setMeta('whatsnew_seen_version', '')} />
+        </Section>
+
+        {/* What's New popup */}
+        <Section title="What's New popup">
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.input}
+              autoCapitalize="none"
+              value={previewSeen}
+              onChangeText={setPreviewSeen}
+              placeholder="last-seen ver e.g. 1.4.4 (empty = backfill)"
+            />
+            <Btn label="Preview" onPress={() => setWhatsNewOpen(true)} tone="accent" />
           </View>
+          <View style={styles.row}>
+            <Btn label="Backfill (empty)" onPress={() => setPreviewSeen('')} />
+            {RELEASES.map(r => (
+              <Btn key={r.version} label={r.version} onPress={() => setPreviewSeen(r.version)} />
+            ))}
+          </View>
+          <View style={styles.row}>
+            <Btn label="Set stored = value" tone="accent" onPress={() => { setMeta(WHATS_NEW_KEY, previewSeen); refreshStoredSeen(); }} />
+            <Btn label="Reset stored (empty)" onPress={() => { setMeta(WHATS_NEW_KEY, ''); refreshStoredSeen(); }} />
+          </View>
+          <Text style={styles.note}>stored seen: {storedSeen == null ? 'null' : (storedSeen === '' ? '(empty → backfill)' : storedSeen)} · app v{APP_VERSION}</Text>
+          <Text style={styles.note}>Preview simulates the auto-popup for that last-seen version (no reload). Editing the stored value reverts on sandbox exit.</Text>
         </Section>
 
         {/* Inspector */}
@@ -244,7 +272,7 @@ export default function DevScreen() {
 
       <StreakSheet visible={streakOpen} onClose={() => setStreakOpen(false)} />
       <CoinSheet visible={coinOpen} onClose={() => setCoinOpen(false)} />
-      <WhatsNewSheet forceVisible={whatsNewOpen} onForceClose={() => setWhatsNewOpen(false)} />
+      <WhatsNewSheet forceVisible={whatsNewOpen} onForceClose={() => setWhatsNewOpen(false)} previewSeen={previewSeen} />
     </SafeAreaView>
   );
 }

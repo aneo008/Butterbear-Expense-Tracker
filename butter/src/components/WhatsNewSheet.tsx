@@ -17,9 +17,12 @@ const PHASE4_FLOOR = '1.4.0';
 
 type Props = {
   // Dev-only controlled mode: when provided, the sheet ignores its own gating and
-  // shows all releases on demand (no app_meta writes). Home mounts it uncontrolled.
+  // shows releases on demand (no app_meta writes). Home mounts it uncontrolled.
   forceVisible?: boolean;
   onForceClose?: () => void;
+  // Dev preview: simulate the user's last-seen version. '' / undefined = the
+  // one-time Phase 4 backfill; a version = normal catch-up from there.
+  previewSeen?: string;
 };
 
 const TAG_META: Record<ChangeTag, { label: string; bg: string; fg: string }> = {
@@ -30,7 +33,7 @@ const TAG_META: Record<ChangeTag, { label: string; bg: string; fg: string }> = {
 
 // Tapping the 🪙/🔥 chips, etc. don't trigger this — it fires itself on launch
 // (from Home) when the app is newer than what the user last saw.
-export default function WhatsNewSheet({ forceVisible, onForceClose }: Props) {
+export default function WhatsNewSheet({ forceVisible, onForceClose, previewSeen }: Props) {
   const controlled = forceVisible !== undefined;
 
   const [autoVisible, setAutoVisible] = useState(false);
@@ -79,9 +82,13 @@ export default function WhatsNewSheet({ forceVisible, onForceClose }: Props) {
     setAutoVisible(false);
   };
 
+  // In dev (controlled) mode, simulate the chosen last-seen version: empty = backfill.
+  const previewIsBackfill = !previewSeen;
+  const previewFloor = previewIsBackfill ? PHASE4_FLOOR : previewSeen;
+
   const visible = controlled ? !!forceVisible : autoVisible;
-  const shown = controlled ? RELEASES : releases;
-  const isBackfill = controlled ? true : backfill; // dev preview reads like a backfill
+  const shown = controlled ? releasesSince(previewFloor) : releases;
+  const isBackfill = controlled ? previewIsBackfill : backfill;
 
   if (!visible) return null;
 
@@ -92,9 +99,11 @@ export default function WhatsNewSheet({ forceVisible, onForceClose }: Props) {
           <Text style={styles.emoji}>🎉</Text>
           <Text style={styles.title}>What's new</Text>
           <Text style={styles.subtitle}>
-            {isBackfill
-              ? "Welcome back — here's everything new in Butter 🧈"
-              : 'Here’s what changed since you were last here 🧈'}
+            {shown.length === 0
+              ? "You're all caught up — nothing new 🧈"
+              : isBackfill
+                ? "Welcome back — here's everything new in Butter 🧈"
+                : 'Here’s what changed since you were last here 🧈'}
           </Text>
 
           <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollBody} showsVerticalScrollIndicator={false}>
