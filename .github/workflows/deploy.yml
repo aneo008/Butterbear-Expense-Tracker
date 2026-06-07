@@ -36,6 +36,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Embed roadmap (in-app dev reader)
+        run: node scripts/gen-roadmap.mjs
+
       - name: Export web build
         run: npx expo export -p web
 

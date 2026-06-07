@@ -21,7 +21,7 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.4.6` — Phase 4, **Pass G1 (What's-New popup) complete**; next is Pass G2 (playroom/changing-room backgrounds), then G3 (transitions/sfx).
+**Current:** `v1.4.7` — Phase 4, **Pass G1 (What's-New popup) + calculator keypad + web-restore fix complete**. Playroom/changing-room backgrounds are deferred to Phase 9 (furniture shop); G3 (transitions/sfx) optional.
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 

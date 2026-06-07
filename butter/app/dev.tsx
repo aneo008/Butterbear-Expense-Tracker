@@ -219,6 +219,14 @@ export default function DevScreen() {
           </View>
         </Section>
 
+        {/* Docs */}
+        <Section title="Docs">
+          <View style={styles.row}>
+            <Btn label="📖 View roadmap" onPress={() => router.push('/roadmap' as any)} tone="accent" />
+          </View>
+          <Text style={styles.note}>Reads docs/ROADMAP.md (embedded at build time).</Text>
+        </Section>
+
         {/* What's New popup */}
         <Section title="What's New popup">
           <View style={styles.inputRow}>
