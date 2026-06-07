@@ -34,6 +34,7 @@ export const RELEASES: Release[] = [
     date: '2026-06-07',
     items: [
       { tag: 'new', text: "What's New — a recap like this pops up after each update, so you never miss a change." },
+      { tag: 'new', text: 'Butter now has its own app icon — add it to your phone’s home screen.' },
     ],
   },
   {
