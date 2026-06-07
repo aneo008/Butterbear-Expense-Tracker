@@ -35,7 +35,7 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | 2 | Mascot, theme & animation | ✅ done |
 | 3 | Data portability (export/import) | ✅ done |
 | **4** | **Gamification (Closet, coins, streaks)** | ◑ **in progress — Passes A–E done; G next** |
-| 5 | Charts & ship polish | ⬜ planned |
+| 5 | Budget, charts & ship polish | ⬜ planned |
 | 6 | Consumables & Invest | ⬜ planned |
 | 7 | Collections (sets & set effects) | ⬜ planned |
 | 8 | Live content (seasonal) | ⬜ planned |
@@ -91,6 +91,10 @@ Dress up Butter, earn coins, build streaks.
 - 🐛 **Fixes:** mascot no longer gets stuck on the celebrating face after a mood change; dev coins quick-add accumulates; Back works after a web refresh on any pushed screen; long-press to pet no longer selects text.
 - ✨ **E5 — Coin popup:** tap the 🪙 chip for "Coins today" — a progress bar (today's earnings vs the daily limit, mint → gold), what each entry earns, and why the limit grows with your multiplier (`60 × ×mult`). Auto-opens (maxed state) when a log hits the cap.
 
+### Fixes since `v1.4.5`
+- 🐛 Number pad no longer selects the digit text when you tap quickly (web).
+- 🐛 **Dev mode:** "Earned today" is now directly editable in the dev panel (it's a stored counter, not recomputed when you change the streak); exiting the dev sandbox via the banner now leaves the dev page, and dev edits can no longer touch real data once the sandbox is off.
+
 ---
 
 # Roadmap (upcoming)
@@ -99,8 +103,32 @@ Dress up Butter, earn coins, build streaks.
 - **Pass G — Polish** *(next — priority: the **"What's New" update popup** driven by this changelog, wanted ASAP)*: also playroom & changing-room **backgrounds**, transitions, sfx.
 - **Pass F — Story panels** — narrative/onboarding panels (was the original Pass E, pushed back). *Sequenced after G's What's-New popup ships.*
 
-## Phase 5 — Charts & ship polish · `v1.5`
+## Phase 5 — Budget, charts & ship polish · `v1.5`
 - Deeper insights/charts, app icon + splash, empty-state & perf polish, store-ready pass.
+
+### Budget & income (salary + set-asides)
+Give the expense numbers context: how much came in, how much is already spoken for, and
+what's left to actually spend. Reuses the dormant `budget` table (created/seeded/backed-up
+since Phase 1 but never surfaced).
+
+- **Income** — a single monthly income/salary figure (reuse `budget.monthly_income`; add a
+  `setIncome()` query for native + web). Set in **Settings**.
+- **Set-asides** — a small new `allocations` table: `{ id, label, amount, note, kind, month }`.
+  - `kind = 'recurring'` → applies every month (e.g. tithe, giving to parents).
+  - `kind = 'oneoff'` → tagged to a single `YYYY-MM` (e.g. a big-ticket purchase you want to
+    carve out and *not* track as day-to-day expenditure).
+  - Each has a free-text **note**; full CRUD, and editable any time.
+  - Included in JSON backup/restore + snapshot (mirror the existing budget plumbing).
+- **Analysis (Insights, per selected month):** a top card showing **Income · Set aside
+  (Σ recurring + that month's one-offs) · Spendable · Spent · Remaining**, a progress bar, and
+  a **savings-rate %**.
+  - `spendable = income − recurringTotal − oneoffsForMonth`
+  - `remaining = spendable − spentThisMonth`
+  - One-offs only subtract in their tagged month, so a big-ticket item never distorts other
+    months and never appears in tracked-expenditure totals.
+- **Scope note:** deliberately *not* full income tracking (no recurring-income entries / multiple
+  sources) — that would cut against the app's <5-second logging ethos. ~6 files: schema + the two
+  query files + backup + Settings + Insights.
 
 ## Phase 6 — Consumables & Invest · `v1.6`
 - **6a Consumables** — streak-freeze, double-coin day (cap-bypass / streak-protection coin sinks).

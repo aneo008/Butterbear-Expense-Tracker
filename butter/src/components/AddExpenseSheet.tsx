@@ -306,7 +306,7 @@ export default function AddExpenseSheet() {
             onPress={() => handleKey(k)}
             style={({ pressed }) => [styles.key, pressed && styles.keyPressed]}
           >
-            <Text style={styles.keyText}>{k}</Text>
+            <Text selectable={false} style={styles.keyText}>{k}</Text>
           </Pressable>
         ))}
       </View>
@@ -369,8 +369,8 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     gap: 8,
   },
-  currency: { fontSize: 22, color: '#9C8772', marginBottom: 8 },
-  amount: { fontSize: 64, fontWeight: '700', color: '#5A4632', letterSpacing: -1 },
+  currency: { fontSize: 22, color: '#9C8772', marginBottom: 8, userSelect: 'none' },
+  amount: { fontSize: 64, fontWeight: '700', color: '#5A4632', letterSpacing: -1, userSelect: 'none' },
 
   categoryScroll: { flexGrow: 0 },
   categoryContent: {
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   keyPressed: { backgroundColor: '#E3C49A44' },
-  keyText: { fontSize: 24, fontWeight: '500', color: '#5A4632' },
+  keyText: { fontSize: 24, fontWeight: '500', color: '#5A4632', userSelect: 'none' },
 
   deleteBtn: {
     alignItems: 'center',

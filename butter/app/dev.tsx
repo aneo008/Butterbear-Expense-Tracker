@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, Pressable, TextInput,
 } from 'react-native';
@@ -43,16 +43,25 @@ export default function DevScreen() {
   const {
     gameState, ownedItems, equippedItems, categories,
     devSetGameState, devResetAll, addExpense,
-    enterDevSandbox,
+    enterDevSandbox, devActive,
   } = useExpenseStore();
 
   // Entering the panel snapshots the real data; it's restored when you Exit via
   // the banner (or on app restart). Roaming other screens keeps the sandbox active.
   useEffect(() => { enterDevSandbox(); }, [enterDevSandbox]);
 
+  // If the sandbox is exited (e.g. via the banner) while this panel is still open,
+  // leave the screen — otherwise edits here would write to the user's real data.
+  const enteredRef = useRef(false);
+  useEffect(() => {
+    if (devActive) enteredRef.current = true;
+    else if (enteredRef.current) backOrHome(router);
+  }, [devActive, router]);
+
   const [coins, setCoins] = useState(String(gameState.coins));
   const [streak, setStreak] = useState(String(gameState.streak_count));
   const [longest, setLongest] = useState(String(gameState.longest_streak));
+  const [earned, setEarned] = useState(String(gameState.coins_earned_today));
   const [streakOpen, setStreakOpen] = useState(false);
   const [coinOpen, setCoinOpen] = useState(false);
 
@@ -60,8 +69,9 @@ export default function DevScreen() {
   useEffect(() => { setCoins(String(gameState.coins)); }, [gameState.coins]);
   useEffect(() => { setStreak(String(gameState.streak_count)); }, [gameState.streak_count]);
   useEffect(() => { setLongest(String(gameState.longest_streak)); }, [gameState.longest_streak]);
+  useEffect(() => { setEarned(String(gameState.coins_earned_today)); }, [gameState.coins_earned_today]);
 
-  const applyNum = (text: string, field: 'coins' | 'streak_count' | 'longest_streak') => {
+  const applyNum = (text: string, field: 'coins' | 'streak_count' | 'longest_streak' | 'coins_earned_today') => {
     const n = parseInt(text, 10);
     if (Number.isFinite(n)) devSetGameState({ [field]: Math.max(0, n) });
   };
@@ -164,11 +174,21 @@ export default function DevScreen() {
 
         {/* Daily cap */}
         <Section title="Daily cap">
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.input}
+              keyboardType="number-pad"
+              value={earned}
+              onChangeText={setEarned}
+              placeholder={String(gameState.coins_earned_today)}
+            />
+            <Btn label="Set" onPress={() => applyNum(earned, 'coins_earned_today')} tone="accent" />
+          </View>
           <View style={styles.row}>
             <Btn label="Reset cap (0)" onPress={() => devSetGameState({ coins_earned_today: 0 })} />
             <Btn label="Fill cap" onPress={() => devSetGameState({ coins_earned_today: dailyCap(gameState.streak_count) })} />
           </View>
-          <Text style={styles.note}>earned today: {gameState.coins_earned_today} / {dailyCap(gameState.streak_count)}</Text>
+          <Text style={styles.note}>earned today: {gameState.coins_earned_today} / {dailyCap(gameState.streak_count)} (note: not recomputed when you change streak)</Text>
         </Section>
 
         {/* Wardrobe */}

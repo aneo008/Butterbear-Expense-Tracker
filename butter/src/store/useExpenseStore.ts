@@ -205,10 +205,14 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
 
   // Dev tools
   devSetGameState: (patch) => {
+    // Safety: never mutate real data outside the sandbox (e.g. if the dev panel
+    // is still mounted after Exit reverted the sandbox).
+    if (!get().devActive) return;
     devSetGameStateQuery(patch);
     get().loadData();
   },
   devResetAll: () => {
+    if (!get().devActive) return;
     devResetAllQuery();
     get().loadData();
   },
