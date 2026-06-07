@@ -17,6 +17,15 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.4.7',
+    pass: 'Pass G',
+    title: 'Calculator keypad',
+    date: '2026-06-07',
+    items: [
+      { tag: 'new', text: 'The amount keypad is now a calculator — use +, −, ×, ÷ and = to work out a value (e.g. split a bill) before saving.' },
+    ],
+  },
+  {
     version: '1.4.6',
     pass: 'Pass G',
     title: 'Update notes',

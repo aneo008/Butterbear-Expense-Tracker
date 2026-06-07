@@ -107,7 +107,9 @@ Dress up Butter, earn coins, build streaks.
 # Roadmap (upcoming)
 
 ## Phase 4 — remaining
-- **Pass G — Polish** *(in progress)*: G1 What's-New popup ✅ shipped (`v1.4.6`); **G2 playroom & changing-room backgrounds** (next — designed; SVG vector scenes behind the stage, awaiting reference art from the user; also fixes Butter's legs rendering behind the changing-room podium), then **G3 transitions/sfx**.
+- **Pass G — Polish** *(in progress)*: G1 What's-New popup ✅ shipped (`v1.4.6`); **calculator keypad** (`v1.4.7`) ✅; **G3 transitions/sfx** optional.
+  - **Playroom / changing-room backgrounds: DEFERRED to Phase 9** (the furniture shop) — too much art effort for the ROI as standalone scenery; will be planned together with buyable decor.
+  - Minor pending bug: Butter's legs render behind the changing-room podium (small paint-order fix; do whenever the closet is next touched).
 - **Pass F — Story panels** — narrative/onboarding panels (was the original Pass E, pushed back). *Sequenced after Pass G.*
 
 ## Phase 5 — Budget, charts & ship polish · `v1.5`

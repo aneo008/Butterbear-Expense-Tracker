@@ -18,7 +18,63 @@ import { CATEGORY_ICON_CHOICES, CATEGORY_COLOR_CHOICES } from '../constants/cate
 import { todayISO } from '../lib/date';
 import DateField from './DateField';
 
-const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'];
+type Op = '+' | '−' | '×' | '÷';
+
+// Round to cents, dodging float artefacts (e.g. 0.1 + 0.2).
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+function applyOp(a: number, op: Op, b: number): number {
+  switch (op) {
+    case '+': return a + b;
+    case '−': return a - b;
+    case '×': return a * b;
+    case '÷': return b === 0 ? NaN : a / b;
+  }
+}
+
+// Clean display string: drop trailing zeros, max 2 dp.
+function fmt(n: number): string {
+  if (!isFinite(n)) return '0';
+  return Number.isInteger(n) ? String(n) : String(parseFloat(n.toFixed(2)));
+}
+
+// One keypad button. Variants tint operators / the = key; `active` highlights the
+// pending operator. Haptics live in the press handlers, so this stays presentational.
+function CalcKey({
+  label, onPress, variant = 'digit', wide = false, active = false,
+}: {
+  label: string;
+  onPress: () => void;
+  variant?: 'digit' | 'op' | 'eq' | 'clear';
+  wide?: boolean;
+  active?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.key,
+        wide && styles.keyWide,
+        variant === 'eq' && styles.keyEq,
+        active && styles.keyOpActive,
+        pressed && styles.keyPressed,
+      ]}
+    >
+      <Text
+        selectable={false}
+        style={[
+          styles.keyText,
+          variant === 'op' && styles.keyOpText,
+          variant === 'eq' && styles.keyEqText,
+          variant === 'clear' && styles.keyClearText,
+          active && styles.keyOpActiveText,
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
 
 export default function AddExpenseSheet() {
   const {
@@ -34,7 +90,12 @@ export default function AddExpenseSheet() {
 
   const isEditing = !!editingExpense;
 
-  const [amount, setAmount] = useState('0');
+  // Calculator state. `display` is the operand on screen; `acc`/`op` hold a pending
+  // left-to-right calculation; `overwrite` means the next digit starts a new operand.
+  const [display, setDisplay] = useState('0');
+  const [acc, setAcc] = useState<number | null>(null);
+  const [op, setOp] = useState<Op | null>(null);
+  const [overwrite, setOverwrite] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [date, setDate] = useState(todayISO());
@@ -49,13 +110,16 @@ export default function AddExpenseSheet() {
   useEffect(() => {
     if (!isAddSheetOpen) return;
     setCreatingCategory(false);
+    setAcc(null);
+    setOp(null);
+    setOverwrite(false);
     if (editingExpense) {
-      setAmount(String(editingExpense.amount));
+      setDisplay(String(editingExpense.amount));
       setSelectedCategory(editingExpense.category_id);
       setNote(editingExpense.note ?? '');
       setDate(editingExpense.spent_at);
     } else {
-      setAmount('0');
+      setDisplay('0');
       setSelectedCategory(null);
       setNote('');
       setDate(todayISO());
@@ -67,30 +131,75 @@ export default function AddExpenseSheet() {
     closeAddSheet();
   }, [closeAddSheet]);
 
-  const handleKey = useCallback((key: string) => {
+  const inputDigit = useCallback((d: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-    if (key === '⌫') {
-      setAmount(prev => (prev.length > 1 ? prev.slice(0, -1) : '0'));
-      return;
-    }
-
-    setAmount(prev => {
-      if (key === '.') {
-        if (prev.includes('.')) return prev;
-        return prev + '.';
-      }
-      if (prev === '0' && key !== '.') return key;
+    setDisplay(prev => {
+      if (overwrite) return d;
+      if (prev === '0') return d;
       if (prev.includes('.')) {
         const decimals = prev.split('.')[1];
-        if (decimals.length >= 2) return prev;
+        if (decimals.length >= 2) return prev; // max 2 decimals
       }
-      return prev + key;
+      if (prev.replace('.', '').length >= 9) return prev; // sanity cap
+      return prev + d;
     });
+    if (overwrite) setOverwrite(false);
+  }, [overwrite]);
+
+  const inputDot = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (overwrite) { setDisplay('0.'); setOverwrite(false); return; }
+    setDisplay(prev => (prev.includes('.') ? prev : prev + '.'));
+  }, [overwrite]);
+
+  const backspace = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (overwrite) return; // nothing typed on a fresh operand yet
+    setDisplay(prev => (prev.length > 1 ? prev.slice(0, -1) : '0'));
+  }, [overwrite]);
+
+  const clearAll = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setDisplay('0'); setAcc(null); setOp(null); setOverwrite(false);
   }, []);
 
+  const chooseOp = useCallback((next: Op) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const cur = parseFloat(display) || 0;
+    if (op !== null && acc !== null && !overwrite) {
+      // chain: collapse the pending op first (left-to-right, no precedence)
+      const res = round2(applyOp(acc, op, cur));
+      if (!isFinite(res)) { setDisplay('0'); setAcc(null); setOp(null); setOverwrite(true); return; }
+      setAcc(res);
+      setDisplay(fmt(res));
+    } else if (acc === null) {
+      setAcc(cur);
+    }
+    setOp(next);
+    setOverwrite(true);
+  }, [display, op, acc, overwrite]);
+
+  const equals = useCallback(() => {
+    if (op === null || acc === null) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const cur = parseFloat(display) || 0;
+    const res = round2(applyOp(acc, op, cur));
+    setDisplay(isFinite(res) ? fmt(res) : '0');
+    setAcc(null); setOp(null); setOverwrite(true);
+  }, [op, acc, display]);
+
+  // The value that would be saved — auto-applies a pending op (as if = were pressed).
+  const currentValue = useCallback((): number => {
+    const cur = parseFloat(display) || 0;
+    if (op !== null && acc !== null && !overwrite) {
+      const res = round2(applyOp(acc, op, cur));
+      return isFinite(res) ? res : 0;
+    }
+    return cur;
+  }, [display, op, acc, overwrite]);
+
   const handleSave = useCallback(() => {
-    const numAmount = parseFloat(amount);
+    const numAmount = currentValue();
     if (!numAmount || numAmount <= 0) return;
     const catId = selectedCategory ?? (categories[0]?.id ?? 'other');
 
@@ -112,7 +221,7 @@ export default function AddExpenseSheet() {
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     handleClose();
-  }, [amount, selectedCategory, categories, note, date, editingExpense, addExpense, editExpense, handleClose]);
+  }, [currentValue, selectedCategory, categories, note, date, editingExpense, addExpense, editExpense, handleClose]);
 
   const handleDelete = useCallback(() => {
     if (!editingExpense) return;
@@ -142,7 +251,7 @@ export default function AddExpenseSheet() {
     setNewCatColor(CATEGORY_COLOR_CHOICES[0]);
   }, [newCatName, newCatIcon, newCatColor, createCategory]);
 
-  const canSave = parseFloat(amount) > 0;
+  const canSave = currentValue() > 0;
 
   // ----- Category creator view -----
   const renderCreator = () => (
@@ -240,10 +349,15 @@ export default function AddExpenseSheet() {
         </TouchableOpacity>
       </View>
 
-      {/* Amount display */}
-      <View style={styles.amountRow}>
-        <Text style={styles.currency}>SGD</Text>
-        <Text style={styles.amount}>{amount}</Text>
+      {/* Amount display + running calculation */}
+      <View style={styles.amountWrap}>
+        <Text selectable={false} style={styles.expr}>
+          {op !== null && acc !== null ? `${fmt(acc)} ${op}` : ' '}
+        </Text>
+        <View style={styles.amountRow}>
+          <Text style={styles.currency}>SGD</Text>
+          <Text selectable={false} style={styles.amount}>{display}</Text>
+        </View>
       </View>
 
       {/* Category picker */}
@@ -298,17 +412,30 @@ export default function AddExpenseSheet() {
         returnKeyType="done"
       />
 
-      {/* Numpad */}
+      {/* Calculator keypad (4 cols; operators run left-to-right) */}
       <View style={styles.numpad}>
-        {KEYS.map(k => (
-          <Pressable
-            key={k}
-            onPress={() => handleKey(k)}
-            style={({ pressed }) => [styles.key, pressed && styles.keyPressed]}
-          >
-            <Text selectable={false} style={styles.keyText}>{k}</Text>
-          </Pressable>
-        ))}
+        <CalcKey label="7" onPress={() => inputDigit('7')} />
+        <CalcKey label="8" onPress={() => inputDigit('8')} />
+        <CalcKey label="9" onPress={() => inputDigit('9')} />
+        <CalcKey label="÷" variant="op" active={op === '÷'} onPress={() => chooseOp('÷')} />
+
+        <CalcKey label="4" onPress={() => inputDigit('4')} />
+        <CalcKey label="5" onPress={() => inputDigit('5')} />
+        <CalcKey label="6" onPress={() => inputDigit('6')} />
+        <CalcKey label="×" variant="op" active={op === '×'} onPress={() => chooseOp('×')} />
+
+        <CalcKey label="1" onPress={() => inputDigit('1')} />
+        <CalcKey label="2" onPress={() => inputDigit('2')} />
+        <CalcKey label="3" onPress={() => inputDigit('3')} />
+        <CalcKey label="−" variant="op" active={op === '−'} onPress={() => chooseOp('−')} />
+
+        <CalcKey label="." onPress={inputDot} />
+        <CalcKey label="0" onPress={() => inputDigit('0')} />
+        <CalcKey label="⌫" onPress={backspace} />
+        <CalcKey label="+" variant="op" active={op === '+'} onPress={() => chooseOp('+')} />
+
+        <CalcKey label="C" variant="clear" onPress={clearAll} />
+        <CalcKey label="=" variant="eq" wide onPress={equals} />
       </View>
 
       {/* Delete (edit mode only) */}
@@ -362,15 +489,16 @@ const styles = StyleSheet.create({
   saveText: { fontSize: 16, fontWeight: '700', color: '#5A4632' },
   saveTextDisabled: { color: '#9C8772' },
 
+  amountWrap: { alignItems: 'center', paddingTop: 14, paddingBottom: 8 },
+  expr: { fontSize: 16, color: '#9C8772', fontWeight: '600', minHeight: 20, userSelect: 'none' },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'center',
-    paddingVertical: 24,
     gap: 8,
   },
-  currency: { fontSize: 22, color: '#9C8772', marginBottom: 8, userSelect: 'none' },
-  amount: { fontSize: 64, fontWeight: '700', color: '#5A4632', letterSpacing: -1, userSelect: 'none' },
+  currency: { fontSize: 20, color: '#9C8772', marginBottom: 6, userSelect: 'none' },
+  amount: { fontSize: 52, fontWeight: '700', color: '#5A4632', letterSpacing: -1, userSelect: 'none' },
 
   categoryScroll: { flexGrow: 0 },
   categoryContent: {
@@ -434,18 +562,26 @@ const styles = StyleSheet.create({
   numpad: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    padding: 8,
+    paddingHorizontal: 8,
+    paddingBottom: 8,
     marginTop: 'auto',
   },
   key: {
-    width: '33.33%',
-    aspectRatio: 1.9,
+    width: '25%',
+    height: 54,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
   },
+  keyWide: { width: '75%' },
   keyPressed: { backgroundColor: '#E3C49A44' },
   keyText: { fontSize: 24, fontWeight: '500', color: '#5A4632', userSelect: 'none' },
+  keyOpText: { color: '#ECB13F', fontWeight: '700', fontSize: 26 },
+  keyOpActive: { backgroundColor: '#FBEFD6' },
+  keyOpActiveText: { color: '#5A4632' },
+  keyEq: { backgroundColor: '#F5C45E' },
+  keyEqText: { color: '#5A4632', fontWeight: '700' },
+  keyClearText: { color: '#9C8772' },
 
   deleteBtn: {
     alignItems: 'center',
