@@ -194,10 +194,23 @@ export default function SettingsScreen() {
 
     Alert.alert(
       'Restore backup',
-      `From "${picked.name}". Merge adds entries you don't have; Replace wipes current data and loads the backup.`,
+      `From "${picked.name}".\n\n` +
+        '• Merge — adds expense logs & categories you don’t already have. Your coins, streak and wardrobe stay unchanged.\n' +
+        '• Replace — wipes current data and restores the backup in full (coins, streak, wardrobe and all).',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Merge', onPress: () => applyRestore('merge', picked!.text) },
+        {
+          text: 'Merge',
+          onPress: () =>
+            Alert.alert(
+              'Merge — logs only',
+              'This brings in expense logs and categories only. Your coins, streak and wardrobe won’t change. Continue?',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Merge', onPress: () => applyRestore('merge', picked!.text) },
+              ]
+            ),
+        },
         {
           text: 'Replace',
           style: 'destructive',
@@ -258,7 +271,7 @@ export default function SettingsScreen() {
           <Text style={styles.actionIcon}>📥</Text>
           <View style={styles.actionMid}>
             <Text style={styles.actionTitle}>Import backup (JSON)</Text>
-            <Text style={styles.actionSub}>Merge with, or replace, your current data</Text>
+            <Text style={styles.actionSub}>Merge logs, or replace everything</Text>
           </View>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>

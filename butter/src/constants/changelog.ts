@@ -24,6 +24,7 @@ export const RELEASES: Release[] = [
     items: [
       { tag: 'new', text: 'The amount keypad is now a calculator — use +, −, ×, ÷ and = to work out a value (e.g. split a bill) before saving.' },
       { tag: 'fix', text: 'Restoring a JSON backup on the web app no longer silently fails after you pick the file.' },
+      { tag: 'change', text: 'Restore now spells out that Merge brings in expense logs only — choose Replace to restore coins, streak and wardrobe too.' },
     ],
   },
   {
