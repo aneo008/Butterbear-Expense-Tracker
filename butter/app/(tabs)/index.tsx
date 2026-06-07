@@ -15,6 +15,7 @@ import { formatDateLabel } from '../../src/lib/date';
 import { moodFromState, speechLine } from '../../src/lib/mascotMood';
 import Mascot, { MascotHandle } from '../../src/components/Mascot';
 import Coachmark from '../../src/components/Coachmark';
+import WhatsNewSheet from '../../src/components/WhatsNewSheet';
 import StreakSheet from '../../src/components/StreakSheet';
 import CoinSheet from '../../src/components/CoinSheet';
 import ConfettiBurst from '../../src/components/ConfettiBurst';
@@ -175,6 +176,7 @@ export default function HomeScreen() {
       <CoinFly playKey={coinKey} from={{ x: 200, y: 320 }} to={{ x: 250, y: 30 }} />
 
       <Coachmark />
+      <WhatsNewSheet />
       <StreakSheet visible={streakOpen} onClose={() => setStreakOpen(false)} />
       <CoinSheet visible={coinOpen} onClose={() => setCoinOpen(false)} />
 

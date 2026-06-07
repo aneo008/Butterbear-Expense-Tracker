@@ -21,7 +21,7 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.4.5` — Phase 4, **Pass E complete**; next is Pass G (What's-New popup, then backgrounds).
+**Current:** `v1.4.6` — Phase 4, **Pass G1 (What's-New popup) complete**; next is Pass G2 (playroom/changing-room backgrounds), then G3 (transitions/sfx).
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 
@@ -34,7 +34,7 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | 1 | MVP expense tracker | ✅ done |
 | 2 | Mascot, theme & animation | ✅ done |
 | 3 | Data portability (export/import) | ✅ done |
-| **4** | **Gamification (Closet, coins, streaks)** | ◑ **in progress — Passes A–E done; G next** |
+| **4** | **Gamification (Closet, coins, streaks)** | ◑ **in progress — Passes A–E + G1 done; G2/G3 next** |
 | 5 | Budget, charts & ship polish | ⬜ planned |
 | 6 | Consumables & Invest | ⬜ planned |
 | 7 | Collections (sets & set effects) | ⬜ planned |
@@ -95,13 +95,20 @@ Dress up Butter, earn coins, build streaks.
 - 🐛 Number pad no longer selects the digit text when you tap quickly (web).
 - 🐛 **Dev mode:** "Earned today" is now directly editable in the dev panel (it's a stored counter, not recomputed when you change the streak); exiting the dev sandbox via the banner now leaves the dev page, and dev edits can no longer touch real data once the sandbox is off.
 
+### Pass G — Polish · `v1.4.6` *(in progress)*
+- ✨ **G1 — "What's New" popup:** a recap pops up after every update, showing what changed since you last opened the app (stacked per-version sections with ✨ New / 🐛 Fix / 🔧 Change tags). Handles missing several updates at once. Gated off `whatsnew_seen_version` in `app_meta`, keyed to the app version; new installs are seeded silently (the coachmark covers them).
+  - In-app content lives in `src/constants/changelog.ts` (hand-authored mirror of this file — keep in sync); logic in `src/lib/changelog.ts`; UI in `src/components/WhatsNewSheet.tsx`; mounted on Home. Dev panel: "Show What's New" + "Reset What's-New seen".
+  - **⚠️ ONE-TIME Phase 4 backfill — remove at end of Phase 5:** existing pre-popup users (no `whatsnew_seen_version` yet) get a recap of all of Phase 4 (floored at `1.4.0`). Marked in `WhatsNewSheet.tsx` with a `PHASE 4 BACKFILL` comment. **Cleanup at end of Phase 5:** delete the backfill branch (null flag then falls through to silent-seed), drop the "Welcome back" intro copy, and optionally prune old 1.4.x entries from `changelog.ts`.
+- ⬜ **G2 — Backgrounds** (next): playroom & changing-room scenic backdrops.
+- ⬜ **G3 — Transitions & sfx** (optional).
+
 ---
 
 # Roadmap (upcoming)
 
 ## Phase 4 — remaining
-- **Pass G — Polish** *(next — priority: the **"What's New" update popup** driven by this changelog, wanted ASAP)*: also playroom & changing-room **backgrounds**, transitions, sfx.
-- **Pass F — Story panels** — narrative/onboarding panels (was the original Pass E, pushed back). *Sequenced after G's What's-New popup ships.*
+- **Pass G — Polish** *(in progress)*: G1 What's-New popup ✅ shipped (`v1.4.6`); **G2 playroom & changing-room backgrounds** (next), then **G3 transitions/sfx**.
+- **Pass F — Story panels** — narrative/onboarding panels (was the original Pass E, pushed back). *Sequenced after Pass G.*
 
 ## Phase 5 — Budget, charts & ship polish · `v1.5`
 - Deeper insights/charts, app icon + splash, empty-state & perf polish, store-ready pass.

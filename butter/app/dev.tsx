@@ -11,6 +11,7 @@ import { setMeta } from '../src/db/queries';
 import { backOrHome } from '../src/lib/nav';
 import StreakSheet from '../src/components/StreakSheet';
 import CoinSheet from '../src/components/CoinSheet';
+import WhatsNewSheet from '../src/components/WhatsNewSheet';
 import * as Haptics from '../src/lib/haptics';
 import { colors, radius, fonts, cardShadow } from '../src/constants/theme';
 import { VERSION_LABEL } from '../src/lib/version';
@@ -64,6 +65,7 @@ export default function DevScreen() {
   const [earned, setEarned] = useState(String(gameState.coins_earned_today));
   const [streakOpen, setStreakOpen] = useState(false);
   const [coinOpen, setCoinOpen] = useState(false);
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
 
   // Keep the inputs in sync with the live state (e.g. after a quick-add button).
   useEffect(() => { setCoins(String(gameState.coins)); }, [gameState.coins]);
@@ -209,6 +211,10 @@ export default function DevScreen() {
             <Btn label="Quick-log $5" onPress={quickLog} />
             <Btn label="Reset onboarding" onPress={resetFlags} />
           </View>
+          <View style={styles.row}>
+            <Btn label="Show What's New" onPress={() => setWhatsNewOpen(true)} />
+            <Btn label="Reset What's-New seen" onPress={() => setMeta('whatsnew_seen_version', '')} />
+          </View>
         </Section>
 
         {/* Inspector */}
@@ -238,6 +244,7 @@ export default function DevScreen() {
 
       <StreakSheet visible={streakOpen} onClose={() => setStreakOpen(false)} />
       <CoinSheet visible={coinOpen} onClose={() => setCoinOpen(false)} />
+      <WhatsNewSheet forceVisible={whatsNewOpen} onForceClose={() => setWhatsNewOpen(false)} />
     </SafeAreaView>
   );
 }
