@@ -23,6 +23,7 @@ export const RELEASES: Release[] = [
     date: '2026-06-07',
     items: [
       { tag: 'new', text: 'The amount keypad is now a calculator — use +, −, ×, ÷ and = to work out a value (e.g. split a bill) before saving.' },
+      { tag: 'fix', text: 'Restoring a JSON backup on the web app no longer silently fails after you pick the file.' },
     ],
   },
   {

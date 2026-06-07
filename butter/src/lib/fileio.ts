@@ -52,37 +52,41 @@ export function pickAndReadText(
       document.body.appendChild(input);
 
       let settled = false;
-      const finish = (value: { name: string; text: string } | null) => {
+      const cleanup = () => {
+        input.removeEventListener('change', onChange);
+        input.removeEventListener('cancel', onCancel);
+        input.remove();
+      };
+      const done = (value: { name: string; text: string } | null) => {
         if (settled) return;
         settled = true;
-        window.removeEventListener('focus', onFocus);
-        input.remove();
+        cleanup();
         resolve(value);
       };
-      const onFocus = () => setTimeout(() => finish(null), 500);
-
-      input.onchange = async () => {
-        const file = input.files && input.files[0];
-        if (!file) return finish(null);
-        try {
-          const text = await file.text();
-          if (!settled) {
-            settled = true;
-            window.removeEventListener('focus', onFocus);
-            input.remove();
-            resolve({ name: file.name, text });
-          }
-        } catch (e) {
-          if (!settled) {
-            settled = true;
-            window.removeEventListener('focus', onFocus);
-            input.remove();
-            reject(e);
-          }
-        }
+      const fail = (e: unknown) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(e);
       };
 
-      window.addEventListener('focus', onFocus);
+      // 'change' = a file was chosen. Read it with no competing timer, so a slow
+      // read of a large backup can't be clobbered (the old focus+timeout hack
+      // resolved null mid-read → "unable to upload"). 'cancel' = dialog dismissed.
+      const onChange = async () => {
+        const file = input.files && input.files[0];
+        if (!file) return done(null);
+        try {
+          const text = await file.text();
+          done({ name: file.name, text });
+        } catch (e) {
+          fail(e);
+        }
+      };
+      const onCancel = () => done(null);
+
+      input.addEventListener('change', onChange);
+      input.addEventListener('cancel', onCancel);
       input.click();
     });
   }
