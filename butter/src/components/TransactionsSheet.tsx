@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, SectionList, TouchableOpacity, Animated } from 'react-native';
 import {
   PanGestureHandler,
@@ -9,7 +9,7 @@ import {
 import * as Haptics from '../lib/haptics';
 import { useExpenseStore } from '../store/useExpenseStore';
 import { Expense, getAllExpenses } from '../db/queries';
-import { formatDateLabel, formatMonthLong } from '../lib/date';
+import { formatDateLabel, formatMonthLong, currentMonth } from '../lib/date';
 import { colors, radius, fonts, softShadow } from '../constants/theme';
 
 // Two-state "notification-shade" sheet over the Home stage. Collapsed shows a peek
@@ -47,6 +47,32 @@ export default function TransactionsSheet() {
   const openEditSheet = useExpenseStore(s => s.openEditSheet);
 
   const sections = useMemo(() => groupByMonth(getAllExpenses()), [dataVersion]);
+
+  // Collapsible months — only the current month is open by default. Headers (with
+  // subtotals) always show; collapsing a month just hides its rows (data: []).
+  const [openMonths, setOpenMonths] = useState<Set<string>>(() => new Set([currentMonth()]));
+  const didInitOpen = useRef(false);
+  useEffect(() => {
+    if (didInitOpen.current || sections.length === 0) return;
+    didInitOpen.current = true;
+    const cm = currentMonth();
+    // Fall back to the newest month if there's nothing logged this month yet.
+    setOpenMonths(new Set([sections.some(s => s.month === cm) ? cm : sections[0].month]));
+  }, [sections]);
+
+  const toggleMonth = useCallback((m: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setOpenMonths(prev => {
+      const next = new Set(prev);
+      if (next.has(m)) next.delete(m); else next.add(m);
+      return next;
+    });
+  }, []);
+
+  const displaySections = useMemo(
+    () => sections.map(s => ({ ...s, data: openMonths.has(s.month) ? s.data : [] })),
+    [sections, openMonths]
+  );
 
   const [h, setH] = useState(0);
   const [expanded, setExpanded] = useState(false);
@@ -130,16 +156,26 @@ export default function TransactionsSheet() {
             </View>
           ) : (
             <SectionList
-              sections={sections}
+              sections={displaySections}
               keyExtractor={item => item.id}
               scrollEnabled={expanded}
               stickySectionHeadersEnabled={false}
-              renderSectionHeader={({ section }) => (
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionMonth}>{formatMonthLong(section.month)}</Text>
-                  <Text style={styles.sectionTotal}>SGD {fmt(section.total)}</Text>
-                </View>
-              )}
+              renderSectionHeader={({ section }) => {
+                const open = openMonths.has(section.month);
+                return (
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => toggleMonth(section.month)}
+                    style={styles.sectionHeader}
+                  >
+                    <View style={styles.sectionHeaderLeft}>
+                      <Text style={styles.sectionChevron}>{open ? '▾' : '▸'}</Text>
+                      <Text style={styles.sectionMonth}>{formatMonthLong(section.month)}</Text>
+                    </View>
+                    <Text style={styles.sectionTotal}>SGD {fmt(section.total)}</Text>
+                  </TouchableOpacity>
+                );
+              }}
               renderItem={({ item }) => {
                 const cat = catInfo(item.category_id);
                 return (
@@ -198,6 +234,8 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: 20, paddingBottom: 24 },
 
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, paddingBottom: 8 },
+  sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionChevron: { fontFamily: fonts.bodyBold, fontSize: 12, color: colors.textSoft, width: 12 },
   sectionMonth: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.textBrown },
   sectionTotal: { fontFamily: fonts.bodyBold, fontSize: 13, color: colors.textSoft },
 
