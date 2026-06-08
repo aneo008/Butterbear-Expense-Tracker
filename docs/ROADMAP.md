@@ -24,7 +24,7 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.4.7` — Phase 4, **Pass G1 (What's-New popup) + calculator keypad + web-restore fix complete**. Playroom/changing-room backgrounds are deferred to Phase 9 (furniture shop); G3 (transitions/sfx) optional.
+**Current:** `v1.4.8` — Phase 4, **Pass G1 (What's-New popup) + calculator keypad + web-restore fix + Home/Insights polish complete**. Playroom/changing-room backgrounds are deferred to Phase 9 (furniture shop); G3 (transitions/sfx) optional.
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 
@@ -110,6 +110,10 @@ Dress up Butter, earn coins, build streaks.
 - ✨ **Calculator keypad:** the amount keypad does `+ − × ÷ =` (and `C`) — left-to-right, so you can work out a value (e.g. split a bill) before saving. Save auto-applies a pending op.
 - 🐛 **Restore fix (web):** importing a JSON backup no longer silently fails after you pick the file — the old focus-based cancel detector raced the file read and could drop the selection. Now uses the input `change`/`cancel` events (`src/lib/fileio.ts`).
 - 🔧 **Restore clarity:** the import dialog now explains Merge vs Replace, and Merge has its own confirm — Merge brings in **expense logs & categories only** (coins/streak/wardrobe unchanged); **Replace** restores everything. (No logic bug: `mergeData` intentionally skips `game_state`; `replaceAllData` already carries the full progress.) Forward note: Phase 9 furniture must live in `game_state` and be added to native `replaceAllData`'s explicit UPDATE so it restores too.
+
+#### `v1.4.8`
+- 🔧 **Home transactions sheet:** the Recent list is now a 2-state "notification-shade" panel — swipe/drag up to expand into all transactions (grouped by month, with subtotals), drag the handle down to bring Butter back. Removes the "View all" button (the `/history` route is now orphaned). Built on gesture-handler pan + built-in Animated (`src/components/TransactionsSheet.tsx`); top bar + tab bar stay pinned.
+- 🔧 **Insights month strip:** ordered latest-first (newest on the left).
 
 - ⬜ **G2 — Backgrounds:** DEFERRED to Phase 9 (furniture shop).
 - ⬜ **G3 — Transitions & sfx** (optional).

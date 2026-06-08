@@ -3,15 +3,11 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
-  TouchableOpacity,
   SafeAreaView,
   Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useExpenseStore } from '../../src/store/useExpenseStore';
-import { Expense } from '../../src/db/queries';
-import { formatDateLabel } from '../../src/lib/date';
 import { moodFromState, speechLine } from '../../src/lib/mascotMood';
 import Mascot, { MascotHandle } from '../../src/components/Mascot';
 import Coachmark from '../../src/components/Coachmark';
@@ -20,6 +16,7 @@ import StreakSheet from '../../src/components/StreakSheet';
 import CoinSheet from '../../src/components/CoinSheet';
 import ConfettiBurst from '../../src/components/ConfettiBurst';
 import CoinFly from '../../src/components/CoinFly';
+import TransactionsSheet from '../../src/components/TransactionsSheet';
 import { colors, radius, fonts, cardShadow, softShadow } from '../../src/constants/theme';
 import * as Haptics from '../../src/lib/haptics';
 
@@ -27,36 +24,8 @@ function formatCurrency(amount: number): string {
   return amount.toFixed(2);
 }
 
-function ExpenseRow({
-  item,
-  categories,
-  onEdit,
-}: {
-  item: Expense;
-  categories: { id: string; name: string; icon: string; color: string }[];
-  onEdit: (item: Expense) => void;
-}) {
-  const cat = categories.find(c => c.id === item.category_id);
-
-  return (
-    <TouchableOpacity onPress={() => onEdit(item)} activeOpacity={0.7} style={styles.row}>
-      <View style={[styles.catDot, { backgroundColor: cat?.color ?? colors.bearBody }]}>
-        <Text style={styles.catIcon}>{cat?.icon ?? '📦'}</Text>
-      </View>
-      <View style={styles.rowMid}>
-        <Text style={styles.rowCat}>{cat?.name ?? 'Other'}</Text>
-        {item.note ? <Text style={styles.rowNote}>{item.note}</Text> : null}
-      </View>
-      <View style={styles.rowRight}>
-        <Text style={styles.rowAmount}>SGD {formatCurrency(item.amount)}</Text>
-        <Text style={styles.rowDate}>{formatDateLabel(item.spent_at)}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
 export default function HomeScreen() {
-  const { expenses, todayTotal, categories, gameState, equippedItems, openAddSheet, openEditSheet, celebrationSignal, lastCelebration } = useExpenseStore();
+  const { todayTotal, gameState, equippedItems, openAddSheet, celebrationSignal, lastCelebration } = useExpenseStore();
   const router = useRouter();
 
   const mascotRef = useRef<MascotHandle>(null);
@@ -107,14 +76,9 @@ export default function HomeScreen() {
     openAddSheet();
   }, [openAddSheet]);
 
-  const handleEdit = useCallback((item: Expense) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    openEditSheet(item);
-  }, [openEditSheet]);
-
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header bar */}
+      {/* Header bar — pinned (stays visible even when the transactions sheet is up) */}
       <View style={styles.topBar}>
         <Text style={styles.appName}>Butter 🧈</Text>
         <View style={styles.statsRow}>
@@ -145,68 +109,46 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Today total */}
-      <View style={styles.totalCard}>
-        <Text style={styles.totalLabel}>Today</Text>
-        <Text style={styles.totalAmount}>
-          <Text style={styles.totalCurrency}>SGD </Text>
-          {formatCurrency(todayTotal)}
-        </Text>
-      </View>
-
-      {/* Mascot + speech bubble */}
-      <View style={styles.mascotArea}>
-        <View style={styles.bubble}>
-          <Text style={styles.bubbleText}>{line}</Text>
-          <View style={styles.bubbleTail} />
+      {/* Stage — Butter content, with the transactions sheet layered on top.
+          overflow:hidden clips the sheet's off-screen portion when collapsed. */}
+      <View style={styles.stage}>
+        {/* Today total */}
+        <View style={styles.totalCard}>
+          <Text style={styles.totalLabel}>Today</Text>
+          <Text style={styles.totalAmount}>
+            <Text style={styles.totalCurrency}>SGD </Text>
+            {formatCurrency(todayTotal)}
+          </Text>
         </View>
-        <View>
-          <Pressable onPress={handleMascotPress} accessibilityRole="button" accessibilityLabel="Add an expense">
-            <Mascot ref={mascotRef} mood={mood} size={180} equipped={equippedItems} />
-          </Pressable>
-          {/* confetti overlays the mascot, centred on it */}
-          <View pointerEvents="none" style={styles.confettiLayer}>
-            <ConfettiBurst playKey={confettiKey} size={300} />
+
+        {/* Mascot + speech bubble */}
+        <View style={styles.mascotArea}>
+          <View style={styles.bubble}>
+            <Text style={styles.bubbleText}>{line}</Text>
+            <View style={styles.bubbleTail} />
           </View>
+          <View>
+            <Pressable onPress={handleMascotPress} accessibilityRole="button" accessibilityLabel="Add an expense">
+              <Mascot ref={mascotRef} mood={mood} size={180} equipped={equippedItems} />
+            </Pressable>
+            <View pointerEvents="none" style={styles.confettiLayer}>
+              <ConfettiBurst playKey={confettiKey} size={300} />
+            </View>
+          </View>
+          {showHint && <Text style={styles.mascotHint}>Tap Butter to add an expense</Text>}
         </View>
-        {showHint && <Text style={styles.mascotHint}>Tap Butter to add an expense</Text>}
+
+        {/* Recent / all transactions — swipe up to expand, down to collapse */}
+        <TransactionsSheet />
       </View>
 
-      {/* coin-fly: from the mascot up to the coin chip in the header */}
+      {/* coin-fly: from the mascot up to the coin chip in the header (screen coords) */}
       <CoinFly playKey={coinKey} from={{ x: 200, y: 320 }} to={{ x: 250, y: 30 }} />
 
       <Coachmark />
       <WhatsNewSheet />
       <StreakSheet visible={streakOpen} onClose={() => setStreakOpen(false)} />
       <CoinSheet visible={coinOpen} onClose={() => setCoinOpen(false)} />
-
-
-      {/* Recent entries */}
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.sectionHeader}>Recent</Text>
-        {expenses.length > 0 && (
-          <TouchableOpacity onPress={() => router.push('/history')} hitSlop={8}>
-            <Text style={styles.viewAll}>View all ›</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {expenses.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>No expenses yet.</Text>
-          <Text style={styles.emptyText}>Tap Butter above to add one!</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={expenses}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => (
-            <ExpenseRow item={item} categories={categories} onEdit={handleEdit} />
-          )}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
     </SafeAreaView>
   );
 }
@@ -232,6 +174,8 @@ const styles = StyleSheet.create({
     ...softShadow,
   },
   statText: { fontSize: 15, fontFamily: fonts.bodyBold, color: colors.textBrown },
+
+  stage: { flex: 1, position: 'relative', overflow: 'hidden' },
 
   totalCard: {
     marginHorizontal: 20,
@@ -284,44 +228,4 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '45deg' }],
   },
   mascotHint: { fontSize: 13, color: colors.textSoft, fontFamily: fonts.bodyMedium, marginTop: 4 },
-
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginHorizontal: 20,
-    marginBottom: 8,
-  },
-  sectionHeader: { fontSize: 16, fontFamily: fonts.bodyBold, color: colors.textBrown },
-  viewAll: { fontSize: 14, fontFamily: fonts.bodyBold, color: colors.bearShadow },
-
-  list: { paddingHorizontal: 20, paddingBottom: 24 },
-
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.bgCard,
-    borderRadius: radius.md,
-    padding: 14,
-    marginBottom: 8,
-    gap: 12,
-    ...softShadow,
-  },
-  catDot: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  catIcon: { fontSize: 20 },
-  rowMid: { flex: 1 },
-  rowCat: { fontSize: 15, fontFamily: fonts.bodyBold, color: colors.textBrown },
-  rowNote: { fontSize: 12, color: colors.textSoft, fontFamily: fonts.body, marginTop: 2 },
-  rowRight: { alignItems: 'flex-end' },
-  rowAmount: { fontSize: 15, fontFamily: fonts.bodyBold, color: colors.textBrown },
-  rowDate: { fontSize: 12, color: colors.textSoft, fontFamily: fonts.body, marginTop: 2 },
-
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 60 },
-  emptyText: { fontSize: 15, color: colors.textSoft, fontFamily: fonts.bodyMedium, textAlign: 'center' },
 });

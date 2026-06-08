@@ -17,6 +17,16 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.4.8',
+    pass: 'Pass G',
+    title: 'Home & Insights polish',
+    date: '2026-06-08',
+    items: [
+      { tag: 'change', text: 'Home: swipe the Recent panel up to see all your transactions, swipe down to bring Butter back — the "View all" button is gone.' },
+      { tag: 'change', text: 'Insights: the month strip now starts with the latest month on the left.' },
+    ],
+  },
+  {
     version: '1.4.7',
     pass: 'Pass G',
     title: 'Calculator keypad',
