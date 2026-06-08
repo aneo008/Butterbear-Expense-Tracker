@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -33,14 +33,12 @@ export default function InsightsScreen() {
   const [months, setMonths] = useState<string[]>([currentMonth()]);
   const [breakdown, setBreakdown] = useState<CategoryBreakdownRow[]>([]);
 
-  const stripRef = useRef<ScrollView>(null);
-  const hasAutoScrolled = useRef(false);
-
   // Reload month list + breakdown on focus, when the selected month changes,
   // and when data mutates (so edits made via the modal sheet show up).
   const reload = useCallback(() => {
     const earliest = getEarliestExpenseMonth();
-    setMonths(monthRange(earliest, currentMonth()));
+    // Newest month first (leftmost); older months scroll off to the right.
+    setMonths(monthRange(earliest, currentMonth()).reverse());
     setBreakdown(getMonthBreakdown(selectedMonth));
   }, [selectedMonth, dataVersion]);
 
@@ -65,16 +63,9 @@ export default function InsightsScreen() {
       {/* Month strip */}
       <View style={styles.stripWrap}>
         <ScrollView
-          ref={stripRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.strip}
-          onContentSizeChange={() => {
-            if (!hasAutoScrolled.current) {
-              stripRef.current?.scrollToEnd({ animated: false });
-              hasAutoScrolled.current = true;
-            }
-          }}
         >
           {months.map(m => {
             const active = m === selectedMonth;
