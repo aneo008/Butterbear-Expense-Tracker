@@ -17,6 +17,15 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.4.9',
+    pass: 'Pass G',
+    title: 'Tidier transactions',
+    date: '2026-06-12',
+    items: [
+      { tag: 'change', text: 'Transactions group by month and months collapse — only the current month is open by default, so it’s easier to scan. Tap a month header to open or close it.' },
+    ],
+  },
+  {
     version: '1.4.8',
     pass: 'Pass G',
     title: 'Home & Insights polish',

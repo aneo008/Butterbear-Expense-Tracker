@@ -24,7 +24,7 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.4.8` — Phase 4, **Pass G1 (What's-New popup) + calculator keypad + web-restore fix + Home/Insights polish complete**. Playroom/changing-room backgrounds are deferred to Phase 9 (furniture shop); G3 (transitions/sfx) optional.
+**Current:** `v1.4.9` — Phase 4, **Pass G1 (What's-New popup) + calculator keypad + web-restore fix + Home/Insights polish + collapsible-month transactions complete**. Playroom/changing-room backgrounds deferred to Phase 9 (furniture shop); G3 (transitions/sfx) optional. Two gesture features (swipe-down-to-collapse the transactions sheet; swipe between months in Insights) are **deferred to the native build** — see Phase 4 remaining.
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 
@@ -115,6 +115,9 @@ Dress up Butter, earn coins, build streaks.
 - 🔧 **Home transactions sheet:** the Recent list is now a 2-state "notification-shade" panel — swipe/drag up to expand into all transactions (grouped by month, with subtotals), drag the handle down to bring Butter back. Removes the "View all" button (the `/history` route is now orphaned). Built on gesture-handler pan + built-in Animated (`src/components/TransactionsSheet.tsx`); top bar + tab bar stay pinned.
 - 🔧 **Insights month strip:** ordered latest-first (newest on the left).
 
+#### `v1.4.9`
+- 🔧 **Collapsible months in transactions:** the transactions list groups by month with collapsible sections — only the current month is open by default (subtotals stay visible when collapsed); tap a month header to toggle.
+
 - ⬜ **G2 — Backgrounds:** DEFERRED to Phase 9 (furniture shop).
 - ⬜ **G3 — Transitions & sfx** (optional).
 
@@ -126,6 +129,7 @@ Dress up Butter, earn coins, build streaks.
 - **Pass G — Polish** *(in progress)*: G1 What's-New popup ✅ shipped (`v1.4.6`); **calculator keypad** (`v1.4.7`) ✅; **G3 transitions/sfx** optional.
   - **Playroom / changing-room backgrounds: DEFERRED to Phase 9** (the furniture shop) — too much art effort for the ROI as standalone scenery; will be planned together with buyable decor.
   - Minor pending bug: Butter's legs render behind the changing-room podium (small paint-order fix; do whenever the closet is next touched).
+  - **Deferred to the native (iOS/Android) build — left out of web:** (a) swipe **down** at the top of the expanded transactions sheet to collapse it; (b) swipe **left/right between months** in Insights. Both need a pan gesture nested inside a scroll view, which react-native-gesture-handler does not handle reliably on react-native-web (the pan never engages through the RN/RNGH ScrollView). Revisit when building for native, where RNGH nested gestures work. Until then: collapse via the sheet handle; change months via the Insights month chips.
 - **Pass F — Story panels** — narrative/onboarding panels (was the original Pass E, pushed back). *Sequenced after Pass G.*
 
 ## Phase 5 — Budget, charts & ship polish · `v1.5`
