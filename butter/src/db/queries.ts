@@ -332,11 +332,19 @@ export function devSetGameState(patch: DevPatch): void {
   db.runSync(`UPDATE game_state SET ${sets} WHERE id = 1`, vals as never[]);
 }
 
-/** Wipe everything to a fresh-install state (keeps the seeded categories). */
-export function devResetAll(): void {
+/** Wipe everything to a fresh-install state (keeps the seeded categories).
+ *  `preserveMetaKeys` are app_meta keys to keep — the dev sandbox's restore point
+ *  lives in app_meta, so wiping it would make Exit restore nothing and permanently
+ *  lose the user's real data. */
+export function devResetAll(preserveMetaKeys: string[] = []): void {
   const db = getDb();
   db.runSync('DELETE FROM expenses');
-  db.runSync('DELETE FROM app_meta');
+  if (preserveMetaKeys.length) {
+    const holes = preserveMetaKeys.map(() => '?').join(',');
+    db.runSync(`DELETE FROM app_meta WHERE key NOT IN (${holes})`, preserveMetaKeys);
+  } else {
+    db.runSync('DELETE FROM app_meta');
+  }
   db.runSync(
     `UPDATE game_state SET streak_count = 0, last_log_date = NULL, longest_streak = 0,
       total_entries = 0, coins = ?, coins_earned_today = 0,

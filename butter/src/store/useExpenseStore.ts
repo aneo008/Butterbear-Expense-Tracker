@@ -213,7 +213,8 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   },
   devResetAll: () => {
     if (!get().devActive) return;
-    devResetAllQuery();
+    // Preserve the sandbox restore point (in app_meta) so Exit can still revert this wipe.
+    devResetAllQuery([DEV_BACKUP_KEY]);
     get().loadData();
   },
 

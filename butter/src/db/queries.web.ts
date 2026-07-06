@@ -328,10 +328,17 @@ export function devSetGameState(patch: DevPatch): void {
   persist();
 }
 
-/** Wipe everything to a fresh-install state (keeps the seeded categories). */
-export function devResetAll(): void {
+/** Wipe everything to a fresh-install state (keeps the seeded categories).
+ *  `preserveMetaKeys` are app_meta keys to keep — the dev sandbox's restore point
+ *  lives in app_meta, so wiping it would make Exit restore nothing and permanently
+ *  lose the user's real data. */
+export function devResetAll(preserveMetaKeys: string[] = []): void {
   db.expenses = [];
-  db.app_meta = {};
+  const preserved: Record<string, string> = {};
+  for (const k of preserveMetaKeys) {
+    if (db.app_meta[k] !== undefined) preserved[k] = db.app_meta[k];
+  }
+  db.app_meta = preserved;
   db.game_state.streak_count = 0;
   db.game_state.last_log_date = null;
   db.game_state.longest_streak = 0;
