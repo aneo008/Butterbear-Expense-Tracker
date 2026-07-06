@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Modal } from 'react-native';
 import { useExpenseStore } from '../store/useExpenseStore';
-import { streakMultiplier, dailyCap, coinsForLog, DAILY_BASE_CAP } from '../lib/streak';
+import { streakMultiplier, dailyCap, coinsForLog, DAILY_BASE_CAP, effectiveStreak } from '../lib/streak';
 import { todayISO } from '../lib/date';
 import { colors, radius, fonts, cardShadow } from '../constants/theme';
 
@@ -20,7 +20,9 @@ function barColor(pct: number): string {
 
 export default function CoinSheet({ visible, onClose }: Props) {
   const { gameState } = useExpenseStore();
-  const streak = gameState.streak_count;
+  // Effective streak (0 once a day is missed) so the multiplier/cap match what the
+  // next log will actually earn — not the stale stored count.
+  const streak = effectiveStreak(gameState.streak_count, gameState.last_log_date, todayISO());
   const mult = streakMultiplier(streak);
   const cap = dailyCap(streak);
 

@@ -1,3 +1,5 @@
+import { addDaysISO } from './date';
+
 // Single source of truth for the streak economy: multiplier tiers, the daily
 // coin cap, and one-time milestone bonus chests. The reward logic (db/queries)
 // AND the popups (StreakSheet / DailyCapSheet) both import from here, so the
@@ -19,6 +21,17 @@ export const STREAK_TIERS: StreakTier[] = [
 export const BASE_PER_LOG = 5;     // coins per logged expense (before multiplier)
 export const FIRST_LOG_BONUS = 10; // extra on the first log of each day
 export const DAILY_BASE_CAP = 60;  // cap at ×1.0; scales with the multiplier
+
+// The streak the user actually has RIGHT NOW. The stored `streak_count` only resets
+// on the next log, so between a missed day and that log it is stale. This returns 0
+// once a day has been missed (last log is neither today nor yesterday) — matching
+// what the next log will really pay (×1.0, streak → 1). Use it for anything DISPLAYED;
+// the reward logic in db/queries already resets correctly on write.
+export function effectiveStreak(streakCount: number, lastLogDate: string | null, today: string): number {
+  if (!lastLogDate) return 0;
+  if (lastLogDate === today || lastLogDate === addDaysISO(today, -1)) return streakCount;
+  return 0;
+}
 
 // Current coin multiplier for a streak length.
 export function streakMultiplier(streak: number): number {

@@ -9,6 +9,8 @@ import {
 import { useRouter } from 'expo-router';
 import { useExpenseStore } from '../../src/store/useExpenseStore';
 import { moodFromState, speechLine } from '../../src/lib/mascotMood';
+import { effectiveStreak } from '../../src/lib/streak';
+import { todayISO } from '../../src/lib/date';
 import Mascot, { MascotHandle } from '../../src/components/Mascot';
 import Coachmark from '../../src/components/Coachmark';
 import WhatsNewSheet from '../../src/components/WhatsNewSheet';
@@ -36,6 +38,10 @@ export default function HomeScreen() {
   const [milestoneLine, setMilestoneLine] = useState<string | null>(null);
   const [streakOpen, setStreakOpen] = useState(false);
   const [coinOpen, setCoinOpen] = useState(false);
+
+  // Show the streak the user actually has now (0 once a day is missed), not the stale
+  // stored count that only resets on the next log.
+  const streakNow = effectiveStreak(gameState.streak_count, gameState.last_log_date, todayISO());
 
   const mood = useMemo(() => moodFromState(gameState), [gameState]);
   const baseLine = useMemo(
@@ -88,7 +94,7 @@ export default function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel="View streak"
           >
-            <Text style={styles.statText}>🔥 {gameState.streak_count}</Text>
+            <Text style={styles.statText}>🔥 {streakNow}</Text>
           </Pressable>
           <Pressable
             onPress={() => setCoinOpen(true)}

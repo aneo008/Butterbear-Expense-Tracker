@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Modal } from 'react-native';
 import { useExpenseStore } from '../store/useExpenseStore';
-import { STREAK_TIERS, streakMultiplier, nextTier, dailyCap, chestFor } from '../lib/streak';
+import { STREAK_TIERS, streakMultiplier, nextTier, dailyCap, chestFor, effectiveStreak } from '../lib/streak';
 import { todayISO } from '../lib/date';
 import { colors, radius, fonts, cardShadow } from '../constants/theme';
 
@@ -17,11 +17,14 @@ const LADDER = STREAK_TIERS.filter(t => t.days > 0);
 
 export default function StreakSheet({ visible, onClose }: Props) {
   const { gameState } = useExpenseStore();
-  const streak = gameState.streak_count;
+  const loggedToday = gameState.last_log_date === todayISO();
+  // Effective (real) streak — 0 once a day is missed. `brokenPrev` is the streak that
+  // just ended, so we can acknowledge it kindly instead of silently showing 0.
+  const streak = effectiveStreak(gameState.streak_count, gameState.last_log_date, todayISO());
+  const brokenPrev = !loggedToday && streak === 0 && gameState.streak_count > 0 ? gameState.streak_count : 0;
   const mult = streakMultiplier(streak);
   const cap = dailyCap(streak);
   const next = nextTier(streak);
-  const loggedToday = gameState.last_log_date === todayISO();
 
   // Highest tier day reached (0 if below the first tier) — that row is "current".
   const currentDays = [...STREAK_TIERS].reverse().find(t => streak >= t.days)?.days ?? 0;
@@ -48,6 +51,12 @@ export default function StreakSheet({ visible, onClose }: Props) {
               ? 'Build a streak to multiply your coins!'
               : `Every log earns ${mult}× coins · up to ${cap}/day`}
           </Text>
+
+          {brokenPrev > 0 && (
+            <Text style={styles.brokenNote}>
+              Your {brokenPrev}-day streak paused — log today to begin a new one 🧈
+            </Text>
+          )}
 
           {/* Tier ladder */}
           <View style={styles.ladder}>
@@ -137,6 +146,7 @@ const styles = StyleSheet.create({
   multText: { fontFamily: fonts.display, fontSize: 28, color: colors.textBrown },
   multLabel: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSoft, marginTop: 4 },
   subline: { fontFamily: fonts.body, fontSize: 13, color: colors.textBrown, textAlign: 'center', marginTop: 6, lineHeight: 18 },
+  brokenNote: { fontFamily: fonts.bodyMedium, fontSize: 12, color: '#C57A1E', textAlign: 'center', marginTop: 8, lineHeight: 17 },
 
   // Ladder
   ladder: { alignSelf: 'stretch', marginTop: 16, gap: 3 },
