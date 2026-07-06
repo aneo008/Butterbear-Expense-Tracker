@@ -24,7 +24,7 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.4.9` — Phase 4, **Pass G1 (What's-New popup) + calculator keypad + web-restore fix + Home/Insights polish + collapsible-month transactions complete**. Playroom/changing-room backgrounds deferred to Phase 9 (furniture shop); G3 (transitions/sfx) optional. Two gesture features (swipe-down-to-collapse the transactions sheet; swipe between months in Insights) are **deferred to the native build** — see Phase 4 remaining.
+**Current:** `v1.4.10` — Phase 4. Pass G complete (What's-New popup · calculator · web-restore fix · Home/Insights polish · collapsible-month transactions), plus a **hardening pass** from the v1.4.9 project review (streak-correctness + a dev data-loss fix; more hardening items queued). Next: finish the hardening backlog, then Pass F (story) / Phase 5 (budget). Playroom/changing-room backgrounds → the content backlog (furniture); two gestures (sheet swipe-down, Insights month swipe) deferred to the native build.
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 
@@ -38,11 +38,10 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | 2 | Mascot, theme & animation | ✅ done |
 | 3 | Data portability (export/import) | ✅ done |
 | **4** | **Gamification (Closet, coins, streaks)** | ◑ **in progress — Passes A–E + G1 + calculator done; Pass F (story) remains, G3 sfx optional** |
+| — | **Hardening & trust** (from the v1.4.9 review) | ◑ **in progress** — streak + dev data-loss fixed; storage/chests/tests queued |
 | 5 | Budget, charts & ship polish | ⬜ planned |
-| 6 | Consumables & Invest | ⬜ planned |
-| 7 | Collections (sets & set effects) | ⬜ planned |
-| 8 | Live content (seasonal) | ⬜ planned |
-| 9 | Home & room decor (buyable props) | ⬜ planned (absorbs the deferred playroom/changing-room backgrounds) |
+| 6+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
+| — | **Ship native (iOS/Android)** | ⬜ strategic priority (pull forward — unblocks gestures, haptics, reminders) |
 
 ---
 
@@ -118,6 +117,10 @@ Dress up Butter, earn coins, build streaks.
 #### `v1.4.9`
 - 🔧 **Collapsible months in transactions:** the transactions list groups by month with collapsible sections — only the current month is open by default (subtotals stay visible when collapsed); tap a month header to toggle.
 
+#### `v1.4.10` — Hardening (from the v1.4.9 project review)
+- 🐛 **Streak now tells the truth:** a broken streak used to keep showing its old count and multiplier until your next log silently reset it. Now the 🔥 chip, streak popup, coin popup and Butter's mood all reflect the *real* streak (0 once a day is missed), with a kind "your N-day streak paused — begin a new one today" note. New `effectiveStreak()` in `src/lib/streak.ts` drives all displays; the reward logic was already correct.
+- 🐛 **Data-loss fix (dev mode):** "Wipe all data & re-seed" inside the dev sandbox used to delete the sandbox's own restore point (`dev_backup` in `app_meta`), so Exit restored nothing and real expenses were lost. `devResetAll` now preserves the sandbox key.
+
 - ⬜ **G2 — Backgrounds:** DEFERRED to Phase 9 (furniture shop).
 - ⬜ **G3 — Transitions & sfx** (optional).
 
@@ -131,6 +134,22 @@ Dress up Butter, earn coins, build streaks.
   - Minor pending bug: Butter's legs render behind the changing-room podium (small paint-order fix; do whenever the closet is next touched).
   - **Deferred to the native (iOS/Android) build — left out of web:** (a) swipe **down** at the top of the expanded transactions sheet to collapse it; (b) swipe **left/right between months** in Insights. Both need a pan gesture nested inside a scroll view, which react-native-gesture-handler does not handle reliably on react-native-web (the pan never engages through the RN/RNGH ScrollView). Revisit when building for native, where RNGH nested gestures work. Until then: collapse via the sheet handle; change months via the Insights month chips.
 - **Pass F — Story panels** — narrative/onboarding panels (was the original Pass E, pushed back). *Sequenced after Pass G.*
+
+## Hardening & trust — from the v1.4.9 Fable review *(near-term; do before Pass F)*
+The retention engine had cracks in trust/durability. Triage from the review:
+- ✅ **Streak correctness** — displays now use `effectiveStreak` + a gentle broken-streak note (`v1.4.10`).
+- ✅ **Dev data-loss** — `devResetAll` preserves the sandbox restore point (`v1.4.10`).
+- ⬜ **Web storage durability** — everything lives in one `localStorage` key that Safari ITP can evict after 7 days; the quota-fail path is swallowed and the backup nudge only fires at 30 days. Quick win: `navigator.storage.persist()` at web init + a web-specific ~7-day backup nudge. Bigger: move to IndexedDB (or OPFS + SQLite-WASM) with a localStorage fallback mirror.
+- ⬜ **One-time chests are re-earnable** — `MILESTONE_CHESTS` claims aren't recorded, so cycling short streaks re-collects them. Add a `claimed_chests` field to `game_state` (+ native `replaceAllData` UPDATE list + backup).
+- ⬜ **`parseBackup` validates shape, not rows** — a malformed-but-array file can wipe real data inside native `replaceAllData`'s delete+insert. Add a per-row shape check before the destructive replace.
+- ⬜ **`app_meta` isn't in the backup format** — so dev-sandbox meta edits (e.g. the What's-New flag) actually leak on Exit; fix the code *or* correct the dev-panel/memory note that claims they revert.
+- ⬜ **Extract the duplicated log-reward transaction** — `updateGameStateAfterLog` is copy-pasted in `queries.ts` and `queries.web.ts`; pull a pure `computeLogUpdate(prev, today)` into `src/lib/` so both layers persist one source of truth (kills the drift class of bug for chests/consumables/decor). Same for the wardrobe buy/sell/equip JSON juggling.
+- ⬜ **Tests + a CI gate** — none today. The pure logic (`streak.ts`, `date.ts`, `backup.ts`, the calculator reducer, `changelog.ts` compareVersions) is ideal unit-test material; add a runner + a lint/type gate to CI.
+- ⬜ **Polish nits** — `CoinFly` uses hardcoded screen coords (measure the chip instead); `insights.tsx`/`settings.tsx` bypass the theme tokens with raw hex; a11y gaps (rarity by colour only, donut has no non-visual alt, small-text contrast); delete orphaned `app/history.tsx` + dead `App.tsx`; consider generating `constants/changelog.ts` from ROADMAP in `gen-roadmap.mjs` to kill a hand-sync surface.
+
+## Strategic priorities — from the review *(bigger bets)*
+- **Ship native (TestFlight / EAS) — pull forward from Phase 5.** The whole thesis (haptic logging, gestures, a daily companion, later reminders) only exists on a phone; the web deploy has done its job as a proving ground. This also unblocks the two deferred gestures (sheet swipe-down, Insights month swipe).
+- **Local daily reminder notification (native, gentle opt-in, streak-aware)** — the single biggest missing retention lever for a daily-habit app; currently nowhere on the roadmap.
 
 ## Phase 5 — Budget, charts & ship polish · `v1.5`
 - Deeper insights/charts, app icon + splash, empty-state & perf polish, store-ready pass.
@@ -159,21 +178,25 @@ since Phase 1 but never surfaced).
   sources) — that would cut against the app's <5-second logging ethos. ~6 files: schema + the two
   query files + backup + Settings + Insights.
 
-## Phase 6 — Consumables & Invest · `v1.6`
-- **6a Consumables** — streak-freeze, double-coin day (cap-bypass / streak-protection coin sinks).
-- **6b Invest** — put coins to work (coins-as-faucet endgame; keeps the ×3 economy meaningful).
+## Content & economy backlog — draw from, don't sequence · `v1.6+`
+Per the v1.4.9 review, phases 6–9 were four consecutive "meta-game supply" phases for a
+14-item, pre-native, pre-notification app. Keep them as a **backlog to pull from once there's
+a retained audience**, not a fixed sequence — ship whatever best serves the current player.
 
-## Phase 7 — Collections · `v1.7`
-- **Set items & set effects** — group items into themed sets; full sets grant a bonus (economy boost and/or a cosmetic mascot flourish). 7a data model → 7b effect engine → 7c set UI.
+- **Consumables** — streak-freeze, double-coin day (cap-bypass / streak-protection coin sinks).
+- **Invest → the "honey jar":** deposit coins into a jar on the Home shelf; interest drips **only on days you log** — a visible, on-theme second daily-return hook (replaces the abstract "Invest" card; keeps the ×3 economy meaningful as a coin faucet).
+- **Collections** — set items & set effects: themed sets grant a bonus (economy and/or a cosmetic flourish). Data model → effect engine → set UI.
+- **Live / seasonal content** — limited-time drops with a green **"✦ Seasonal"** tag (layered on rarity, *not* a 5th tier — premium took purple, green is free); rotating/featured shop.
+- **Home & room decor (buyable props)** — extend the shop from outfits to the *rooms* (rugs, plants, windows, wall art, furniture) with owned/equipped state rendered behind Butter. **Absorbs the deferred playroom/changing-room backgrounds:** build a `variant`-driven `SceneBackground`, then make it composable from purchasable props. **Restore requirement:** decor/furniture state must live in `game_state` AND be added to native `replaceAllData`'s explicit `UPDATE` list (web auto-spreads) so it restores.
 
-## Phase 8 — Live content · `v1.8`
-- **Seasonal items** — limited-time drops with a **green "✦ Seasonal"** tag (a tag layered on top of rarity, *not* a 5th rarity tier — premium took purple, so green is free for seasonal); rotating/featured shop; first seasonal set.
-
-## Phase 9 — Home & room decor (buyable props) · `v1.9`
-- **Buyable scene decor** — extend the wardrobe/shop economy from Butter's outfits to the *rooms*: players buy props & backgrounds for the **Home screen** (and the play-room / changing-room scenes) — e.g. rugs, plants, windows, wall art, mirrors, furniture. A new shop category with its own owned/equipped state, rendered behind Butter.
-- **Includes the deferred backgrounds:** the playroom & changing-room scenery (originally Pass G2) was deferred here because standalone static scenery was low ROI. This phase builds the scene system (a `variant`-driven `SceneBackground`) **and** makes it **composable from purchasable props** (a "decor slot" model paralleling the outfit-slot system), plus Home-screen decoration.
-- **Restore requirement:** decor/furniture state must live in `game_state` AND be added to native `replaceAllData`'s explicit `UPDATE` column list (web auto-spreads `game_state`) so it carries over on backup restore.
-- Sequencing TBD relative to Collections (7) / Live content (8); decor sets could also feed Phase 7 set-effects and Phase 8 seasonal drops.
+## Fresh ideas (from the review — unbuilt candidates for the backlog)
+- **Streak repair by backfill** — dating a *yesterday* expense the morning after a miss heals the streak (once/week); kinder than a freeze consumable, reuses the existing date picker.
+- **Category-aware mascot reactions** — Butter sips a kopi on a Drinks log, sways on Transport, hugs a box on Gifts; moves variable-reward delight *into* the logging action itself (~10 tiny SVG fragments).
+- **The monthly postcard** — a drawn month wrap-up themed by top category, exportable as an image (revives the SPEC's wrap-up; the only organic sharing loop).
+- **"The usual?"** — after a note repeats a few times, a one-tap chip (`kopi · $2.20 · Drinks`) makes the habitual ~60% of logs a 2-second action.
+- **Butter's daily request** — once you own a few items, an occasional wish that rewards equipping a matching item, so the wardrobe stays a daily touchpoint.
+- **PWA → phone handoff via QR** — the web export becomes the native-onboarding migration funnel ("your bear moves house with you").
+- **Whisper-quiet self-analytics (dev-only)** — a local `days_opened` / `days_logged` ledger charted in the dev panel, to study retention before betting on the backlog.
 
 ---
 

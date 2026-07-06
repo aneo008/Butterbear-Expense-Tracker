@@ -17,6 +17,15 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.4.10',
+    pass: 'Pass G',
+    title: 'Truthful streaks',
+    date: '2026-07-06',
+    items: [
+      { tag: 'fix', text: 'Your streak now tells the truth — if a day gets missed it reads 0 straight away (with a kind “let’s start fresh” note), instead of showing the old number until your next log quietly resets it.' },
+    ],
+  },
+  {
     version: '1.4.9',
     pass: 'Pass G',
     title: 'Tidier transactions',
