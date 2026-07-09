@@ -28,8 +28,21 @@ export type CategoryBreakdownRow = {
 };
 
 export type BudgetRow = {
+  // Phase 5: this dormant column is reused as the user's MONTHLY INCOME (the DB
+  // column keeps its legacy name `monthly_budget` to avoid a migration).
   monthly_budget: number | null;
   currency: string;
+};
+
+// Phase 5 "set-asides": fixed monthly deductions taken off income before spendable
+// (tithe, giving to parents = recurring; a big-ticket carve-out = one-off for a month).
+export type Allocation = {
+  id: string;
+  label: string;
+  amount: number;
+  note: string | null;
+  kind: 'recurring' | 'oneoff';
+  month: string | null; // 'YYYY-MM' for one-offs; null for recurring
 };
 
 export type GameStateFull = GameState & {
@@ -43,6 +56,7 @@ export type Snapshot = {
   categories: Category[];
   game_state: GameStateFull;
   budget: BudgetRow;
+  allocations: Allocation[];
 };
 
 // Dev-only: directly patch game_state fields (used by the developer panel).

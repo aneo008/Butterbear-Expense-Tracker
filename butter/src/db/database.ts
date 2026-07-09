@@ -56,6 +56,15 @@ export async function initDatabase(): Promise<void> {
       key   TEXT PRIMARY KEY,
       value TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS allocations (
+      id     TEXT PRIMARY KEY,
+      label  TEXT NOT NULL,
+      amount REAL NOT NULL,
+      note   TEXT,
+      kind   TEXT NOT NULL,
+      month  TEXT
+    );
   `);
 
   // Seed default categories if empty

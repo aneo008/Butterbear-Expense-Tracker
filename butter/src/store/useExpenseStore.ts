@@ -25,8 +25,14 @@ import {
   replaceAllData,
   getMeta,
   setMeta,
+  getIncome,
+  setIncome as setIncomeQuery,
+  getAllocations,
+  addAllocation as addAllocationQuery,
+  updateAllocation as updateAllocationQuery,
+  deleteAllocation as deleteAllocationQuery,
 } from '../db/queries';
-import { DevPatch } from '../db/types';
+import { DevPatch, Allocation } from '../db/types';
 import { serializeBackup, parseBackup } from '../lib/backup';
 
 const DEV_BACKUP_KEY = 'dev_backup';
@@ -78,6 +84,9 @@ type ExpenseStore = {
   // Phase 4: wardrobe state (separate from gameState to avoid regressions)
   ownedItems: string[];       // item IDs the user owns
   equippedItems: EquippedMap; // {slot → itemId} currently worn
+  // Phase 5: budget/income context
+  income: number | null;      // monthly income (null = not set)
+  allocations: Allocation[];  // set-asides (recurring + one-off)
   isAddSheetOpen: boolean;
   editingExpense: Expense | null;
   // Bumped on every data mutation so screens that query SQLite directly
@@ -105,6 +114,11 @@ type ExpenseStore = {
   equipItem: (itemId: string, slot: Slot) => void;
   unequipItem: (slot: Slot) => void;
   equipLook: (equipped: EquippedMap) => void;
+  // Phase 5: budget actions
+  setIncome: (value: number | null) => void;
+  addAllocation: (fields: Omit<Allocation, 'id'>) => void;
+  updateAllocation: (id: string, fields: Omit<Allocation, 'id'>) => void;
+  deleteAllocation: (id: string) => void;
   // Dev tools
   devActive: boolean; // dev sandbox in effect this session (changes revert on exit)
   devSetGameState: (patch: DevPatch) => void;
@@ -128,6 +142,8 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   },
   ownedItems: [],
   equippedItems: {},
+  income: null,
+  allocations: [],
   isAddSheetOpen: false,
   editingExpense: null,
   dataVersion: 0,
@@ -142,7 +158,9 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     const gameState = getGameState();
     const ownedItems = getOwnedItems();
     const equippedItems = getEquippedItems();
-    set({ expenses, todayTotal, categories, gameState, ownedItems, equippedItems, dataVersion: get().dataVersion + 1 });
+    const income = getIncome();
+    const allocations = getAllocations();
+    set({ expenses, todayTotal, categories, gameState, ownedItems, equippedItems, income, allocations, dataVersion: get().dataVersion + 1 });
   },
 
   addExpense: (expense) => {
@@ -200,6 +218,25 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   },
   equipLook: (equipped) => {
     equipLookQuery(equipped);
+    get().loadData();
+  },
+
+  // Phase 5: budget/income + set-asides
+  setIncome: (value) => {
+    setIncomeQuery(value);
+    get().loadData();
+  },
+  addAllocation: (fields) => {
+    const id = `alloc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    addAllocationQuery({ id, ...fields });
+    get().loadData();
+  },
+  updateAllocation: (id, fields) => {
+    updateAllocationQuery(id, fields);
+    get().loadData();
+  },
+  deleteAllocation: (id) => {
+    deleteAllocationQuery(id);
     get().loadData();
   },
 

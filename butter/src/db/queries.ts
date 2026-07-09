@@ -7,13 +7,14 @@ import {
   GameState,
   CategoryBreakdownRow,
   BudgetRow,
+  Allocation,
   GameStateFull,
   Snapshot,
   DevPatch,
 } from './types';
 import { Slot, EquippedMap } from '../constants/storeItems';
 
-export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, GameStateFull, Snapshot } from './types';
+export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, GameStateFull, Snapshot } from './types';
 
 export function insertExpense(expense: Omit<Expense, 'created_at'>): void {
   const db = getDb();
@@ -201,6 +202,51 @@ export function getBudget(): BudgetRow {
     ?? { monthly_budget: null, currency: 'SGD' };
 }
 
+// ---- Phase 5: income (reuses the budget.monthly_budget column) ----
+
+export function getIncome(): number | null {
+  return getBudget().monthly_budget;
+}
+
+export function setIncome(value: number | null): void {
+  const db = getDb();
+  db.runSync('UPDATE budget SET monthly_budget = ? WHERE id = 1', [value]);
+}
+
+// ---- Phase 5: set-asides (allocations) ----
+
+export function getAllocations(): Allocation[] {
+  const db = getDb();
+  return db.getAllSync<Allocation>(
+    'SELECT id, label, amount, note, kind, month FROM allocations ORDER BY kind DESC, label'
+  ) ?? [];
+}
+
+function insertAllocationRaw(a: Allocation): void {
+  const db = getDb();
+  db.runSync(
+    'INSERT INTO allocations (id, label, amount, note, kind, month) VALUES (?, ?, ?, ?, ?, ?)',
+    [a.id, a.label, a.amount, a.note ?? null, a.kind, a.month ?? null]
+  );
+}
+
+export function addAllocation(a: Allocation): void {
+  insertAllocationRaw(a);
+}
+
+export function updateAllocation(id: string, fields: Omit<Allocation, 'id'>): void {
+  const db = getDb();
+  db.runSync(
+    'UPDATE allocations SET label = ?, amount = ?, note = ?, kind = ?, month = ? WHERE id = ?',
+    [fields.label, fields.amount, fields.note ?? null, fields.kind, fields.month ?? null, id]
+  );
+}
+
+export function deleteAllocation(id: string): void {
+  const db = getDb();
+  db.runSync('DELETE FROM allocations WHERE id = ?', [id]);
+}
+
 /** Full game_state row (all columns) for backups. */
 export function getGameStateFull(): GameStateFull {
   const db = getDb();
@@ -224,6 +270,7 @@ export function getSnapshot(): Snapshot {
     categories: getAllCategories(),
     game_state: getGameStateFull(),
     budget: getBudget(),
+    allocations: getAllocations(),
   };
 }
 
@@ -273,12 +320,17 @@ export function replaceAllData(snap: Snapshot): void {
         snap.budget.currency ?? 'SGD',
       ]);
     }
+
+    // Set-asides: native must handle its own table explicitly (web auto-spreads the
+    // snapshot). Wipe + reload so a Replace fully restores them.
+    db.runSync('DELETE FROM allocations');
+    for (const a of snap.allocations ?? []) insertAllocationRaw(a);
   });
 }
 
 /**
  * Merge restore: add expenses + categories from the backup that don't already
- * exist (matched by id). Leaves game_state and budget untouched.
+ * exist (matched by id). Leaves game_state, budget and allocations untouched.
  * Returns how many new rows were added.
  */
 export function mergeData(snap: Snapshot): { categoriesAdded: number; expensesAdded: number } {

@@ -159,6 +159,11 @@ Give the expense numbers context: how much came in, how much is already spoken f
 what's left to actually spend. Reuses the dormant `budget` table (created/seeded/backed-up
 since Phase 1 but never surfaced).
 
+*Build slices: **5a data layer ✅** (income reuses `budget.monthly_budget`; new `allocations`
+table + CRUD, mirrored native/web; snapshot/backup/restore incl. native `replaceAllData` explicit
+handling; Merge leaves income+allocations untouched; store `income`/`allocations` + actions —
+verified via backup round-trip on web) · 5b Settings UI ⬜ · 5c Insights analysis card ⬜.*
+
 - **Income** — a single monthly income/salary figure (reuse `budget.monthly_income`; add a
   `setIncome()` query for native + web). Set in **Settings**.
 - **Set-asides** — a small new `allocations` table: `{ id, label, amount, note, kind, month }`.

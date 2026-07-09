@@ -196,8 +196,8 @@ export default function SettingsScreen() {
     Alert.alert(
       'Restore backup',
       `From "${picked.name}".\n\n` +
-        '• Merge — adds expense logs & categories you don’t already have. Your coins, streak and wardrobe stay unchanged.\n' +
-        '• Replace — wipes current data and restores the backup in full (coins, streak, wardrobe and all).',
+        '• Merge — adds expense logs & categories you don’t already have. Your coins, streak, wardrobe and budget stay unchanged.\n' +
+        '• Replace — wipes current data and restores the backup in full (coins, streak, wardrobe, budget & set-asides and all).',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -205,7 +205,7 @@ export default function SettingsScreen() {
           onPress: () =>
             Alert.alert(
               'Merge — logs only',
-              'This brings in expense logs and categories only. Your coins, streak and wardrobe won’t change. Continue?',
+              'This brings in expense logs and categories only. Your coins, streak, wardrobe and budget won’t change. Continue?',
               [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Merge', onPress: () => applyRestore('merge', picked!.text) },

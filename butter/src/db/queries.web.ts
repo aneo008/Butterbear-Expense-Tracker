@@ -9,13 +9,14 @@ import {
   GameState,
   CategoryBreakdownRow,
   BudgetRow,
+  Allocation,
   GameStateFull,
   Snapshot,
   DevPatch,
 } from './types';
 import { Slot, EquippedMap } from '../constants/storeItems';
 
-export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, GameStateFull, Snapshot } from './types';
+export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, GameStateFull, Snapshot } from './types';
 
 const STORAGE_KEY = 'butter.db.v1';
 
@@ -24,6 +25,7 @@ type DB = {
   categories: Category[];
   game_state: GameStateFull;
   budget: BudgetRow;
+  allocations: Allocation[];
   app_meta: Record<string, string>;
 };
 
@@ -47,6 +49,7 @@ function freshDB(): DB {
     categories: DEFAULT_CATEGORIES.map(c => ({ ...c })),
     game_state: defaultGameState(),
     budget: { monthly_budget: null, currency: 'SGD' },
+    allocations: [],
     app_meta: {},
   };
 }
@@ -87,6 +90,7 @@ export function initWebStore(): void {
         : DEFAULT_CATEGORIES.map(c => ({ ...c })),
       game_state: { ...defaultGameState(), ...(parsed.game_state ?? {}) },
       budget: parsed.budget ?? { monthly_budget: null, currency: 'SGD' },
+      allocations: parsed.allocations ?? [],
       app_meta: parsed.app_meta ?? {},
     };
   } catch {
@@ -261,6 +265,41 @@ export function getBudget(): BudgetRow {
   return { ...db.budget };
 }
 
+// ---- Phase 5: income (reuses budget.monthly_budget) ----
+
+export function getIncome(): number | null {
+  return db.budget.monthly_budget;
+}
+
+export function setIncome(value: number | null): void {
+  db.budget.monthly_budget = value;
+  persist();
+}
+
+// ---- Phase 5: set-asides (allocations) ----
+
+export function getAllocations(): Allocation[] {
+  return clone(db.allocations);
+}
+
+export function addAllocation(a: Allocation): void {
+  db.allocations.push({ ...a, note: a.note ?? null, month: a.month ?? null });
+  persist();
+}
+
+export function updateAllocation(id: string, fields: Omit<Allocation, 'id'>): void {
+  const i = db.allocations.findIndex(a => a.id === id);
+  if (i >= 0) {
+    db.allocations[i] = { id, ...fields, note: fields.note ?? null, month: fields.month ?? null };
+    persist();
+  }
+}
+
+export function deleteAllocation(id: string): void {
+  db.allocations = db.allocations.filter(a => a.id !== id);
+  persist();
+}
+
 export function getGameStateFull(): GameStateFull {
   return { ...db.game_state };
 }
@@ -271,6 +310,7 @@ export function getSnapshot(): Snapshot {
     categories: getAllCategories(),
     game_state: getGameStateFull(),
     budget: getBudget(),
+    allocations: getAllocations(),
   };
 }
 
@@ -281,6 +321,7 @@ export function replaceAllData(snap: Snapshot): void {
     : DEFAULT_CATEGORIES.map(c => ({ ...c }));
   db.game_state = { ...defaultGameState(), ...(snap.game_state ?? {}) };
   db.budget = snap.budget ?? { monthly_budget: null, currency: 'SGD' };
+  db.allocations = clone(snap.allocations ?? []);
   persist();
 }
 
