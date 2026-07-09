@@ -139,7 +139,7 @@ Dress up Butter, earn coins, build streaks.
 The retention engine had cracks in trust/durability. Triage from the review:
 - ✅ **Streak correctness** — displays now use `effectiveStreak` + a gentle broken-streak note (`v1.4.10`).
 - ✅ **Dev data-loss** — `devResetAll` preserves the sandbox restore point (`v1.4.10`).
-- ⬜ **Web storage durability** — everything lives in one `localStorage` key that Safari ITP can evict after 7 days; the quota-fail path is swallowed and the backup nudge only fires at 30 days. Quick win: `navigator.storage.persist()` at web init + a web-specific ~7-day backup nudge. Bigger: move to IndexedDB (or OPFS + SQLite-WASM) with a localStorage fallback mirror.
+- ◑ **Web storage durability** — ✅ quick win done: `navigator.storage.persist()` at web init (`database.web.ts`, best-effort) + a web-specific **7-day** backup nudge with the reason spelled out (`settings.tsx`). ⬜ still: move off the single `localStorage` key to **IndexedDB** (or OPFS + SQLite-WASM) with a localStorage fallback mirror, to remove the eviction/quota cliff entirely.
 - ⬜ **One-time chests are re-earnable** — `MILESTONE_CHESTS` claims aren't recorded, so cycling short streaks re-collects them. Add a `claimed_chests` field to `game_state` (+ native `replaceAllData` UPDATE list + backup).
 - ⬜ **`parseBackup` validates shape, not rows** — a malformed-but-array file can wipe real data inside native `replaceAllData`'s delete+insert. Add a per-row shape check before the destructive replace.
 - ⬜ **`app_meta` isn't in the backup format** — so dev-sandbox meta edits (e.g. the What's-New flag) actually leak on Exit; fix the code *or* correct the dev-panel/memory note that claims they revert.

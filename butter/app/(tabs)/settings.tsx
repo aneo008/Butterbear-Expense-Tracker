@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Pressable,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { VERSION_LABEL } from '../../src/lib/version';
@@ -224,8 +225,11 @@ export default function SettingsScreen() {
     );
   }, [busy, applyRestore]);
 
+  // Nudge sooner on web: browser storage (localStorage) can be evicted after ~7 days
+  // of non-use, so remind before that horizon rather than the native 30-day cadence.
+  const BACKUP_STALE_DAYS = Platform.OS === 'web' ? 7 : 30;
   const stale = daysSince(lastBackup);
-  const showNudge = stale === null || stale >= 30;
+  const showNudge = stale === null || stale >= BACKUP_STALE_DAYS;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -242,7 +246,11 @@ export default function SettingsScreen() {
           <Text style={styles.cardLabel}>Last backup</Text>
           <Text style={styles.cardValue}>{formatBackupTime(lastBackup)}</Text>
           {showNudge && (
-            <Text style={styles.nudge}>It's a good time to back up your data 🧈</Text>
+            <Text style={styles.nudge}>
+              {Platform.OS === 'web'
+                ? 'Back up your data — a browser can clear it if you don’t visit for a while 🧈'
+                : "It's a good time to back up your data 🧈"}
+            </Text>
           )}
         </View>
 
