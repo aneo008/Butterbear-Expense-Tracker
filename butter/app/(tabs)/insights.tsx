@@ -17,6 +17,7 @@ import {
 import { currentMonth, monthRange, formatMonthShort, formatMonthLong } from '../../src/lib/date';
 import { dedupeColors } from '../../src/lib/colors';
 import CategoryDonut, { DonutSegment } from '../../src/components/CategoryDonut';
+import { budgetSummary } from '../../src/lib/allocationMath';
 
 function formatCurrency(amount: number): string {
   return amount.toFixed(2);
@@ -27,6 +28,8 @@ const FALLBACK_CAT = { name: 'Other', icon: '📦', color: '#9C8772' };
 export default function InsightsScreen() {
   const categories = useExpenseStore(s => s.categories);
   const dataVersion = useExpenseStore(s => s.dataVersion);
+  const income = useExpenseStore(s => s.income);
+  const allocations = useExpenseStore(s => s.allocations);
   const router = useRouter();
 
   const [selectedMonth, setSelectedMonth] = useState(currentMonth());
@@ -85,6 +88,71 @@ export default function InsightsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        {/* Budget analysis (Phase 5c) — income vs set-asides vs spending for the month */}
+        {income === null ? (
+          <TouchableOpacity
+            style={styles.budgetEmpty}
+            activeOpacity={0.7}
+            onPress={() => router.push('/money' as any)}
+          >
+            <Text selectable={false} style={styles.budgetEmptyText}>
+              💰 Set your income to unlock budget insights ›
+            </Text>
+          </TouchableOpacity>
+        ) : (() => {
+          const s = budgetSummary(income, allocations, selectedMonth, total);
+          const pct = s.spendable > 0 ? Math.min(1, s.spent / s.spendable) : (s.spent > 0 ? 1 : 0);
+          const over = s.remaining < 0;
+          return (
+            <TouchableOpacity
+              style={styles.budgetCard}
+              activeOpacity={0.7}
+              onPress={() => router.push('/money' as any)}
+            >
+              <View style={styles.budgetTopRow}>
+                <View style={styles.budgetCell}>
+                  <Text selectable={false} style={styles.budgetCellLabel}>Income</Text>
+                  <Text selectable={false} style={styles.budgetCellValue}>{formatCurrency(s.income)}</Text>
+                </View>
+                <View style={styles.budgetCell}>
+                  <Text selectable={false} style={styles.budgetCellLabel}>Set aside</Text>
+                  <Text selectable={false} style={styles.budgetCellValue}>{formatCurrency(s.setAside)}</Text>
+                </View>
+                <View style={styles.budgetCell}>
+                  <Text selectable={false} style={styles.budgetCellLabel}>Spendable</Text>
+                  <Text selectable={false} style={styles.budgetCellValue}>{formatCurrency(s.spendable)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${pct * 100}%` },
+                    over && styles.progressOver,
+                  ]}
+                />
+              </View>
+
+              <View style={styles.budgetBottomRow}>
+                <Text selectable={false} style={styles.budgetSpent}>
+                  Spent {formatCurrency(s.spent)}
+                </Text>
+                <Text selectable={false} style={[styles.budgetRemaining, over && styles.budgetOverText]}>
+                  {over
+                    ? `Over by ${formatCurrency(-s.remaining)}`
+                    : `Remaining ${formatCurrency(s.remaining)}`}
+                </Text>
+              </View>
+              {!over && s.income > 0 && (
+                <Text selectable={false} style={styles.savingsRate}>
+                  On track to save {(s.savingsRate * 100).toFixed(0)}% of income 🧈
+                </Text>
+              )}
+            </TouchableOpacity>
+          );
+        })()}
+
         {/* Donut */}
         <View style={styles.donutCard}>
           <Text style={styles.monthLabel}>{formatMonthLong(selectedMonth)}</Text>
@@ -164,6 +232,50 @@ const styles = StyleSheet.create({
   monthChipTextActive: { fontWeight: '800' },
 
   body: { paddingBottom: 32 },
+
+  // Budget analysis card (Phase 5c)
+  budgetCard: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 18,
+    shadowColor: '#C9A06E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  budgetEmpty: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E3C49A',
+    borderStyle: 'dashed',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  budgetEmptyText: { fontSize: 13, color: '#9C8772', fontWeight: '600' },
+  budgetTopRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  budgetCell: { flex: 1, alignItems: 'center' },
+  budgetCellLabel: { fontSize: 11, color: '#9C8772', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  budgetCellValue: { fontSize: 16, color: '#5A4632', fontWeight: '800', marginTop: 2 },
+  progressTrack: {
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#F3EAD8',
+    marginTop: 14,
+    overflow: 'hidden',
+  },
+  progressFill: { height: '100%', borderRadius: 5, backgroundColor: '#F5C45E' },
+  progressOver: { backgroundColor: '#E8837C' },
+  budgetBottomRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  budgetSpent: { fontSize: 13, color: '#5A4632', fontWeight: '600' },
+  budgetRemaining: { fontSize: 13, color: '#3C8C4C', fontWeight: '700' },
+  budgetOverText: { color: '#C0392B' },
+  savingsRate: { fontSize: 12, color: '#9C8772', marginTop: 8, textAlign: 'center', fontWeight: '500' },
 
   donutCard: {
     margin: 20,

@@ -254,6 +254,17 @@ export default function SettingsScreen() {
           )}
         </View>
 
+        {/* Money (Phase 5: income, set-asides & recurring payments) */}
+        <Text style={styles.sectionHeader}>Money</Text>
+        <TouchableOpacity style={styles.action} onPress={() => router.push('/money' as any)}>
+          <Text style={styles.actionIcon}>💰</Text>
+          <View style={styles.actionMid}>
+            <Text style={styles.actionTitle}>Income & recurring payments</Text>
+            <Text style={styles.actionSub}>Salary, set-asides, due dates & groups</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+
         {/* Export */}
         <Text style={styles.sectionHeader}>Back up & export</Text>
         <TouchableOpacity style={styles.action} onPress={exportBackup} disabled={busy}>
