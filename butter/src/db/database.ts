@@ -65,7 +65,25 @@ export async function initDatabase(): Promise<void> {
       kind   TEXT NOT NULL,
       month  TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS allocation_groups (
+      id         TEXT PRIMARY KEY,
+      name       TEXT NOT NULL,
+      icon       TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0
+    );
   `);
+
+  // Phase 5b additive columns on allocations (recurring-payment fields). The table
+  // already exists on 5a installs, so CREATE TABLE IF NOT EXISTS can't add them —
+  // ALTER each one and swallow the "duplicate column" error on later launches.
+  for (const col of ['group_id TEXT', 'cycle TEXT', 'due_day INTEGER', 'due_month INTEGER']) {
+    try {
+      database.execSync(`ALTER TABLE allocations ADD COLUMN ${col};`);
+    } catch {
+      // Column already exists — expected on every launch after the first.
+    }
+  }
 
   // Seed default categories if empty
   const count = database.getFirstSync<{ c: number }>('SELECT COUNT(*) as c FROM categories');

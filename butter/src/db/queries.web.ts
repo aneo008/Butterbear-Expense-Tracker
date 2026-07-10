@@ -10,13 +10,14 @@ import {
   CategoryBreakdownRow,
   BudgetRow,
   Allocation,
+  AllocationGroup,
   GameStateFull,
   Snapshot,
   DevPatch,
 } from './types';
 import { Slot, EquippedMap } from '../constants/storeItems';
 
-export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, GameStateFull, Snapshot } from './types';
+export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, AllocationGroup, GameStateFull, Snapshot } from './types';
 
 const STORAGE_KEY = 'butter.db.v1';
 
@@ -26,6 +27,7 @@ type DB = {
   game_state: GameStateFull;
   budget: BudgetRow;
   allocations: Allocation[];
+  allocation_groups: AllocationGroup[];
   app_meta: Record<string, string>;
 };
 
@@ -50,6 +52,7 @@ function freshDB(): DB {
     game_state: defaultGameState(),
     budget: { monthly_budget: null, currency: 'SGD' },
     allocations: [],
+    allocation_groups: [],
     app_meta: {},
   };
 }
@@ -90,7 +93,8 @@ export function initWebStore(): void {
         : DEFAULT_CATEGORIES.map(c => ({ ...c })),
       game_state: { ...defaultGameState(), ...(parsed.game_state ?? {}) },
       budget: parsed.budget ?? { monthly_budget: null, currency: 'SGD' },
-      allocations: parsed.allocations ?? [],
+      allocations: (parsed.allocations ?? []).map(normalizeAllocation),
+      allocation_groups: parsed.allocation_groups ?? [],
       app_meta: parsed.app_meta ?? {},
     };
   } catch {
@@ -278,25 +282,73 @@ export function setIncome(value: number | null): void {
 
 // ---- Phase 5: set-asides (allocations) ----
 
+/** Default the Phase-5b recurring-payment fields (5a rows / old backups lack them). */
+function normalizeAllocation(a: Partial<Allocation> & Pick<Allocation, 'id' | 'label' | 'amount' | 'kind'>): Allocation {
+  return {
+    id: a.id,
+    label: a.label,
+    amount: a.amount,
+    note: a.note ?? null,
+    kind: a.kind,
+    month: a.month ?? null,
+    group_id: a.group_id ?? null,
+    cycle: a.cycle ?? null,
+    due_day: a.due_day ?? null,
+    due_month: a.due_month ?? null,
+  };
+}
+
 export function getAllocations(): Allocation[] {
   return clone(db.allocations);
 }
 
 export function addAllocation(a: Allocation): void {
-  db.allocations.push({ ...a, note: a.note ?? null, month: a.month ?? null });
+  db.allocations.push(normalizeAllocation(a));
   persist();
 }
 
 export function updateAllocation(id: string, fields: Omit<Allocation, 'id'>): void {
   const i = db.allocations.findIndex(a => a.id === id);
   if (i >= 0) {
-    db.allocations[i] = { id, ...fields, note: fields.note ?? null, month: fields.month ?? null };
+    db.allocations[i] = normalizeAllocation({ id, ...fields });
     persist();
   }
 }
 
 export function deleteAllocation(id: string): void {
   db.allocations = db.allocations.filter(a => a.id !== id);
+  persist();
+}
+
+// ---- Phase 5b: recurring-payment groups ----
+
+export function getAllocationGroups(): AllocationGroup[] {
+  return clone(
+    [...db.allocation_groups].sort(
+      (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name)
+    )
+  );
+}
+
+export function addAllocationGroup(g: AllocationGroup): void {
+  db.allocation_groups.push({ ...g, sort_order: g.sort_order ?? 0 });
+  persist();
+}
+
+export function updateAllocationGroup(id: string, fields: Omit<AllocationGroup, 'id'>): void {
+  const i = db.allocation_groups.findIndex(g => g.id === id);
+  if (i >= 0) {
+    db.allocation_groups[i] = { id, ...fields, sort_order: fields.sort_order ?? 0 };
+    persist();
+  }
+}
+
+/** Delete a group; its member payments become ungrouped (never deleted). */
+export function deleteAllocationGroup(id: string): void {
+  for (const a of db.allocations) {
+    if (a.group_id === id) a.group_id = null;
+  }
+  db.allocation_groups = db.allocation_groups.filter(g => g.id !== id);
   persist();
 }
 
@@ -311,6 +363,7 @@ export function getSnapshot(): Snapshot {
     game_state: getGameStateFull(),
     budget: getBudget(),
     allocations: getAllocations(),
+    allocation_groups: getAllocationGroups(),
   };
 }
 
@@ -321,7 +374,8 @@ export function replaceAllData(snap: Snapshot): void {
     : DEFAULT_CATEGORIES.map(c => ({ ...c }));
   db.game_state = { ...defaultGameState(), ...(snap.game_state ?? {}) };
   db.budget = snap.budget ?? { monthly_budget: null, currency: 'SGD' };
-  db.allocations = clone(snap.allocations ?? []);
+  db.allocations = (snap.allocations ?? []).map(normalizeAllocation);
+  db.allocation_groups = clone(snap.allocation_groups ?? []);
   persist();
 }
 

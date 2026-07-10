@@ -10,6 +10,7 @@ export type Backup = {
   game_state: Snapshot['game_state'];
   budget: Snapshot['budget'];
   allocations: Snapshot['allocations'];
+  allocation_groups: Snapshot['allocation_groups'];
 };
 
 /** Serialize a full app snapshot into a versioned JSON backup string. */
@@ -22,6 +23,7 @@ export function serializeBackup(snap: Snapshot): string {
     game_state: snap.game_state,
     budget: snap.budget,
     allocations: snap.allocations,
+    allocation_groups: snap.allocation_groups,
   };
   return JSON.stringify(backup, null, 2);
 }
@@ -60,5 +62,6 @@ export function parseBackup(text: string): Snapshot {
     game_state: b.game_state as Snapshot['game_state'],
     budget: (b.budget as Snapshot['budget']) ?? { monthly_budget: null, currency: 'SGD' },
     allocations: Array.isArray(b.allocations) ? b.allocations : [], // absent in pre-Phase-5 backups
+    allocation_groups: Array.isArray(b.allocation_groups) ? b.allocation_groups : [], // absent pre-5b
   };
 }

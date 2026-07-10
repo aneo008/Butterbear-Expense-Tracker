@@ -34,8 +34,12 @@ export type BudgetRow = {
   currency: string;
 };
 
-// Phase 5 "set-asides": fixed monthly deductions taken off income before spendable
+// Phase 5 "set-asides": fixed deductions taken off income before spendable
 // (tithe, giving to parents = recurring; a big-ticket carve-out = one-off for a month).
+// Phase 5b extends recurring set-asides into structured RECURRING PAYMENTS:
+// optionally grouped (insurance, subscriptions…) with a billing cycle + due date.
+export type AllocationCycle = 'monthly' | 'yearly';
+
 export type Allocation = {
   id: string;
   label: string;
@@ -43,6 +47,19 @@ export type Allocation = {
   note: string | null;
   kind: 'recurring' | 'oneoff';
   month: string | null; // 'YYYY-MM' for one-offs; null for recurring
+  // -- recurring-payment fields (all null for one-offs / plain 5a set-asides) --
+  group_id: string | null;          // → allocation_groups.id; null = ungrouped
+  cycle: AllocationCycle | null;    // recurring only; null treated as 'monthly'
+  due_day: number | null;           // 1–31, clamped to month length when computing
+  due_month: number | null;         // 1–12, yearly cycle only
+};
+
+// Phase 5b: user-defined groups for recurring payments (Insurance, Subscriptions…).
+export type AllocationGroup = {
+  id: string;
+  name: string;
+  icon: string;
+  sort_order: number;
 };
 
 export type GameStateFull = GameState & {
@@ -57,6 +74,7 @@ export type Snapshot = {
   game_state: GameStateFull;
   budget: BudgetRow;
   allocations: Allocation[];
+  allocation_groups: AllocationGroup[];
 };
 
 // Dev-only: directly patch game_state fields (used by the developer panel).

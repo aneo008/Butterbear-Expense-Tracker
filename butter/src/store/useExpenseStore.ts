@@ -31,8 +31,12 @@ import {
   addAllocation as addAllocationQuery,
   updateAllocation as updateAllocationQuery,
   deleteAllocation as deleteAllocationQuery,
+  getAllocationGroups,
+  addAllocationGroup as addAllocationGroupQuery,
+  updateAllocationGroup as updateAllocationGroupQuery,
+  deleteAllocationGroup as deleteAllocationGroupQuery,
 } from '../db/queries';
-import { DevPatch, Allocation } from '../db/types';
+import { DevPatch, Allocation, AllocationGroup } from '../db/types';
 import { serializeBackup, parseBackup } from '../lib/backup';
 
 const DEV_BACKUP_KEY = 'dev_backup';
@@ -86,7 +90,8 @@ type ExpenseStore = {
   equippedItems: EquippedMap; // {slot → itemId} currently worn
   // Phase 5: budget/income context
   income: number | null;      // monthly income (null = not set)
-  allocations: Allocation[];  // set-asides (recurring + one-off)
+  allocations: Allocation[];  // set-asides & recurring payments (recurring + one-off)
+  allocationGroups: AllocationGroup[]; // recurring-payment groups (Insurance, Subscriptions…)
   isAddSheetOpen: boolean;
   editingExpense: Expense | null;
   // Bumped on every data mutation so screens that query SQLite directly
@@ -116,9 +121,12 @@ type ExpenseStore = {
   equipLook: (equipped: EquippedMap) => void;
   // Phase 5: budget actions
   setIncome: (value: number | null) => void;
-  addAllocation: (fields: Omit<Allocation, 'id'>) => void;
+  addAllocation: (fields: Omit<Allocation, 'id'>) => string;
   updateAllocation: (id: string, fields: Omit<Allocation, 'id'>) => void;
   deleteAllocation: (id: string) => void;
+  addAllocationGroup: (fields: Omit<AllocationGroup, 'id'>) => string;
+  updateAllocationGroup: (id: string, fields: Omit<AllocationGroup, 'id'>) => void;
+  deleteAllocationGroup: (id: string) => void;
   // Dev tools
   devActive: boolean; // dev sandbox in effect this session (changes revert on exit)
   devSetGameState: (patch: DevPatch) => void;
@@ -144,6 +152,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   equippedItems: {},
   income: null,
   allocations: [],
+  allocationGroups: [],
   isAddSheetOpen: false,
   editingExpense: null,
   dataVersion: 0,
@@ -160,7 +169,8 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     const equippedItems = getEquippedItems();
     const income = getIncome();
     const allocations = getAllocations();
-    set({ expenses, todayTotal, categories, gameState, ownedItems, equippedItems, income, allocations, dataVersion: get().dataVersion + 1 });
+    const allocationGroups = getAllocationGroups();
+    set({ expenses, todayTotal, categories, gameState, ownedItems, equippedItems, income, allocations, allocationGroups, dataVersion: get().dataVersion + 1 });
   },
 
   addExpense: (expense) => {
@@ -230,6 +240,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     const id = `alloc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     addAllocationQuery({ id, ...fields });
     get().loadData();
+    return id;
   },
   updateAllocation: (id, fields) => {
     updateAllocationQuery(id, fields);
@@ -237,6 +248,20 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   },
   deleteAllocation: (id) => {
     deleteAllocationQuery(id);
+    get().loadData();
+  },
+  addAllocationGroup: (fields) => {
+    const id = `group-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    addAllocationGroupQuery({ id, ...fields });
+    get().loadData();
+    return id;
+  },
+  updateAllocationGroup: (id, fields) => {
+    updateAllocationGroupQuery(id, fields);
+    get().loadData();
+  },
+  deleteAllocationGroup: (id) => {
+    deleteAllocationGroupQuery(id);
     get().loadData();
   },
 

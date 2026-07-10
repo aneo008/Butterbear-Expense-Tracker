@@ -8,13 +8,14 @@ import {
   CategoryBreakdownRow,
   BudgetRow,
   Allocation,
+  AllocationGroup,
   GameStateFull,
   Snapshot,
   DevPatch,
 } from './types';
 import { Slot, EquippedMap } from '../constants/storeItems';
 
-export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, GameStateFull, Snapshot } from './types';
+export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, AllocationGroup, GameStateFull, Snapshot } from './types';
 
 export function insertExpense(expense: Omit<Expense, 'created_at'>): void {
   const db = getDb();
@@ -218,15 +219,20 @@ export function setIncome(value: number | null): void {
 export function getAllocations(): Allocation[] {
   const db = getDb();
   return db.getAllSync<Allocation>(
-    'SELECT id, label, amount, note, kind, month FROM allocations ORDER BY kind DESC, label'
+    `SELECT id, label, amount, note, kind, month, group_id, cycle, due_day, due_month
+     FROM allocations ORDER BY kind DESC, label`
   ) ?? [];
 }
 
 function insertAllocationRaw(a: Allocation): void {
   const db = getDb();
   db.runSync(
-    'INSERT INTO allocations (id, label, amount, note, kind, month) VALUES (?, ?, ?, ?, ?, ?)',
-    [a.id, a.label, a.amount, a.note ?? null, a.kind, a.month ?? null]
+    `INSERT INTO allocations (id, label, amount, note, kind, month, group_id, cycle, due_day, due_month)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      a.id, a.label, a.amount, a.note ?? null, a.kind, a.month ?? null,
+      a.group_id ?? null, a.cycle ?? null, a.due_day ?? null, a.due_month ?? null,
+    ]
   );
 }
 
@@ -237,14 +243,58 @@ export function addAllocation(a: Allocation): void {
 export function updateAllocation(id: string, fields: Omit<Allocation, 'id'>): void {
   const db = getDb();
   db.runSync(
-    'UPDATE allocations SET label = ?, amount = ?, note = ?, kind = ?, month = ? WHERE id = ?',
-    [fields.label, fields.amount, fields.note ?? null, fields.kind, fields.month ?? null, id]
+    `UPDATE allocations SET label = ?, amount = ?, note = ?, kind = ?, month = ?,
+       group_id = ?, cycle = ?, due_day = ?, due_month = ?
+     WHERE id = ?`,
+    [
+      fields.label, fields.amount, fields.note ?? null, fields.kind, fields.month ?? null,
+      fields.group_id ?? null, fields.cycle ?? null, fields.due_day ?? null, fields.due_month ?? null,
+      id,
+    ]
   );
 }
 
 export function deleteAllocation(id: string): void {
   const db = getDb();
   db.runSync('DELETE FROM allocations WHERE id = ?', [id]);
+}
+
+// ---- Phase 5b: recurring-payment groups ----
+
+export function getAllocationGroups(): AllocationGroup[] {
+  const db = getDb();
+  return db.getAllSync<AllocationGroup>(
+    'SELECT id, name, icon, sort_order FROM allocation_groups ORDER BY sort_order, name'
+  ) ?? [];
+}
+
+function insertAllocationGroupRaw(g: AllocationGroup): void {
+  const db = getDb();
+  db.runSync(
+    'INSERT INTO allocation_groups (id, name, icon, sort_order) VALUES (?, ?, ?, ?)',
+    [g.id, g.name, g.icon, g.sort_order ?? 0]
+  );
+}
+
+export function addAllocationGroup(g: AllocationGroup): void {
+  insertAllocationGroupRaw(g);
+}
+
+export function updateAllocationGroup(id: string, fields: Omit<AllocationGroup, 'id'>): void {
+  const db = getDb();
+  db.runSync(
+    'UPDATE allocation_groups SET name = ?, icon = ?, sort_order = ? WHERE id = ?',
+    [fields.name, fields.icon, fields.sort_order ?? 0, id]
+  );
+}
+
+/** Delete a group; its member payments become ungrouped (never deleted). */
+export function deleteAllocationGroup(id: string): void {
+  const db = getDb();
+  db.withTransactionSync(() => {
+    db.runSync('UPDATE allocations SET group_id = NULL WHERE group_id = ?', [id]);
+    db.runSync('DELETE FROM allocation_groups WHERE id = ?', [id]);
+  });
 }
 
 /** Full game_state row (all columns) for backups. */
@@ -271,6 +321,7 @@ export function getSnapshot(): Snapshot {
     game_state: getGameStateFull(),
     budget: getBudget(),
     allocations: getAllocations(),
+    allocation_groups: getAllocationGroups(),
   };
 }
 
@@ -321,10 +372,12 @@ export function replaceAllData(snap: Snapshot): void {
       ]);
     }
 
-    // Set-asides: native must handle its own table explicitly (web auto-spreads the
-    // snapshot). Wipe + reload so a Replace fully restores them.
+    // Set-asides + payment groups: native must handle its own tables explicitly
+    // (web auto-spreads the snapshot). Wipe + reload so a Replace fully restores them.
     db.runSync('DELETE FROM allocations');
     for (const a of snap.allocations ?? []) insertAllocationRaw(a);
+    db.runSync('DELETE FROM allocation_groups');
+    for (const g of snap.allocation_groups ?? []) insertAllocationGroupRaw(g);
   });
 }
 
