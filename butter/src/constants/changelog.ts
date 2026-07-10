@@ -17,6 +17,19 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.5.0',
+    pass: 'Phase 5',
+    title: 'Money — income & recurring payments',
+    date: '2026-07-11',
+    items: [
+      { tag: 'new', text: 'New Money screen (Settings → Money) — set your monthly income and everything that’s already spoken for.' },
+      { tag: 'new', text: 'Recurring payments in groups you create (Insurance, Subscriptions…) with the amount and due date — monthly (“due 15th”) or yearly (“due 3 Nov”), plus a Due-soon list.' },
+      { tag: 'new', text: 'One-off set-asides — carve a big-ticket month (new phone, a trip) out of your spending so it doesn’t distort your months.' },
+      { tag: 'new', text: 'Insights now opens with your month’s budget: Income · Set aside · Spendable, how much you’ve spent, what’s left, and your savings rate.' },
+      { tag: 'change', text: 'Yearly payments only count against the month they’re due — other months stay honest.' },
+    ],
+  },
+  {
     version: '1.4.10',
     pass: 'Pass G',
     title: 'Truthful streaks',

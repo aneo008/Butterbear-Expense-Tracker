@@ -24,7 +24,7 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.4.10` — Phase 4. Pass G complete (What's-New popup · calculator · web-restore fix · Home/Insights polish · collapsible-month transactions), plus a **hardening pass** from the v1.4.9 project review (streak-correctness + a dev data-loss fix; more hardening items queued). Next: finish the hardening backlog, then Pass F (story) / Phase 5 (budget). Playroom/changing-room backgrounds → the content backlog (furniture); two gestures (sheet swipe-down, Insights month swipe) deferred to the native build.
+**Current:** `v1.5.0` — Phase 5 (Budget & Money) shipped its core: income + set-asides + **structured recurring payments** (groups · due dates · monthly/yearly cycles) on a new **Money screen**, and the **Insights budget card** (Income · Set aside · Spendable · Spent · Remaining + savings rate). Remaining in Phase 5: charts depth + ship polish. Also queued: the hardening backlog, Pass F (story). Playroom/changing-room backgrounds → the content backlog (furniture); two gestures (sheet swipe-down, Insights month swipe) deferred to the native build.
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 
@@ -39,7 +39,7 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | 3 | Data portability (export/import) | ✅ done |
 | **4** | **Gamification (Closet, coins, streaks)** | ◑ **in progress — Passes A–E + G1 + calculator done; Pass F (story) remains, G3 sfx optional** |
 | — | **Hardening & trust** (from the v1.4.9 review) | ◑ **in progress** — streak + dev data-loss fixed; storage/chests/tests queued |
-| 5 | Budget, charts & ship polish | ⬜ planned |
+| **5** | **Budget, charts & ship polish** | ◑ **in progress — budget & Money screen shipped (`v1.5.0`); charts + ship polish remain** |
 | 6+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
 | — | **Ship native (iOS/Android)** | ⬜ strategic priority (pull forward — unblocks gestures, haptics, reminders) |
 
@@ -124,6 +124,32 @@ Dress up Butter, earn coins, build streaks.
 - ⬜ **G2 — Backgrounds:** DEFERRED to Phase 9 (furniture shop).
 - ⬜ **G3 — Transitions & sfx** (optional).
 
+## Phase 5 — Budget & Money · `v1.5` *(in progress)*
+Give the expense numbers context: how much came in, how much is already spoken for, and
+what's left to actually spend.
+
+### `v1.5.0` — Money screen: income, set-asides & recurring payments
+- ✨ **Money screen** (Settings → Money, or tap the Insights budget card): monthly income
+  (inline edit) + everything already spoken for, in one place.
+- ✨ **Structured recurring payments:** user-created **groups** (Insurance, Subscriptions,
+  Credit-card fees…) with an icon; each payment has an amount, a **billing cycle**
+  (monthly / yearly) and a **due date** — "due 15th" or "due 3 Nov" — plus an optional note.
+  A **Due soon** list shows the next payments across all groups. Groups can be renamed or
+  deleted (payments survive, just ungrouped); new groups can be created inline while adding
+  a payment.
+- ✨ **One-off set-asides:** tag a big-ticket amount to a single month (new phone, a trip) so
+  it never distorts other months.
+- ✨ **Insights budget card** (per selected month): **Income · Set aside · Spendable**, a
+  progress bar of Spent vs Spendable, **Remaining** (red when over) and a **savings-rate %**.
+  Unset income shows a gentle "set your income" nudge instead.
+- 🔧 **Cash-flow-true math:** `spendable = income − set-asides`; monthly recurring counts every
+  month, **yearly counts only in its due month**, one-offs only in their tagged month. Yearly
+  rows display a ≈/mo equivalent for context (display only). Set-asides shouldn't ALSO be
+  logged as expenses (the screen says so) — that would double-count.
+- 🔧 Under the hood: `allocations` gains group/cycle/due fields (additive, no migration; old
+  backups load fine), new `allocation_groups` table, both in JSON backup/restore (Replace
+  restores them; Merge leaves them untouched); pure math in `src/lib/allocationMath.ts`.
+
 ---
 
 # Roadmap (upcoming)
@@ -151,37 +177,22 @@ The retention engine had cracks in trust/durability. Triage from the review:
 - **Ship native (TestFlight / EAS) — pull forward from Phase 5.** The whole thesis (haptic logging, gestures, a daily companion, later reminders) only exists on a phone; the web deploy has done its job as a proving ground. This also unblocks the two deferred gestures (sheet swipe-down, Insights month swipe).
 - **Local daily reminder notification (native, gentle opt-in, streak-aware)** — the single biggest missing retention lever for a daily-habit app; currently nowhere on the roadmap.
 
-## Phase 5 — Budget, charts & ship polish · `v1.5`
-- Deeper insights/charts, app icon + splash, empty-state & perf polish, store-ready pass.
+## Phase 5 — remaining · `v1.5.x`
+Budget & Money core shipped in `v1.5.0` (5a data layer → 5b Money screen → 5c Insights card —
+see the changelog above). Still in this phase:
+- **Charts depth** — richer insights (trends over months, category history).
+- **Ship polish** — splash, empty states, perf, store-ready pass.
+- **⚠️ End-of-phase cleanup:** remove the What's-New **Phase 4 backfill** (`PHASE 4 BACKFILL`
+  comment in `WhatsNewSheet.tsx`) + optionally prune old 1.4.x changelog rows.
 
-### Budget & income (salary + set-asides)
-Give the expense numbers context: how much came in, how much is already spoken for, and
-what's left to actually spend. Reuses the dormant `budget` table (created/seeded/backed-up
-since Phase 1 but never surfaced).
-
-*Build slices: **5a data layer ✅** (income reuses `budget.monthly_budget`; new `allocations`
-table + CRUD, mirrored native/web; snapshot/backup/restore incl. native `replaceAllData` explicit
-handling; Merge leaves income+allocations untouched; store `income`/`allocations` + actions —
-verified via backup round-trip on web) · 5b Settings UI ⬜ · 5c Insights analysis card ⬜.*
-
-- **Income** — a single monthly income/salary figure (reuse `budget.monthly_income`; add a
-  `setIncome()` query for native + web). Set in **Settings**.
-- **Set-asides** — a small new `allocations` table: `{ id, label, amount, note, kind, month }`.
-  - `kind = 'recurring'` → applies every month (e.g. tithe, giving to parents).
-  - `kind = 'oneoff'` → tagged to a single `YYYY-MM` (e.g. a big-ticket purchase you want to
-    carve out and *not* track as day-to-day expenditure).
-  - Each has a free-text **note**; full CRUD, and editable any time.
-  - Included in JSON backup/restore + snapshot (mirror the existing budget plumbing).
-- **Analysis (Insights, per selected month):** a top card showing **Income · Set aside
-  (Σ recurring + that month's one-offs) · Spendable · Spent · Remaining**, a progress bar, and
-  a **savings-rate %**.
-  - `spendable = income − recurringTotal − oneoffsForMonth`
-  - `remaining = spendable − spentThisMonth`
-  - One-offs only subtract in their tagged month, so a big-ticket item never distorts other
-    months and never appears in tracked-expenditure totals.
-- **Scope note:** deliberately *not* full income tracking (no recurring-income entries / multiple
-  sources) — that would cut against the app's <5-second logging ethos. ~6 files: schema + the two
-  query files + backup + Settings + Insights.
+**Scope fences (decided during 5b, hold the line):**
+- *Not* full income tracking (no multiple income sources / income entries) — cuts against the
+  <5-second logging ethos.
+- *Not* per-cycle paid-tracking ("mark as paid", payment history) or bill reminders in-app —
+  the registry stays static; **native local notifications** (strategic backlog) are the
+  intended way due dates become actionable.
+- If double-counting bites (a payment that's also logged as an expense), the schema-ready fix
+  is a per-payment "informational only" flag — don't invent anything bigger.
 
 ## Content & economy backlog — draw from, don't sequence · `v1.6+`
 Per the v1.4.9 review, phases 6–9 were four consecutive "meta-game supply" phases for a
