@@ -151,6 +151,7 @@ export function getGameState(): GameState {
     total_entries: 0,
     coins: WELCOME_GRANT,
     coins_earned_today: 0,
+    claimed_chests: '[]',
   };
 }
 
@@ -178,9 +179,17 @@ export function updateGameStateAfterLog(): void {
   const cap = dailyCap(newStreak);
   const actualCoins = Math.min(coinsEarned, Math.max(0, cap - coinsEarnedToday));
 
-  // One-time milestone chest on the first log of a milestone day. Bypasses the
+  // Once-EVER milestone chest on the first log of a milestone day (Phase 5f:
+  // claims are recorded so cycling streaks can't re-farm them). Bypasses the
   // cap and is NOT counted toward coins_earned_today (so it never suppresses income).
-  const chest = isFirstLogToday ? chestFor(newStreak) : 0;
+  // NOTE: keep this logic in lockstep with queries.web.ts.
+  let claimed: number[];
+  try { claimed = JSON.parse(gs.claimed_chests || '[]'); } catch { claimed = []; }
+  let chest = 0;
+  if (isFirstLogToday && !claimed.includes(newStreak)) {
+    chest = chestFor(newStreak);
+    if (chest > 0) claimed.push(newStreak);
+  }
 
   db.runSync(
     `UPDATE game_state SET
@@ -189,9 +198,10 @@ export function updateGameStateAfterLog(): void {
       longest_streak = ?,
       total_entries = total_entries + 1,
       coins = coins + ?,
-      coins_earned_today = ?
+      coins_earned_today = ?,
+      claimed_chests = ?
     WHERE id = 1`,
-    [newStreak, today, newLongest, actualCoins + chest, coinsEarnedToday + actualCoins]
+    [newStreak, today, newLongest, actualCoins + chest, coinsEarnedToday + actualCoins, JSON.stringify(claimed)]
   );
 }
 
@@ -322,6 +332,7 @@ export function getGameStateFull(): GameStateFull {
     total_entries: 0,
     coins: 0,
     coins_earned_today: 0,
+    claimed_chests: '[]',
     owned_items: '[]',
     equipped_items: '{}',
     story_progress: 0,
@@ -370,12 +381,12 @@ export function replaceAllData(snap: Snapshot): void {
       db.runSync(
         `UPDATE game_state SET
           streak_count = ?, last_log_date = ?, longest_streak = ?,
-          total_entries = ?, coins = ?, coins_earned_today = ?,
+          total_entries = ?, coins = ?, coins_earned_today = ?, claimed_chests = ?,
           owned_items = ?, equipped_items = ?, story_progress = ?
         WHERE id = 1`,
         [
           gs.streak_count, gs.last_log_date, gs.longest_streak,
-          gs.total_entries, gs.coins, gs.coins_earned_today,
+          gs.total_entries, gs.coins, gs.coins_earned_today, gs.claimed_chests ?? '[]',
           gs.owned_items ?? '[]', gs.equipped_items ?? '{}', gs.story_progress ?? 0,
         ]
       );
@@ -467,7 +478,7 @@ export function devResetAll(preserveMetaKeys: string[] = []): void {
   }
   db.runSync(
     `UPDATE game_state SET streak_count = 0, last_log_date = NULL, longest_streak = 0,
-      total_entries = 0, coins = ?, coins_earned_today = 0,
+      total_entries = 0, coins = ?, coins_earned_today = 0, claimed_chests = '[]',
       owned_items = '[]', equipped_items = '{}' WHERE id = 1`,
     [WELCOME_GRANT]
   );

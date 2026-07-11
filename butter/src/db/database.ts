@@ -85,6 +85,13 @@ export async function initDatabase(): Promise<void> {
     }
   }
 
+  // Phase 5f: milestone chests are once-ever — the claim ledger lives on game_state.
+  try {
+    database.execSync("ALTER TABLE game_state ADD COLUMN claimed_chests TEXT DEFAULT '[]';");
+  } catch {
+    // Column already exists.
+  }
+
   // Seed default categories if empty
   const count = database.getFirstSync<{ c: number }>('SELECT COUNT(*) as c FROM categories');
   if ((count?.c ?? 0) === 0) {

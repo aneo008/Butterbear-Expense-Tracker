@@ -19,6 +19,8 @@ export type GameState = {
   total_entries: number;
   coins: number;
   coins_earned_today: number;
+  // JSON number[] of milestone days whose chest was already paid (once-ever).
+  claimed_chests: string;
 };
 
 export type CategoryBreakdownRow = {

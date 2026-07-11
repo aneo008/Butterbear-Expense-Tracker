@@ -39,6 +39,7 @@ function defaultGameState(): GameStateFull {
     total_entries: 0,
     coins: WELCOME_GRANT,
     coins_earned_today: 0,
+    claimed_chests: '[]',
     owned_items: '[]',
     equipped_items: '{}',
     story_progress: 0,
@@ -231,6 +232,7 @@ export function getGameState(): GameState {
     total_entries: g.total_entries,
     coins: g.coins,
     coins_earned_today: g.coins_earned_today,
+    claimed_chests: g.claimed_chests ?? '[]',
   };
 }
 
@@ -255,8 +257,16 @@ export function updateGameStateAfterLog(): void {
   const cap = dailyCap(newStreak);
   const actualCoins = Math.min(coinsEarned, Math.max(0, cap - coinsEarnedToday));
 
-  // One-time milestone chest (bypasses the cap; not counted toward the daily total).
-  const chest = isFirstLogToday ? chestFor(newStreak) : 0;
+  // Once-EVER milestone chest (Phase 5f: claims recorded so cycling streaks
+  // can't re-farm them). Bypasses the cap; not counted toward the daily total.
+  // NOTE: keep this logic in lockstep with queries.ts.
+  let claimed: number[];
+  try { claimed = JSON.parse(gs.claimed_chests || '[]'); } catch { claimed = []; }
+  let chest = 0;
+  if (isFirstLogToday && !claimed.includes(newStreak)) {
+    chest = chestFor(newStreak);
+    if (chest > 0) claimed.push(newStreak);
+  }
 
   gs.streak_count = newStreak;
   gs.last_log_date = today;
@@ -264,6 +274,7 @@ export function updateGameStateAfterLog(): void {
   gs.total_entries = gs.total_entries + 1;
   gs.coins = gs.coins + actualCoins + chest;
   gs.coins_earned_today = coinsEarnedToday + actualCoins;
+  gs.claimed_chests = JSON.stringify(claimed);
   persist();
 }
 
@@ -451,6 +462,7 @@ export function devResetAll(preserveMetaKeys: string[] = []): void {
   db.game_state.total_entries = 0;
   db.game_state.coins = WELCOME_GRANT;
   db.game_state.coins_earned_today = 0;
+  db.game_state.claimed_chests = '[]';
   db.game_state.owned_items = '[]';
   db.game_state.equipped_items = '{}';
   persist();

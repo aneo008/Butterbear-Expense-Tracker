@@ -55,6 +55,10 @@ export type Celebration = {
 
 const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100, 200, 365];
 
+function claimedChests(gs: GameState): number[] {
+  try { return JSON.parse(gs.claimed_chests || '[]'); } catch { return []; }
+}
+
 // Decide the celebration tier (and cap/chest signals) by diffing game state.
 function computeCelebration(prev: GameState, next: GameState): Celebration {
   const coinsEarned = Math.max(0, next.coins - prev.coins);
@@ -68,7 +72,12 @@ function computeCelebration(prev: GameState, next: GameState): Celebration {
   // single first log can never fill the cap.
   const cap = dailyCap(next.streak_count);
   const capReached = !firstLogToday && prev.coins_earned_today < cap && next.coins_earned_today >= cap;
-  const chestCoins = firstLogToday ? chestFor(next.streak_count) : 0;
+  // A chest was actually paid this log iff its claim was recorded by it (5f:
+  // chests are once-ever, so a re-reached milestone no longer shows chest coins).
+  const chestCoins =
+    claimedChests(next).includes(next.streak_count) && !claimedChests(prev).includes(next.streak_count)
+      ? chestFor(next.streak_count)
+      : 0;
 
   let tier: CelebrationTier = 'normal';
   let reason: string | null = null;
@@ -147,6 +156,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     total_entries: 0,
     coins: 0,
     coins_earned_today: 0,
+    claimed_chests: '[]',
   },
   ownedItems: [],
   equippedItems: {},
