@@ -150,6 +150,15 @@ what's left to actually spend.
   backups load fine), new `allocation_groups` table, both in JSON backup/restore (Replace
   restores them; Merge leaves them untouched); pure math in `src/lib/allocationMath.ts`.
 
+### `v1.5.1` — Info-only payments
+- ✨ **"Info only" payments:** a recurring payment can now be marked **Info only** (Budget
+  section of the payment editor) — it keeps its group, amount and due date (still appears in
+  Due soon), but no longer reduces Spendable. Use it for payments you *also* log as expenses
+  (e.g. a subscription charged to a card you track), so nothing is counted twice. Rows show a
+  grey `info only` badge. Default for every payment stays "Deducts".
+- 🔧 Under the hood: additive `allocations.info_only` column (old data/backups unaffected);
+  the skip lives in `monthCommitment()` so the Money summary and Insights card both honour it.
+
 ---
 
 # Roadmap (upcoming)
@@ -176,23 +185,30 @@ The retention engine had cracks in trust/durability. Triage from the review:
 ## Strategic priorities — from the review *(bigger bets)*
 - **Ship native (TestFlight / EAS) — pull forward from Phase 5.** The whole thesis (haptic logging, gestures, a daily companion, later reminders) only exists on a phone; the web deploy has done its job as a proving ground. This also unblocks the two deferred gestures (sheet swipe-down, Insights month swipe).
 - **Local daily reminder notification (native, gentle opt-in, streak-aware)** — the single biggest missing retention lever for a daily-habit app; currently nowhere on the roadmap.
+- **Payment due-date reminders (native) — ⚠️ build when we go native.** Local notifications for the Money screen's recurring payments ("Term life · SGD 120 · due tomorrow"): `nextDueISO()` in `src/lib/allocationMath.ts` already computes every due date, so this is scheduling + opt-in UI only. Sequenced together with the daily logging reminder above (one notifications permission ask, two payoffs). *This is the deliberate other half of the "no reminders in-app" scope fence below — the due dates users are already entering become actionable here.*
 
-## Phase 5 — remaining · `v1.5.x`
-Budget & Money core shipped in `v1.5.0` (5a data layer → 5b Money screen → 5c Insights card —
-see the changelog above). Still in this phase:
-- **Charts depth** — richer insights (trends over months, category history).
-- **Ship polish** — splash, empty states, perf, store-ready pass.
-- **⚠️ End-of-phase cleanup:** remove the What's-New **Phase 4 backfill** (`PHASE 4 BACKFILL`
-  comment in `WhatsNewSheet.tsx`) + optionally prune old 1.4.x changelog rows.
+## Phase 5 — remaining · `v1.5.x` *(scoped 2026-07-11)*
+Budget & Money core shipped in `v1.5.0`; the info-only flag in `v1.5.1`. Still in this phase:
+- **5e — Charts: monthly trend bars** (`v1.5.2`) — 12-month spending bar chart atop Insights,
+  tap a bar to jump the screen to that month. View-based bars (no SVG hit-testing on RNW).
+  *Scoped down from "charts depth": spendable-line overlay + category drill-down trend went to
+  the backlog.*
+- **5f — Data-safety hardening** (ships in `v1.5.3`) — `parseBackup` per-row validation (guards
+  the destructive Replace) + `claimed_chests` (milestone chests once-ever). Pulled from the
+  Hardening list below; the rest of that list stays queued.
+- **5g — Ship polish** (`v1.5.3`, closes Phase 5) — splash screen, empty-state audit, delete
+  orphaned `history.tsx`/`App.tsx`, theme-token migration in insights/settings, a11y quick wins
+  (donut alt text, contrast). **⚠️ End-of-phase cleanup:** remove the What's-New **Phase 4
+  backfill** (`PHASE 4 BACKFILL` comment in `WhatsNewSheet.tsx`).
 
 **Scope fences (decided during 5b, hold the line):**
 - *Not* full income tracking (no multiple income sources / income entries) — cuts against the
   <5-second logging ethos.
 - *Not* per-cycle paid-tracking ("mark as paid", payment history) or bill reminders in-app —
-  the registry stays static; **native local notifications** (strategic backlog) are the
-  intended way due dates become actionable.
-- If double-counting bites (a payment that's also logged as an expense), the schema-ready fix
-  is a per-payment "informational only" flag — don't invent anything bigger.
+  the registry stays static; **payment due-date reminders ship with the native build** (see
+  Strategic priorities above) — that's how due dates become actionable.
+- ✅ Double-count escape hatch shipped (`v1.5.1`): the per-payment **"Info only"** flag. If
+  double-counting still bites, tune that — don't invent anything bigger.
 
 ## Content & economy backlog — draw from, don't sequence · `v1.6+`
 Per the v1.4.9 review, phases 6–9 were four consecutive "meta-game supply" phases for a

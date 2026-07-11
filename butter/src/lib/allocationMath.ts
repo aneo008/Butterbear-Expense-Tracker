@@ -66,6 +66,7 @@ export function monthCommitment(allocations: Allocation[], month: string): Month
   let yearlyDue = 0;
   let oneoffs = 0;
   for (const a of allocations) {
+    if (a.info_only) continue; // informational: has a due date, never reduces spendable
     if (a.kind === 'oneoff') {
       if (a.month === month) oneoffs += a.amount;
     } else if (a.cycle === 'yearly') {

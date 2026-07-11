@@ -17,6 +17,15 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.5.1',
+    pass: 'Phase 5',
+    title: 'Info-only payments',
+    date: '2026-07-11',
+    items: [
+      { tag: 'new', text: 'Mark a recurring payment as “Info only” — it keeps its due date and stays in Due soon, but doesn’t reduce Spendable. For payments you also log as expenses, so nothing is counted twice.' },
+    ],
+  },
+  {
     version: '1.5.0',
     pass: 'Phase 5',
     title: 'Money — income & recurring payments',

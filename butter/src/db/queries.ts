@@ -219,7 +219,7 @@ export function setIncome(value: number | null): void {
 export function getAllocations(): Allocation[] {
   const db = getDb();
   return db.getAllSync<Allocation>(
-    `SELECT id, label, amount, note, kind, month, group_id, cycle, due_day, due_month
+    `SELECT id, label, amount, note, kind, month, group_id, cycle, due_day, due_month, info_only
      FROM allocations ORDER BY kind DESC, label`
   ) ?? [];
 }
@@ -227,11 +227,12 @@ export function getAllocations(): Allocation[] {
 function insertAllocationRaw(a: Allocation): void {
   const db = getDb();
   db.runSync(
-    `INSERT INTO allocations (id, label, amount, note, kind, month, group_id, cycle, due_day, due_month)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO allocations (id, label, amount, note, kind, month, group_id, cycle, due_day, due_month, info_only)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       a.id, a.label, a.amount, a.note ?? null, a.kind, a.month ?? null,
       a.group_id ?? null, a.cycle ?? null, a.due_day ?? null, a.due_month ?? null,
+      a.info_only ?? null,
     ]
   );
 }
@@ -244,11 +245,12 @@ export function updateAllocation(id: string, fields: Omit<Allocation, 'id'>): vo
   const db = getDb();
   db.runSync(
     `UPDATE allocations SET label = ?, amount = ?, note = ?, kind = ?, month = ?,
-       group_id = ?, cycle = ?, due_day = ?, due_month = ?
+       group_id = ?, cycle = ?, due_day = ?, due_month = ?, info_only = ?
      WHERE id = ?`,
     [
       fields.label, fields.amount, fields.note ?? null, fields.kind, fields.month ?? null,
       fields.group_id ?? null, fields.cycle ?? null, fields.due_day ?? null, fields.due_month ?? null,
+      fields.info_only ?? null,
       id,
     ]
   );

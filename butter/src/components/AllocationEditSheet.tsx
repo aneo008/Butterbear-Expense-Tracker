@@ -67,6 +67,7 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
   const [dueMonth, setDueMonth] = useState<number | null>(null);
   const [month, setMonth] = useState(currentMonth());
   const [groupId, setGroupId] = useState<string | null>(null);
+  const [infoOnly, setInfoOnly] = useState(false);
   const [note, setNote] = useState('');
   // Inline "new group" mini-form
   const [newGroupOpen, setNewGroupOpen] = useState(false);
@@ -84,6 +85,7 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
     setDueMonth(a?.due_month ?? null);
     setMonth(a?.month ?? currentMonth());
     setGroupId(a ? a.group_id : request.presetGroupId ?? null);
+    setInfoOnly(a?.info_only === 1);
     setNote(a?.note ?? '');
     setNewGroupOpen(false);
     setNewGroupName('');
@@ -130,11 +132,13 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
           // Yearly needs a concrete date for the math/labels — default day 1.
           due_day: cycle === 'yearly' ? (dueDay ?? 1) : dueDay,
           due_month: cycle === 'yearly' ? dueMonth : null,
+          info_only: infoOnly ? 1 : null,
         }
       : {
           label: trimmed, amount, note: note.trim() || null, kind,
           month,
           group_id: null, cycle: null, due_day: null, due_month: null,
+          info_only: null,
         };
 
     if (editing) updateAllocation(editing.id, fields);
@@ -326,6 +330,34 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
                       </Pressable>
                     </View>
                   )}
+
+                  {/* Budget behaviour (double-count escape hatch) */}
+                  <Text selectable={false} style={styles.fieldLabel}>Budget</Text>
+                  <View style={styles.segmentRow}>
+                    <Pressable
+                      accessibilityLabel="budget-counts"
+                      onPress={() => setInfoOnly(false)}
+                      style={[styles.segment, !infoOnly && styles.segmentActive]}
+                    >
+                      <Text selectable={false} style={[styles.segmentText, !infoOnly && styles.segmentTextActive]}>
+                        Deducts
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityLabel="budget-info-only"
+                      onPress={() => setInfoOnly(true)}
+                      style={[styles.segment, infoOnly && styles.segmentActive]}
+                    >
+                      <Text selectable={false} style={[styles.segmentText, infoOnly && styles.segmentTextActive]}>
+                        Info only
+                      </Text>
+                    </Pressable>
+                  </View>
+                  <Text selectable={false} style={styles.budgetHint}>
+                    {infoOnly
+                      ? "Info only: keeps its due date but doesn't reduce Spendable — for payments you also log as expenses, so they aren't counted twice."
+                      : 'This amount is set aside from Spendable each month.'}
+                  </Text>
                 </>
               ) : (
                 <>
@@ -434,6 +466,14 @@ const styles = StyleSheet.create({
   segmentActive: { backgroundColor: colors.butter, borderColor: colors.butter },
   segmentText: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.textBrown },
   segmentTextActive: { fontFamily: fonts.bodyBold },
+
+  budgetHint: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.textSoft,
+    marginTop: 8,
+    lineHeight: 17,
+  },
 
   dueRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dueDayInput: { width: 72, textAlign: 'center' },

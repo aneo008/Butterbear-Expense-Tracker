@@ -295,6 +295,7 @@ function normalizeAllocation(a: Partial<Allocation> & Pick<Allocation, 'id' | 'l
     cycle: a.cycle ?? null,
     due_day: a.due_day ?? null,
     due_month: a.due_month ?? null,
+    info_only: a.info_only ?? null,
   };
 }
 

@@ -52,6 +52,9 @@ export type Allocation = {
   cycle: AllocationCycle | null;    // recurring only; null treated as 'monthly'
   due_day: number | null;           // 1–31, clamped to month length when computing
   due_month: number | null;         // 1–12, yearly cycle only
+  // 1 = informational only: keeps its due date but does NOT reduce Spendable —
+  // the escape hatch for payments the user also logs as expenses (double-count).
+  info_only: number | null;
 };
 
 // Phase 5b: user-defined groups for recurring payments (Insurance, Subscriptions…).

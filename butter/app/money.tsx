@@ -97,6 +97,11 @@ export default function MoneyScreen() {
                 {a.cycle === 'yearly' ? 'yearly' : 'monthly'}
               </Text>
             </View>
+            {a.info_only === 1 && (
+              <View style={[styles.badge, styles.badgeInfo]}>
+                <Text selectable={false} style={styles.badgeText}>info only</Text>
+              </View>
+            )}
             {due && <Text selectable={false} style={styles.dueText}>{due}</Text>}
           </View>
           {!!a.note && <Text selectable={false} style={styles.noteText} numberOfLines={1}>{a.note}</Text>}
@@ -389,6 +394,7 @@ const styles = StyleSheet.create({
   badge: { borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   badgeMonthly: { backgroundColor: '#EAF4EE' },
   badgeYearly: { backgroundColor: '#F0E9FA' },
+  badgeInfo: { backgroundColor: '#EFEBE4' },
   badgeText: { fontFamily: fonts.bodyBold, fontSize: 10, color: colors.textSoft },
   dueText: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.butterDeep },
   noteText: { fontFamily: fonts.body, fontSize: 12, color: colors.textSoft, marginTop: 2 },
