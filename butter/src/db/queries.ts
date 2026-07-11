@@ -87,6 +87,19 @@ export function getExpensesByCategoryForMonth(categoryId: string, month: string)
   );
 }
 
+/** Total spend per YYYY-MM within [start, end] inclusive. Months with no
+ *  expenses are absent — callers fill gaps (TrendBars wants a continuous axis). */
+export function getMonthlyTotals(start: string, end: string): { month: string; total: number }[] {
+  const db = getDb();
+  return db.getAllSync<{ month: string; total: number }>(
+    `SELECT substr(spent_at, 1, 7) as month, SUM(amount) as total
+     FROM expenses
+     WHERE substr(spent_at, 1, 7) >= ? AND substr(spent_at, 1, 7) <= ?
+     GROUP BY month`,
+    [start, end]
+  );
+}
+
 /** Spending grouped by category for a given YYYY-MM, biggest first. */
 export function getMonthBreakdown(month: string): CategoryBreakdownRow[] {
   const db = getDb();

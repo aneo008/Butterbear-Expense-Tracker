@@ -169,6 +169,16 @@ export function getExpensesByCategoryForMonth(categoryId: string, month: string)
   );
 }
 
+export function getMonthlyTotals(start: string, end: string): { month: string; total: number }[] {
+  const totals = new Map<string, number>();
+  for (const e of db.expenses) {
+    const m = e.spent_at.slice(0, 7);
+    if (m < start || m > end) continue;
+    totals.set(m, (totals.get(m) ?? 0) + e.amount);
+  }
+  return Array.from(totals.entries()).map(([month, total]) => ({ month, total }));
+}
+
 export function getMonthBreakdown(month: string): CategoryBreakdownRow[] {
   const totals = new Map<string, { total: number; count: number }>();
   for (const e of db.expenses) {

@@ -17,6 +17,15 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.5.2',
+    pass: 'Phase 5',
+    title: 'Spending trend',
+    date: '2026-07-11',
+    items: [
+      { tag: 'new', text: 'Insights now shows your last 12 months as a bar chart — see your trajectory at a glance, and tap any bar to jump straight to that month.' },
+    ],
+  },
+  {
     version: '1.5.1',
     pass: 'Phase 5',
     title: 'Info-only payments',

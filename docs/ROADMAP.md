@@ -150,6 +150,13 @@ what's left to actually spend.
   backups load fine), new `allocation_groups` table, both in JSON backup/restore (Replace
   restores them; Merge leaves them untouched); pure math in `src/lib/allocationMath.ts`.
 
+### `v1.5.2` — Spending trend
+- ✨ **12-month trend chart on Insights:** a bar chart of your last 12 months sits above the
+  donut — see the trajectory at a glance; **tap a bar** to jump the whole screen (donut,
+  breakdown, budget card) to that month. Appears once there's a second month of data.
+- 🔧 Built as plain pressable Views (`src/components/TrendBars.tsx`), not SVG — react-native-web
+  SVG hit-testing is unreliable; new `getMonthlyTotals()` query (native + web).
+
 ### `v1.5.1` — Info-only payments
 - ✨ **"Info only" payments:** a recurring payment can now be marked **Info only** (Budget
   section of the payment editor) — it keeps its group, amount and due date (still appears in
@@ -189,10 +196,8 @@ The retention engine had cracks in trust/durability. Triage from the review:
 
 ## Phase 5 — remaining · `v1.5.x` *(scoped 2026-07-11)*
 Budget & Money core shipped in `v1.5.0`; the info-only flag in `v1.5.1`. Still in this phase:
-- **5e — Charts: monthly trend bars** (`v1.5.2`) — 12-month spending bar chart atop Insights,
-  tap a bar to jump the screen to that month. View-based bars (no SVG hit-testing on RNW).
-  *Scoped down from "charts depth": spendable-line overlay + category drill-down trend went to
-  the backlog.*
+- ✅ **5e — Charts: monthly trend bars** — shipped `v1.5.2` (see changelog). *Scoped down from
+  "charts depth": spendable-line overlay + category drill-down trend went to the backlog.*
 - **5f — Data-safety hardening** (ships in `v1.5.3`) — `parseBackup` per-row validation (guards
   the destructive Replace) + `claimed_chests` (milestone chests once-ever). Pulled from the
   Hardening list below; the rest of that list stays queued.

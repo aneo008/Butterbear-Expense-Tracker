@@ -12,8 +12,10 @@ import { useExpenseStore } from '../../src/store/useExpenseStore';
 import {
   getEarliestExpenseMonth,
   getMonthBreakdown,
+  getMonthlyTotals,
   CategoryBreakdownRow,
 } from '../../src/db/queries';
+import TrendBars, { TrendPoint } from '../../src/components/TrendBars';
 import { currentMonth, monthRange, formatMonthShort, formatMonthLong } from '../../src/lib/date';
 import { dedupeColors } from '../../src/lib/colors';
 import CategoryDonut, { DonutSegment } from '../../src/components/CategoryDonut';
@@ -25,6 +27,15 @@ function formatCurrency(amount: number): string {
 
 const FALLBACK_CAT = { name: 'Other', icon: '📦', color: '#9C8772' };
 
+/** YYYY-MM exactly n months before the current month. */
+function monthsBack(n: number): string {
+  const [y, m] = currentMonth().split('-').map(Number);
+  const idx = y * 12 + (m - 1) - n;
+  const yy = Math.floor(idx / 12);
+  const mm = (idx % 12) + 1;
+  return `${yy}-${mm < 10 ? '0' + mm : mm}`;
+}
+
 export default function InsightsScreen() {
   const categories = useExpenseStore(s => s.categories);
   const dataVersion = useExpenseStore(s => s.dataVersion);
@@ -35,6 +46,7 @@ export default function InsightsScreen() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth());
   const [months, setMonths] = useState<string[]>([currentMonth()]);
   const [breakdown, setBreakdown] = useState<CategoryBreakdownRow[]>([]);
+  const [trend, setTrend] = useState<TrendPoint[]>([]);
 
   // Reload month list + breakdown on focus, when the selected month changes,
   // and when data mutates (so edits made via the modal sheet show up).
@@ -43,6 +55,10 @@ export default function InsightsScreen() {
     // Newest month first (leftmost); older months scroll off to the right.
     setMonths(monthRange(earliest, currentMonth()).reverse());
     setBreakdown(getMonthBreakdown(selectedMonth));
+    // 12-month trend ending now; gaps filled with 0 so the axis is continuous.
+    const trendStart = monthsBack(11);
+    const totals = new Map(getMonthlyTotals(trendStart, currentMonth()).map(r => [r.month, r.total]));
+    setTrend(monthRange(trendStart, currentMonth()).map(m => ({ month: m, total: totals.get(m) ?? 0 })));
   }, [selectedMonth, dataVersion]);
 
   useFocusEffect(reload);
@@ -152,6 +168,14 @@ export default function InsightsScreen() {
             </TouchableOpacity>
           );
         })()}
+
+        {/* 12-month trend (Phase 5e) — hidden until there's a second month of data */}
+        {trend.filter(p => p.total > 0).length >= 2 && (
+          <View style={styles.trendCard}>
+            <Text selectable={false} style={styles.trendTitle}>Last 12 months</Text>
+            <TrendBars points={trend} selectedMonth={selectedMonth} onSelectMonth={setSelectedMonth} />
+          </View>
+        )}
 
         {/* Donut */}
         <View style={styles.donutCard}>
@@ -276,6 +300,28 @@ const styles = StyleSheet.create({
   budgetRemaining: { fontSize: 13, color: '#3C8C4C', fontWeight: '700' },
   budgetOverText: { color: '#C0392B' },
   savingsRate: { fontSize: 12, color: '#9C8772', marginTop: 8, textAlign: 'center', fontWeight: '500' },
+
+  trendCard: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    shadowColor: '#C9A06E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  trendTitle: {
+    fontSize: 11,
+    color: '#9C8772',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 10,
+  },
 
   donutCard: {
     margin: 20,
