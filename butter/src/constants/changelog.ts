@@ -17,6 +17,17 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.5.3',
+    pass: 'Phase 5',
+    title: 'Polish & protection',
+    date: '2026-07-11',
+    items: [
+      { tag: 'new', text: 'Butter now has a proper splash screen while the app loads.' },
+      { tag: 'change', text: 'Restoring a backup is safer — corrupted files are rejected with a clear message before anything is touched.' },
+      { tag: 'fix', text: 'Milestone streak chests are now once-ever — rebuilding a streak no longer re-pays chests you already opened.' },
+    ],
+  },
+  {
     version: '1.5.2',
     pass: 'Phase 5',
     title: 'Spending trend',

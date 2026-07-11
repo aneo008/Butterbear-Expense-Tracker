@@ -94,8 +94,8 @@ const styles = StyleSheet.create({
   barZero: { backgroundColor: '#EFE7D6' },
   monthLabel: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 9,
-    color: colors.textSoft,
+    fontSize: 10,
+    color: '#7E6B55', // darker than textSoft — this is the smallest text in the app
     marginTop: 4,
   },
   monthLabelActive: { fontFamily: fonts.bodyBold, color: colors.textBrown },

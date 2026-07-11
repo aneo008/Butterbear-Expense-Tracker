@@ -20,12 +20,13 @@ import { currentMonth, monthRange, formatMonthShort, formatMonthLong } from '../
 import { dedupeColors } from '../../src/lib/colors';
 import CategoryDonut, { DonutSegment } from '../../src/components/CategoryDonut';
 import { budgetSummary } from '../../src/lib/allocationMath';
+import { colors } from '../../src/constants/theme';
 
 function formatCurrency(amount: number): string {
   return amount.toFixed(2);
 }
 
-const FALLBACK_CAT = { name: 'Other', icon: '📦', color: '#9C8772' };
+const FALLBACK_CAT = { name: 'Other', icon: '📦', color: colors.textSoft };
 
 /** YYYY-MM exactly n months before the current month. */
 function monthsBack(n: number): string {
@@ -180,7 +181,17 @@ export default function InsightsScreen() {
         {/* Donut */}
         <View style={styles.donutCard}>
           <Text style={styles.monthLabel}>{formatMonthLong(selectedMonth)}</Text>
-          <CategoryDonut segments={segments} total={total} size={210} strokeWidth={30} />
+          <CategoryDonut
+            segments={segments}
+            total={total}
+            size={210}
+            strokeWidth={30}
+            accessibilityLabel={
+              breakdown.length === 0
+                ? `${formatMonthLong(selectedMonth)}: nothing logged`
+                : `${formatMonthLong(selectedMonth)}: SGD ${total.toFixed(2)} across ${breakdown.length} ${breakdown.length === 1 ? 'category' : 'categories'}; most spent on ${catInfo(breakdown[0].category_id).name}`
+            }
+          />
         </View>
 
         {/* Legend / breakdown */}
@@ -231,11 +242,11 @@ export default function InsightsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFBF2' },
+  container: { flex: 1, backgroundColor: colors.bgCream },
 
   stripWrap: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E3C49A44',
+    borderBottomColor: colors.hairline,
   },
   strip: {
     paddingHorizontal: 16,
@@ -246,13 +257,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 18,
-    backgroundColor: '#fff',
+    backgroundColor: colors.bgCard,
     borderWidth: 1,
-    borderColor: '#E3C49A',
+    borderColor: colors.bearBody,
     marginRight: 8,
   },
-  monthChipActive: { backgroundColor: '#F5C45E', borderColor: '#F5C45E' },
-  monthChipText: { fontSize: 13, color: '#5A4632', fontWeight: '500' },
+  monthChipActive: { backgroundColor: colors.butter, borderColor: colors.butter },
+  monthChipText: { fontSize: 13, color: colors.textBrown, fontWeight: '500' },
   monthChipTextActive: { fontWeight: '800' },
 
   body: { paddingBottom: 32 },
@@ -261,10 +272,10 @@ const styles = StyleSheet.create({
   budgetCard: {
     marginHorizontal: 20,
     marginTop: 20,
-    backgroundColor: '#fff',
+    backgroundColor: colors.bgCard,
     borderRadius: 24,
     padding: 18,
-    shadowColor: '#C9A06E',
+    shadowColor: colors.bearShadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
@@ -275,17 +286,17 @@ const styles = StyleSheet.create({
     marginTop: 20,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E3C49A',
+    borderColor: colors.bearBody,
     borderStyle: 'dashed',
     paddingVertical: 14,
     paddingHorizontal: 16,
     alignItems: 'center',
   },
-  budgetEmptyText: { fontSize: 13, color: '#9C8772', fontWeight: '600' },
+  budgetEmptyText: { fontSize: 13, color: colors.textSoft, fontWeight: '600' },
   budgetTopRow: { flexDirection: 'row', justifyContent: 'space-between' },
   budgetCell: { flex: 1, alignItems: 'center' },
-  budgetCellLabel: { fontSize: 11, color: '#9C8772', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
-  budgetCellValue: { fontSize: 16, color: '#5A4632', fontWeight: '800', marginTop: 2 },
+  budgetCellLabel: { fontSize: 11, color: colors.textSoft, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  budgetCellValue: { fontSize: 16, color: colors.textBrown, fontWeight: '800', marginTop: 2 },
   progressTrack: {
     height: 10,
     borderRadius: 5,
@@ -293,22 +304,22 @@ const styles = StyleSheet.create({
     marginTop: 14,
     overflow: 'hidden',
   },
-  progressFill: { height: '100%', borderRadius: 5, backgroundColor: '#F5C45E' },
+  progressFill: { height: '100%', borderRadius: 5, backgroundColor: colors.butter },
   progressOver: { backgroundColor: '#E8837C' },
   budgetBottomRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  budgetSpent: { fontSize: 13, color: '#5A4632', fontWeight: '600' },
+  budgetSpent: { fontSize: 13, color: colors.textBrown, fontWeight: '600' },
   budgetRemaining: { fontSize: 13, color: '#3C8C4C', fontWeight: '700' },
   budgetOverText: { color: '#C0392B' },
-  savingsRate: { fontSize: 12, color: '#9C8772', marginTop: 8, textAlign: 'center', fontWeight: '500' },
+  savingsRate: { fontSize: 12, color: colors.textSoft, marginTop: 8, textAlign: 'center', fontWeight: '500' },
 
   trendCard: {
     marginHorizontal: 20,
     marginTop: 12,
-    backgroundColor: '#fff',
+    backgroundColor: colors.bgCard,
     borderRadius: 24,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    shadowColor: '#C9A06E',
+    shadowColor: colors.bearShadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
@@ -316,7 +327,7 @@ const styles = StyleSheet.create({
   },
   trendTitle: {
     fontSize: 11,
-    color: '#9C8772',
+    color: colors.textSoft,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
@@ -325,32 +336,32 @@ const styles = StyleSheet.create({
 
   donutCard: {
     margin: 20,
-    backgroundColor: '#fff',
+    backgroundColor: colors.bgCard,
     borderRadius: 24,
     paddingVertical: 24,
     alignItems: 'center',
     gap: 12,
-    shadowColor: '#C9A06E',
+    shadowColor: colors.bearShadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
     elevation: 3,
   },
-  monthLabel: { fontSize: 15, color: '#9C8772', fontWeight: '600' },
+  monthLabel: { fontSize: 15, color: colors.textSoft, fontWeight: '600' },
 
   empty: { alignItems: 'center', marginTop: 24 },
-  emptyText: { fontSize: 15, color: '#9C8772', textAlign: 'center', lineHeight: 22 },
+  emptyText: { fontSize: 15, color: colors.textSoft, textAlign: 'center', lineHeight: 22 },
 
   legend: { paddingHorizontal: 20 },
   legendRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.bgCard,
     borderRadius: 16,
     padding: 14,
     marginBottom: 8,
     gap: 12,
-    shadowColor: '#C9A06E',
+    shadowColor: colors.bearShadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
@@ -365,11 +376,11 @@ const styles = StyleSheet.create({
   },
   icon: { fontSize: 18 },
   legendMid: { flex: 1 },
-  catName: { fontSize: 15, fontWeight: '600', color: '#5A4632' },
-  catCount: { fontSize: 12, color: '#9C8772', marginTop: 2 },
+  catName: { fontSize: 15, fontWeight: '600', color: colors.textBrown },
+  catCount: { fontSize: 12, color: colors.textSoft, marginTop: 2 },
   legendRight: { alignItems: 'flex-end' },
-  catTotal: { fontSize: 15, fontWeight: '700', color: '#5A4632' },
-  catPct: { fontSize: 12, color: '#9C8772', marginTop: 2 },
-  chevron: { fontSize: 22, color: '#C9A06E', marginLeft: 4, fontWeight: '300' },
+  catTotal: { fontSize: 15, fontWeight: '700', color: colors.textBrown },
+  catPct: { fontSize: 12, color: colors.textSoft, marginTop: 2 },
+  chevron: { fontSize: 22, color: colors.bearShadow, marginLeft: 4, fontWeight: '300' },
 });
 

@@ -13,13 +13,15 @@ type Props = {
   total: number;
   size?: number;
   strokeWidth?: number;
+  // Non-visual summary for screen readers (the ring itself is decorative).
+  accessibilityLabel?: string;
 };
 
 function formatCurrency(amount: number): string {
   return amount.toFixed(2);
 }
 
-export default function CategoryDonut({ segments, total, size = 200, strokeWidth = 28 }: Props) {
+export default function CategoryDonut({ segments, total, size = 200, strokeWidth = 28, accessibilityLabel }: Props) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const center = size / 2;
@@ -31,7 +33,11 @@ export default function CategoryDonut({ segments, total, size = 200, strokeWidth
   let accumulated = 0;
 
   return (
-    <View style={[styles.wrap, { width: size, height: size }]}>
+    <View
+      style={[styles.wrap, { width: size, height: size }]}
+      accessible={!!accessibilityLabel}
+      accessibilityLabel={accessibilityLabel}
+    >
       <Svg width={size} height={size}>
         {/* Rotate -90° so segments start at 12 o'clock. */}
         <G rotation={-90} origin={`${center}, ${center}`}>

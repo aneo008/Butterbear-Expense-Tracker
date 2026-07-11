@@ -29,6 +29,7 @@ import { serializeBackup, parseBackup } from '../../src/lib/backup';
 import { expensesToCSV } from '../../src/lib/csv';
 import { writeAndShare, pickAndReadText } from '../../src/lib/fileio';
 import { todayISO, currentMonth } from '../../src/lib/date';
+import { colors } from '../../src/constants/theme';
 
 const LAST_BACKUP_KEY = 'last_backup_at';
 
@@ -345,32 +346,32 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFBF2' },
+  container: { flex: 1, backgroundColor: colors.bgCream },
   body: { padding: 20, paddingBottom: 40 },
 
   busyRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, justifyContent: 'center' },
-  busyText: { color: '#9C8772', fontSize: 14 },
+  busyText: { color: colors.textSoft, fontSize: 14 },
 
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.bgCard,
     borderRadius: 20,
     padding: 18,
     marginBottom: 12,
     gap: 4,
-    shadowColor: '#C9A06E',
+    shadowColor: colors.bearShadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
   },
-  cardLabel: { fontSize: 13, color: '#9C8772', fontWeight: '600' },
-  cardValue: { fontSize: 17, color: '#5A4632', fontWeight: '700' },
-  nudge: { fontSize: 13, color: '#E8A87C', marginTop: 6, fontWeight: '500' },
+  cardLabel: { fontSize: 13, color: colors.textSoft, fontWeight: '600' },
+  cardValue: { fontSize: 17, color: colors.textBrown, fontWeight: '700' },
+  nudge: { fontSize: 13, color: colors.warnSoft, marginTop: 6, fontWeight: '500' },
 
   sectionHeader: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#9C8772',
+    color: colors.textSoft,
     marginTop: 16,
     marginBottom: 8,
     marginLeft: 4,
@@ -381,12 +382,12 @@ const styles = StyleSheet.create({
   action: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.bgCard,
     borderRadius: 16,
     padding: 16,
     marginBottom: 8,
     gap: 14,
-    shadowColor: '#C9A06E',
+    shadowColor: colors.bearShadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 4,
@@ -395,15 +396,15 @@ const styles = StyleSheet.create({
   actionDisabled: { opacity: 0.5 },
   actionIcon: { fontSize: 24 },
   actionMid: { flex: 1 },
-  actionTitle: { fontSize: 15, fontWeight: '700', color: '#5A4632' },
-  actionSub: { fontSize: 12, color: '#9C8772', marginTop: 2 },
-  chevron: { fontSize: 22, color: '#C9A06E', fontWeight: '300' },
+  actionTitle: { fontSize: 15, fontWeight: '700', color: colors.textBrown },
+  actionSub: { fontSize: 12, color: colors.textSoft, marginTop: 2 },
+  chevron: { fontSize: 22, color: colors.bearShadow, fontWeight: '300' },
 
-  statRow: { fontSize: 15, color: '#5A4632', fontWeight: '500' },
+  statRow: { fontSize: 15, color: colors.textBrown, fontWeight: '500' },
 
-  footnote: { fontSize: 12, color: '#9C8772', textAlign: 'center', marginTop: 20 },
+  footnote: { fontSize: 12, color: colors.textSoft, textAlign: 'center', marginTop: 20 },
 
   versionWrap: { alignSelf: 'center', marginTop: 10, paddingVertical: 6, paddingHorizontal: 14 },
-  version: { fontSize: 12, color: '#C9A06E', textAlign: 'center', userSelect: 'none' },
-  tapHint: { fontSize: 12, color: '#9C8772', textAlign: 'center', marginTop: 2, fontWeight: '600' },
+  version: { fontSize: 12, color: colors.bearShadow, textAlign: 'center', userSelect: 'none' },
+  tapHint: { fontSize: 12, color: colors.textSoft, textAlign: 'center', marginTop: 2, fontWeight: '600' },
 });

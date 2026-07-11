@@ -9,19 +9,12 @@ import { colors, radius, fonts, cardShadow } from '../constants/theme';
 const SEEN_KEY = 'whatsnew_seen_version'; // app_meta: last version whose notes were shown
 const COACHMARK_KEY = 'coachmark_seen';   // set once the first-run tip is dismissed
 
-// PHASE 4 BACKFILL — one-time; remove at end of Phase 5 (see docs/ROADMAP.md G1).
-// Existing users who pre-date this popup (no SEEN_KEY yet) get a recap of all of
-// Phase 4 on first launch after updating. Floored at 1.4.0 so it shows only
-// Phase 4 versions (1.4.x), not Phases 1–3 they already used.
-const PHASE4_FLOOR = '1.4.0';
-
 type Props = {
   // Dev-only controlled mode: when provided, the sheet ignores its own gating and
   // shows releases on demand (no app_meta writes). Home mounts it uncontrolled.
   forceVisible?: boolean;
   onForceClose?: () => void;
-  // Dev preview: simulate the user's last-seen version. '' / undefined = the
-  // one-time Phase 4 backfill; a version = normal catch-up from there.
+  // Dev preview: simulate the user's last-seen version ('' = up to date, nothing shown).
   previewSeen?: string;
 };
 
@@ -38,7 +31,6 @@ export default function WhatsNewSheet({ forceVisible, onForceClose, previewSeen 
 
   const [autoVisible, setAutoVisible] = useState(false);
   const [releases, setReleases] = useState<Release[]>([]);
-  const [backfill, setBackfill] = useState(false);
 
   useEffect(() => {
     if (controlled) return; // dev drives visibility
@@ -46,18 +38,15 @@ export default function WhatsNewSheet({ forceVisible, onForceClose, previewSeen 
     const seen = getMeta(SEEN_KEY);
     const coachmarkSeen = getMeta(COACHMARK_KEY) === '1';
 
-    // Fresh install: onboarding (coachmark) covers them — seed silently, no popup.
-    if (!coachmarkSeen) {
+    // Fresh install — or a missing marker — seeds silently, no popup. (The
+    // one-time Phase 4 backfill for pre-popup users lived here; removed at the
+    // end of Phase 5 as planned.)
+    if (!coachmarkSeen || !seen) {
       setMeta(SEEN_KEY, APP_VERSION);
       return;
     }
 
-    // Existing pre-popup user (no flag, or dev-reset to empty) → one-time Phase 4
-    // backfill. Otherwise normal catch-up from the user's stored version.
-    const isBackfill = !seen;
-    const floor = isBackfill ? PHASE4_FLOOR : seen;
-
-    const rels = releasesSince(floor);
+    const rels = releasesSince(seen);
     if (rels.length === 0) {
       setMeta(SEEN_KEY, APP_VERSION); // nothing new; advance the marker
       return;
@@ -66,7 +55,6 @@ export default function WhatsNewSheet({ forceVisible, onForceClose, previewSeen 
     // Small delay so it appears after the screen settles (matches the coachmark).
     const t = setTimeout(() => {
       setReleases(rels);
-      setBackfill(isBackfill);
       setAutoVisible(true);
     }, 700);
     return () => clearTimeout(t);
@@ -82,13 +70,11 @@ export default function WhatsNewSheet({ forceVisible, onForceClose, previewSeen 
     setAutoVisible(false);
   };
 
-  // In dev (controlled) mode, simulate the chosen last-seen version: empty = backfill.
-  const previewIsBackfill = !previewSeen;
-  const previewFloor = previewIsBackfill ? PHASE4_FLOOR : previewSeen;
+  // In dev (controlled) mode, simulate the chosen last-seen version.
+  const previewFloor = previewSeen || APP_VERSION;
 
   const visible = controlled ? !!forceVisible : autoVisible;
   const shown = controlled ? releasesSince(previewFloor) : releases;
-  const isBackfill = controlled ? previewIsBackfill : backfill;
 
   if (!visible) return null;
 
@@ -101,9 +87,7 @@ export default function WhatsNewSheet({ forceVisible, onForceClose, previewSeen 
           <Text style={styles.subtitle}>
             {shown.length === 0
               ? "You're all caught up — nothing new 🧈"
-              : isBackfill
-                ? "Welcome back — here's everything new in Butter 🧈"
-                : 'Here’s what changed since you were last here 🧈'}
+              : 'Here’s what changed since you were last here 🧈'}
           </Text>
 
           <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollBody} showsVerticalScrollIndicator={false}>

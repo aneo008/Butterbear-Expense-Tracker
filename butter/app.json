@@ -2,15 +2,20 @@
   "expo": {
     "name": "Butter",
     "slug": "butter",
-    "version": "1.5.2",
+    "version": "1.5.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFBF2"
+    },
     "userInterfaceStyle": "light",
     "scheme": "butter",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.butter.expensetracker",
-      "buildNumber": "12"
+      "buildNumber": "13"
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +23,7 @@
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "package": "com.butter.expensetracker",
-      "versionCode": 12
+      "versionCode": 13
     },
     "web": {
       "bundler": "metro",

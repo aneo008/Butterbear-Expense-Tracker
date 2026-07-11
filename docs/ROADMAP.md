@@ -24,7 +24,7 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.5.0` — Phase 5 (Budget & Money) shipped its core: income + set-asides + **structured recurring payments** (groups · due dates · monthly/yearly cycles) on a new **Money screen**, and the **Insights budget card** (Income · Set aside · Spendable · Spent · Remaining + savings rate). Remaining in Phase 5: charts depth + ship polish. Also queued: the hardening backlog, Pass F (story). Playroom/changing-room backgrounds → the content backlog (furniture); two gestures (sheet swipe-down, Insights month swipe) deferred to the native build.
+**Current:** `v1.5.3` — **Phase 5 COMPLETE.** Budget & Money core (`v1.5.0`: Money screen — income, grouped recurring payments with due dates, one-offs — + Insights budget card) → **"Info only" flag** (`v1.5.1`, the double-count escape hatch) → **12-month trend chart** (`v1.5.2`) → **polish & protection** (`v1.5.3`: splash, per-row backup validation, once-ever chests, Phase-4 backfill removed, dead code deleted). Next up: **ship native** (strategic priority — unblocks the daily-logging reminder AND payment due-date reminders), Pass F (story), rest of the hardening backlog.
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 
@@ -38,8 +38,8 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | 2 | Mascot, theme & animation | ✅ done |
 | 3 | Data portability (export/import) | ✅ done |
 | **4** | **Gamification (Closet, coins, streaks)** | ◑ **in progress — Passes A–E + G1 + calculator done; Pass F (story) remains, G3 sfx optional** |
-| — | **Hardening & trust** (from the v1.4.9 review) | ◑ **in progress** — streak + dev data-loss fixed; storage/chests/tests queued |
-| **5** | **Budget, charts & ship polish** | ◑ **in progress — budget & Money screen shipped (`v1.5.0`); charts + ship polish remain** |
+| — | **Hardening & trust** (from the v1.4.9 review) | ◑ **in progress** — streak, dev data-loss, chests, backup validation fixed; IndexedDB / computeLogUpdate / tests queued |
+| **5** | **Budget, charts & ship polish** | ✅ **done (`v1.5.0`–`v1.5.3`)** — Money screen, info-only flag, trend chart, polish & protection |
 | 6+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
 | — | **Ship native (iOS/Android)** | ⬜ strategic priority (pull forward — unblocks gestures, haptics, reminders) |
 
@@ -157,6 +157,19 @@ what's left to actually spend.
 - 🔧 Built as plain pressable Views (`src/components/TrendBars.tsx`), not SVG — react-native-web
   SVG hit-testing is unreliable; new `getMonthlyTotals()` query (native + web).
 
+### `v1.5.3` — Polish & protection *(closes Phase 5)*
+- ✨ **Splash screen:** proper launch splash (mascot logo on the cream background) via the
+  existing `assets/splash-icon.png` from `gen-icons.mjs` — it was generated all along, just
+  never wired into `app.json`.
+- 🔧 **Backup restore is guarded:** `parseBackup` now shape-checks **every row** (expenses,
+  categories, set-asides, groups, game state) before the destructive Replace — corrupted files
+  are rejected with a readable "entry N" message and nothing is touched.
+- 🐛 **Milestone chests once-ever:** claims recorded in `game_state.claimed_chests`; cycling a
+  streak can no longer re-farm chests. Celebration/coin popup only announce a chest actually paid.
+- 🔧 **Cleanup:** Phase-4 What's-New backfill removed (as scheduled); orphaned `app/history.tsx`
+  + dead `App.tsx`/`index.ts` deleted; `insights`/`settings` migrated to theme tokens; donut has
+  a screen-reader summary; trend-bar labels bumped for contrast.
+
 ### `v1.5.1` — Info-only payments
 - ✨ **"Info only" payments:** a recurring payment can now be marked **Info only** (Budget
   section of the payment editor) — it keeps its group, amount and due date (still appears in
@@ -182,29 +195,23 @@ The retention engine had cracks in trust/durability. Triage from the review:
 - ✅ **Streak correctness** — displays now use `effectiveStreak` + a gentle broken-streak note (`v1.4.10`).
 - ✅ **Dev data-loss** — `devResetAll` preserves the sandbox restore point (`v1.4.10`).
 - ◑ **Web storage durability** — ✅ quick win done: `navigator.storage.persist()` at web init (`database.web.ts`, best-effort) + a web-specific **7-day** backup nudge with the reason spelled out (`settings.tsx`). ⬜ still: move off the single `localStorage` key to **IndexedDB** (or OPFS + SQLite-WASM) with a localStorage fallback mirror, to remove the eviction/quota cliff entirely.
-- ⬜ **One-time chests are re-earnable** — `MILESTONE_CHESTS` claims aren't recorded, so cycling short streaks re-collects them. Add a `claimed_chests` field to `game_state` (+ native `replaceAllData` UPDATE list + backup).
-- ⬜ **`parseBackup` validates shape, not rows** — a malformed-but-array file can wipe real data inside native `replaceAllData`'s delete+insert. Add a per-row shape check before the destructive replace.
+- ✅ **One-time chests are re-earnable** — fixed in `v1.5.3`: `claimed_chests` ledger on `game_state`, chests once-ever.
+- ✅ **`parseBackup` validates shape, not rows** — fixed in `v1.5.3`: per-row shape checks before the destructive replace.
 - ⬜ **`app_meta` isn't in the backup format** — so dev-sandbox meta edits (e.g. the What's-New flag) actually leak on Exit; fix the code *or* correct the dev-panel/memory note that claims they revert.
 - ⬜ **Extract the duplicated log-reward transaction** — `updateGameStateAfterLog` is copy-pasted in `queries.ts` and `queries.web.ts`; pull a pure `computeLogUpdate(prev, today)` into `src/lib/` so both layers persist one source of truth (kills the drift class of bug for chests/consumables/decor). Same for the wardrobe buy/sell/equip JSON juggling.
 - ⬜ **Tests + a CI gate** — none today. The pure logic (`streak.ts`, `date.ts`, `backup.ts`, the calculator reducer, `changelog.ts` compareVersions) is ideal unit-test material; add a runner + a lint/type gate to CI.
-- ⬜ **Polish nits** — `CoinFly` uses hardcoded screen coords (measure the chip instead); `insights.tsx`/`settings.tsx` bypass the theme tokens with raw hex; a11y gaps (rarity by colour only, donut has no non-visual alt, small-text contrast); delete orphaned `app/history.tsx` + dead `App.tsx`; consider generating `constants/changelog.ts` from ROADMAP in `gen-roadmap.mjs` to kill a hand-sync surface.
+- ◑ **Polish nits** — done in `v1.5.3`: theme-token migration (insights/settings), donut non-visual alt, trend-label contrast, orphaned `history.tsx`/`App.tsx`/`index.ts` deleted; rarity was already labelled with text (not colour-only). Still open: `CoinFly` hardcoded screen coords (measure the chip); consider generating `constants/changelog.ts` from ROADMAP in `gen-roadmap.mjs`; a broader small-text contrast audit (textSoft on white is ~3:1).
 
 ## Strategic priorities — from the review *(bigger bets)*
 - **Ship native (TestFlight / EAS) — pull forward from Phase 5.** The whole thesis (haptic logging, gestures, a daily companion, later reminders) only exists on a phone; the web deploy has done its job as a proving ground. This also unblocks the two deferred gestures (sheet swipe-down, Insights month swipe).
 - **Local daily reminder notification (native, gentle opt-in, streak-aware)** — the single biggest missing retention lever for a daily-habit app; currently nowhere on the roadmap.
 - **Payment due-date reminders (native) — ⚠️ build when we go native.** Local notifications for the Money screen's recurring payments ("Term life · SGD 120 · due tomorrow"): `nextDueISO()` in `src/lib/allocationMath.ts` already computes every due date, so this is scheduling + opt-in UI only. Sequenced together with the daily logging reminder above (one notifications permission ask, two payoffs). *This is the deliberate other half of the "no reminders in-app" scope fence below — the due dates users are already entering become actionable here.*
 
-## Phase 5 — remaining · `v1.5.x` *(scoped 2026-07-11)*
-Budget & Money core shipped in `v1.5.0`; the info-only flag in `v1.5.1`. Still in this phase:
-- ✅ **5e — Charts: monthly trend bars** — shipped `v1.5.2` (see changelog). *Scoped down from
-  "charts depth": spendable-line overlay + category drill-down trend went to the backlog.*
-- **5f — Data-safety hardening** (ships in `v1.5.3`) — `parseBackup` per-row validation (guards
-  the destructive Replace) + `claimed_chests` (milestone chests once-ever). Pulled from the
-  Hardening list below; the rest of that list stays queued.
-- **5g — Ship polish** (`v1.5.3`, closes Phase 5) — splash screen, empty-state audit, delete
-  orphaned `history.tsx`/`App.tsx`, theme-token migration in insights/settings, a11y quick wins
-  (donut alt text, contrast). **⚠️ End-of-phase cleanup:** remove the What's-New **Phase 4
-  backfill** (`PHASE 4 BACKFILL` comment in `WhatsNewSheet.tsx`).
+## Phase 5 — ✅ COMPLETE (`v1.5.0`–`v1.5.3`)
+Budget & Money core (`v1.5.0`) → info-only flag (`v1.5.1`) → 12-month trend chart (`v1.5.2`) →
+data-safety + ship polish + Phase-4 backfill removal (`v1.5.3`). Deliberately left on the
+backlog: spendable-line overlay on the trend, category drill-down trend, store-ready perf pass
+(nothing felt slow at current data sizes).
 
 **Scope fences (decided during 5b, hold the line):**
 - *Not* full income tracking (no multiple income sources / income entries) — cuts against the
