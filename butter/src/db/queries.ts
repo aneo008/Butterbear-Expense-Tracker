@@ -9,13 +9,15 @@ import {
   BudgetRow,
   Allocation,
   AllocationGroup,
+  SalaryRow,
+  IncomeEvent,
   GameStateFull,
   Snapshot,
   DevPatch,
 } from './types';
 import { Slot, EquippedMap } from '../constants/storeItems';
 
-export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, AllocationGroup, GameStateFull, Snapshot } from './types';
+export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, AllocationGroup, SalaryRow, IncomeEvent, GameStateFull, Snapshot } from './types';
 
 export function insertExpense(expense: Omit<Expense, 'created_at'>): void {
   const db = getDb();
@@ -322,6 +324,64 @@ export function deleteAllocationGroup(id: string): void {
   });
 }
 
+// ---- v1.5.4: per-month income (salary history + income events) ----
+
+export function getSalaryHistory(): SalaryRow[] {
+  const db = getDb();
+  return db.getAllSync<SalaryRow>(
+    'SELECT id, from_month, amount FROM salary_history ORDER BY from_month'
+  ) ?? [];
+}
+
+/** One salary per effective-month: replaces any existing row with the same from_month. */
+export function addSalary(row: SalaryRow): void {
+  const db = getDb();
+  db.withTransactionSync(() => {
+    db.runSync('DELETE FROM salary_history WHERE from_month = ?', [row.from_month]);
+    db.runSync(
+      'INSERT INTO salary_history (id, from_month, amount) VALUES (?, ?, ?)',
+      [row.id, row.from_month, row.amount]
+    );
+  });
+}
+
+export function deleteSalary(id: string): void {
+  const db = getDb();
+  db.runSync('DELETE FROM salary_history WHERE id = ?', [id]);
+}
+
+export function getIncomeEvents(): IncomeEvent[] {
+  const db = getDb();
+  return db.getAllSync<IncomeEvent>(
+    'SELECT id, label, amount, month FROM income_events ORDER BY month DESC, label'
+  ) ?? [];
+}
+
+function insertIncomeEventRaw(e: IncomeEvent, orIgnore = false): void {
+  const db = getDb();
+  db.runSync(
+    `INSERT ${orIgnore ? 'OR IGNORE ' : ''}INTO income_events (id, label, amount, month) VALUES (?, ?, ?, ?)`,
+    [e.id, e.label, e.amount, e.month]
+  );
+}
+
+export function addIncomeEvent(e: IncomeEvent): void {
+  insertIncomeEventRaw(e);
+}
+
+export function updateIncomeEvent(id: string, fields: Omit<IncomeEvent, 'id'>): void {
+  const db = getDb();
+  db.runSync(
+    'UPDATE income_events SET label = ?, amount = ?, month = ? WHERE id = ?',
+    [fields.label, fields.amount, fields.month, id]
+  );
+}
+
+export function deleteIncomeEvent(id: string): void {
+  const db = getDb();
+  db.runSync('DELETE FROM income_events WHERE id = ?', [id]);
+}
+
 /** Full game_state row (all columns) for backups. */
 export function getGameStateFull(): GameStateFull {
   const db = getDb();
@@ -348,6 +408,8 @@ export function getSnapshot(): Snapshot {
     budget: getBudget(),
     allocations: getAllocations(),
     allocation_groups: getAllocationGroups(),
+    salary_history: getSalaryHistory(),
+    income_events: getIncomeEvents(),
   };
 }
 
@@ -398,35 +460,64 @@ export function replaceAllData(snap: Snapshot): void {
       ]);
     }
 
-    // Set-asides + payment groups: native must handle its own tables explicitly
-    // (web auto-spreads the snapshot). Wipe + reload so a Replace fully restores them.
+    // Set-asides + payment groups + income tables: native must handle its own
+    // tables explicitly (web auto-spreads the snapshot). Wipe + reload so a
+    // Replace fully restores them.
     db.runSync('DELETE FROM allocations');
     for (const a of snap.allocations ?? []) insertAllocationRaw(a);
     db.runSync('DELETE FROM allocation_groups');
     for (const g of snap.allocation_groups ?? []) insertAllocationGroupRaw(g);
+    db.runSync('DELETE FROM salary_history');
+    for (const s of snap.salary_history ?? []) {
+      db.runSync('INSERT INTO salary_history (id, from_month, amount) VALUES (?, ?, ?)', [s.id, s.from_month, s.amount]);
+    }
+    db.runSync('DELETE FROM income_events');
+    for (const e of snap.income_events ?? []) insertIncomeEventRaw(e);
   });
 }
 
+export type MergeResult = {
+  categoriesAdded: number;
+  expensesAdded: number;
+  incomeEventsAdded: number;
+  salaryRowsAdded: number;
+};
+
 /**
- * Merge restore: add expenses + categories from the backup that don't already
- * exist (matched by id). Leaves game_state, budget and allocations untouched.
- * Returns how many new rows were added.
+ * Merge restore: add HISTORICAL RECORDS from the backup that don't already exist —
+ * expenses + categories + income events (matched by id) and salary rows (matched
+ * by from_month: one salary per effective-month, so two sources can't create a
+ * contradictory history). Leaves game_state, budget and allocations untouched
+ * (current config, not records). Returns how many new rows were added.
  */
-export function mergeData(snap: Snapshot): { categoriesAdded: number; expensesAdded: number } {
+export function mergeData(snap: Snapshot): MergeResult {
   const db = getDb();
+  const count = (table: string) => db.getFirstSync<{ c: number }>(`SELECT COUNT(*) c FROM ${table}`)?.c ?? 0;
   let categoriesAdded = 0;
   let expensesAdded = 0;
+  let incomeEventsAdded = 0;
+  let salaryRowsAdded = 0;
   db.withTransactionSync(() => {
-    const catBefore = db.getFirstSync<{ c: number }>('SELECT COUNT(*) c FROM categories')?.c ?? 0;
-    const expBefore = db.getFirstSync<{ c: number }>('SELECT COUNT(*) c FROM expenses')?.c ?? 0;
+    const catBefore = count('categories');
+    const expBefore = count('expenses');
+    const evtBefore = count('income_events');
+    const salBefore = count('salary_history');
     for (const c of snap.categories) insertCategoryRaw(c, true);
     for (const e of snap.expenses) insertExpenseRaw(e, true);
-    const catAfter = db.getFirstSync<{ c: number }>('SELECT COUNT(*) c FROM categories')?.c ?? 0;
-    const expAfter = db.getFirstSync<{ c: number }>('SELECT COUNT(*) c FROM expenses')?.c ?? 0;
-    categoriesAdded = catAfter - catBefore;
-    expensesAdded = expAfter - expBefore;
+    for (const ev of snap.income_events ?? []) insertIncomeEventRaw(ev, true);
+    for (const s of snap.salary_history ?? []) {
+      db.runSync(
+        `INSERT INTO salary_history (id, from_month, amount)
+         SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM salary_history WHERE from_month = ?)`,
+        [s.id, s.from_month, s.amount, s.from_month]
+      );
+    }
+    categoriesAdded = count('categories') - catBefore;
+    expensesAdded = count('expenses') - expBefore;
+    incomeEventsAdded = count('income_events') - evtBefore;
+    salaryRowsAdded = count('salary_history') - salBefore;
   });
-  return { categoriesAdded, expensesAdded };
+  return { categoriesAdded, expensesAdded, incomeEventsAdded, salaryRowsAdded };
 }
 
 // ---- app_meta key/value (last backup date, future flags) ----

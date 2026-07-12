@@ -11,6 +11,8 @@ export type Backup = {
   budget: Snapshot['budget'];
   allocations: Snapshot['allocations'];
   allocation_groups: Snapshot['allocation_groups'];
+  salary_history: Snapshot['salary_history'];
+  income_events: Snapshot['income_events'];
 };
 
 /** Serialize a full app snapshot into a versioned JSON backup string. */
@@ -24,6 +26,8 @@ export function serializeBackup(snap: Snapshot): string {
     budget: snap.budget,
     allocations: snap.allocations,
     allocation_groups: snap.allocation_groups,
+    salary_history: snap.salary_history,
+    income_events: snap.income_events,
   };
   return JSON.stringify(backup, null, 2);
 }
@@ -94,6 +98,15 @@ export function parseBackup(text: string): Snapshot {
     isStr(r.id) && isStr(r.name) && isStr(r.icon)
   );
 
+  const salaryHistory = Array.isArray(b.salary_history) ? b.salary_history : []; // absent pre-1.5.4
+  checkRows(salaryHistory, 'salary history', r =>
+    isStr(r.id) && isStr(r.from_month) && isNum(r.amount)
+  );
+  const incomeEvents = Array.isArray(b.income_events) ? b.income_events : []; // absent pre-1.5.4
+  checkRows(incomeEvents, 'income entries', r =>
+    isStr(r.id) && isStr(r.label) && isNum(r.amount) && isStr(r.month)
+  );
+
   if (b.game_state !== undefined) {
     checkRows([b.game_state], 'progress (game state)', r =>
       isNum(r.streak_count) && isNum(r.longest_streak) && isNum(r.total_entries) &&
@@ -108,5 +121,7 @@ export function parseBackup(text: string): Snapshot {
     budget: (b.budget as Snapshot['budget']) ?? { monthly_budget: null, currency: 'SGD' },
     allocations,
     allocation_groups: allocationGroups,
+    salary_history: salaryHistory,
+    income_events: incomeEvents,
   };
 }

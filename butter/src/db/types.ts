@@ -67,6 +67,24 @@ export type AllocationGroup = {
   sort_order: number;
 };
 
+// v1.5.4 per-month income.
+// Salary effective from a month onward — the row with the greatest from_month <= M
+// wins for month M; months before all rows fall back to budget.monthly_budget.
+// At most ONE row per from_month (enforced on add + merge).
+export type SalaryRow = {
+  id: string;
+  from_month: string; // 'YYYY-MM'
+  amount: number;
+};
+
+// One-off income tagged to a month (bonus, 13th month, freelance) — many per month.
+export type IncomeEvent = {
+  id: string;
+  label: string;
+  amount: number;
+  month: string; // 'YYYY-MM'
+};
+
 export type GameStateFull = GameState & {
   owned_items: string;
   equipped_items: string;
@@ -80,6 +98,8 @@ export type Snapshot = {
   budget: BudgetRow;
   allocations: Allocation[];
   allocation_groups: AllocationGroup[];
+  salary_history: SalaryRow[];
+  income_events: IncomeEvent[];
 };
 
 // Dev-only: directly patch game_state fields (used by the developer panel).

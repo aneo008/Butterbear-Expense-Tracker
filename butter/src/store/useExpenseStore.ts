@@ -35,8 +35,15 @@ import {
   addAllocationGroup as addAllocationGroupQuery,
   updateAllocationGroup as updateAllocationGroupQuery,
   deleteAllocationGroup as deleteAllocationGroupQuery,
+  getSalaryHistory,
+  addSalary as addSalaryQuery,
+  deleteSalary as deleteSalaryQuery,
+  getIncomeEvents,
+  addIncomeEvent as addIncomeEventQuery,
+  updateIncomeEvent as updateIncomeEventQuery,
+  deleteIncomeEvent as deleteIncomeEventQuery,
 } from '../db/queries';
-import { DevPatch, Allocation, AllocationGroup } from '../db/types';
+import { DevPatch, Allocation, AllocationGroup, SalaryRow, IncomeEvent } from '../db/types';
 import { serializeBackup, parseBackup } from '../lib/backup';
 
 const DEV_BACKUP_KEY = 'dev_backup';
@@ -98,9 +105,11 @@ type ExpenseStore = {
   ownedItems: string[];       // item IDs the user owns
   equippedItems: EquippedMap; // {slot → itemId} currently worn
   // Phase 5: budget/income context
-  income: number | null;      // monthly income (null = not set)
+  income: number | null;      // legacy base salary ("since forever"; salaryHistory overrides)
   allocations: Allocation[];  // set-asides & recurring payments (recurring + one-off)
   allocationGroups: AllocationGroup[]; // recurring-payment groups (Insurance, Subscriptions…)
+  salaryHistory: SalaryRow[]; // v1.5.4: effective-from salary changes
+  incomeEvents: IncomeEvent[]; // v1.5.4: month-tagged bonuses / extra income
   isAddSheetOpen: boolean;
   editingExpense: Expense | null;
   // Bumped on every data mutation so screens that query SQLite directly
@@ -136,6 +145,11 @@ type ExpenseStore = {
   addAllocationGroup: (fields: Omit<AllocationGroup, 'id'>) => string;
   updateAllocationGroup: (id: string, fields: Omit<AllocationGroup, 'id'>) => void;
   deleteAllocationGroup: (id: string) => void;
+  addSalary: (fields: Omit<SalaryRow, 'id'>) => void;
+  deleteSalary: (id: string) => void;
+  addIncomeEvent: (fields: Omit<IncomeEvent, 'id'>) => void;
+  updateIncomeEvent: (id: string, fields: Omit<IncomeEvent, 'id'>) => void;
+  deleteIncomeEvent: (id: string) => void;
   // Dev tools
   devActive: boolean; // dev sandbox in effect this session (changes revert on exit)
   devSetGameState: (patch: DevPatch) => void;
@@ -163,6 +177,8 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   income: null,
   allocations: [],
   allocationGroups: [],
+  salaryHistory: [],
+  incomeEvents: [],
   isAddSheetOpen: false,
   editingExpense: null,
   dataVersion: 0,
@@ -180,7 +196,9 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     const income = getIncome();
     const allocations = getAllocations();
     const allocationGroups = getAllocationGroups();
-    set({ expenses, todayTotal, categories, gameState, ownedItems, equippedItems, income, allocations, allocationGroups, dataVersion: get().dataVersion + 1 });
+    const salaryHistory = getSalaryHistory();
+    const incomeEvents = getIncomeEvents();
+    set({ expenses, todayTotal, categories, gameState, ownedItems, equippedItems, income, allocations, allocationGroups, salaryHistory, incomeEvents, dataVersion: get().dataVersion + 1 });
   },
 
   addExpense: (expense) => {
@@ -272,6 +290,28 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   },
   deleteAllocationGroup: (id) => {
     deleteAllocationGroupQuery(id);
+    get().loadData();
+  },
+  addSalary: (fields) => {
+    const id = `sal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    addSalaryQuery({ id, ...fields });
+    get().loadData();
+  },
+  deleteSalary: (id) => {
+    deleteSalaryQuery(id);
+    get().loadData();
+  },
+  addIncomeEvent: (fields) => {
+    const id = `inc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    addIncomeEventQuery({ id, ...fields });
+    get().loadData();
+  },
+  updateIncomeEvent: (id, fields) => {
+    updateIncomeEventQuery(id, fields);
+    get().loadData();
+  },
+  deleteIncomeEvent: (id) => {
+    deleteIncomeEventQuery(id);
     get().loadData();
   },
 

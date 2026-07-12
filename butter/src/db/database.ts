@@ -72,6 +72,19 @@ export async function initDatabase(): Promise<void> {
       icon       TEXT NOT NULL,
       sort_order INTEGER DEFAULT 0
     );
+
+    CREATE TABLE IF NOT EXISTS salary_history (
+      id         TEXT PRIMARY KEY,
+      from_month TEXT NOT NULL,
+      amount     REAL NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS income_events (
+      id     TEXT PRIMARY KEY,
+      label  TEXT NOT NULL,
+      amount REAL NOT NULL,
+      month  TEXT NOT NULL
+    );
   `);
 
   // Phase 5b additive columns on allocations (recurring-payment fields). The table

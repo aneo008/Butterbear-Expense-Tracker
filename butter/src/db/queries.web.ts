@@ -11,13 +11,15 @@ import {
   BudgetRow,
   Allocation,
   AllocationGroup,
+  SalaryRow,
+  IncomeEvent,
   GameStateFull,
   Snapshot,
   DevPatch,
 } from './types';
 import { Slot, EquippedMap } from '../constants/storeItems';
 
-export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, AllocationGroup, GameStateFull, Snapshot } from './types';
+export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, AllocationGroup, SalaryRow, IncomeEvent, GameStateFull, Snapshot } from './types';
 
 const STORAGE_KEY = 'butter.db.v1';
 
@@ -28,6 +30,8 @@ type DB = {
   budget: BudgetRow;
   allocations: Allocation[];
   allocation_groups: AllocationGroup[];
+  salary_history: SalaryRow[];
+  income_events: IncomeEvent[];
   app_meta: Record<string, string>;
 };
 
@@ -54,6 +58,8 @@ function freshDB(): DB {
     budget: { monthly_budget: null, currency: 'SGD' },
     allocations: [],
     allocation_groups: [],
+    salary_history: [],
+    income_events: [],
     app_meta: {},
   };
 }
@@ -96,6 +102,8 @@ export function initWebStore(): void {
       budget: parsed.budget ?? { monthly_budget: null, currency: 'SGD' },
       allocations: (parsed.allocations ?? []).map(normalizeAllocation),
       allocation_groups: parsed.allocation_groups ?? [],
+      salary_history: parsed.salary_history ?? [],
+      income_events: parsed.income_events ?? [],
       app_meta: parsed.app_meta ?? {},
     };
   } catch {
@@ -374,6 +382,48 @@ export function deleteAllocationGroup(id: string): void {
   persist();
 }
 
+// ---- v1.5.4: per-month income (salary history + income events) ----
+
+export function getSalaryHistory(): SalaryRow[] {
+  return clone([...db.salary_history].sort((a, b) => a.from_month.localeCompare(b.from_month)));
+}
+
+/** One salary per effective-month: replaces any existing row with the same from_month. */
+export function addSalary(row: SalaryRow): void {
+  db.salary_history = db.salary_history.filter(s => s.from_month !== row.from_month);
+  db.salary_history.push({ ...row });
+  persist();
+}
+
+export function deleteSalary(id: string): void {
+  db.salary_history = db.salary_history.filter(s => s.id !== id);
+  persist();
+}
+
+export function getIncomeEvents(): IncomeEvent[] {
+  return clone(
+    [...db.income_events].sort((a, b) => b.month.localeCompare(a.month) || a.label.localeCompare(b.label))
+  );
+}
+
+export function addIncomeEvent(e: IncomeEvent): void {
+  db.income_events.push({ ...e });
+  persist();
+}
+
+export function updateIncomeEvent(id: string, fields: Omit<IncomeEvent, 'id'>): void {
+  const i = db.income_events.findIndex(e => e.id === id);
+  if (i >= 0) {
+    db.income_events[i] = { id, ...fields };
+    persist();
+  }
+}
+
+export function deleteIncomeEvent(id: string): void {
+  db.income_events = db.income_events.filter(e => e.id !== id);
+  persist();
+}
+
 export function getGameStateFull(): GameStateFull {
   return { ...db.game_state };
 }
@@ -386,6 +436,8 @@ export function getSnapshot(): Snapshot {
     budget: getBudget(),
     allocations: getAllocations(),
     allocation_groups: getAllocationGroups(),
+    salary_history: getSalaryHistory(),
+    income_events: getIncomeEvents(),
   };
 }
 
@@ -398,12 +450,29 @@ export function replaceAllData(snap: Snapshot): void {
   db.budget = snap.budget ?? { monthly_budget: null, currency: 'SGD' };
   db.allocations = (snap.allocations ?? []).map(normalizeAllocation);
   db.allocation_groups = clone(snap.allocation_groups ?? []);
+  db.salary_history = clone(snap.salary_history ?? []);
+  db.income_events = clone(snap.income_events ?? []);
   persist();
 }
 
-export function mergeData(snap: Snapshot): { categoriesAdded: number; expensesAdded: number } {
+export type MergeResult = {
+  categoriesAdded: number;
+  expensesAdded: number;
+  incomeEventsAdded: number;
+  salaryRowsAdded: number;
+};
+
+/**
+ * Merge = add HISTORICAL RECORDS that don't already exist: expenses, categories
+ * and income events by id; salary rows by from_month (one salary per effective-
+ * month). game_state, budget and allocations stay untouched (current config).
+ * NOTE: keep semantics in lockstep with queries.ts.
+ */
+export function mergeData(snap: Snapshot): MergeResult {
   let categoriesAdded = 0;
   let expensesAdded = 0;
+  let incomeEventsAdded = 0;
+  let salaryRowsAdded = 0;
   const catIds = new Set(db.categories.map(c => c.id));
   for (const c of snap.categories ?? []) {
     if (!catIds.has(c.id)) {
@@ -420,8 +489,24 @@ export function mergeData(snap: Snapshot): { categoriesAdded: number; expensesAd
       expensesAdded += 1;
     }
   }
+  const evtIds = new Set(db.income_events.map(e => e.id));
+  for (const ev of snap.income_events ?? []) {
+    if (!evtIds.has(ev.id)) {
+      db.income_events.push({ ...ev });
+      evtIds.add(ev.id);
+      incomeEventsAdded += 1;
+    }
+  }
+  const salMonths = new Set(db.salary_history.map(s => s.from_month));
+  for (const s of snap.salary_history ?? []) {
+    if (!salMonths.has(s.from_month)) {
+      db.salary_history.push({ ...s });
+      salMonths.add(s.from_month);
+      salaryRowsAdded += 1;
+    }
+  }
   persist();
-  return { categoriesAdded, expensesAdded };
+  return { categoriesAdded, expensesAdded, incomeEventsAdded, salaryRowsAdded };
 }
 
 // ---- app_meta ----
