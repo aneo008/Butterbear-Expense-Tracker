@@ -163,15 +163,16 @@ export default function SettingsScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert('Restored', `Replaced all data with ${snap.expenses.length} expenses.`);
       } else {
-        const { expensesAdded, categoriesAdded } = mergeData(snap);
+        const { expensesAdded, categoriesAdded, incomeEventsAdded, salaryRowsAdded } = mergeData(snap);
         loadData();
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          'Merged',
-          `Added ${expensesAdded} new ${expensesAdded === 1 ? 'expense' : 'expenses'}` +
-            (categoriesAdded > 0 ? ` and ${categoriesAdded} ${categoriesAdded === 1 ? 'category' : 'categories'}` : '') +
-            '.'
-        );
+        const parts = [
+          `${expensesAdded} new ${expensesAdded === 1 ? 'expense' : 'expenses'}`,
+          ...(categoriesAdded > 0 ? [`${categoriesAdded} ${categoriesAdded === 1 ? 'category' : 'categories'}`] : []),
+          ...(incomeEventsAdded > 0 ? [`${incomeEventsAdded} income ${incomeEventsAdded === 1 ? 'entry' : 'entries'}`] : []),
+          ...(salaryRowsAdded > 0 ? [`${salaryRowsAdded} salary ${salaryRowsAdded === 1 ? 'change' : 'changes'}`] : []),
+        ];
+        Alert.alert('Merged', `Added ${parts.join(', ')}.`);
       }
     } catch (e: any) {
       Alert.alert("Couldn't restore", e?.message ?? 'The file could not be read.');
@@ -197,16 +198,16 @@ export default function SettingsScreen() {
     Alert.alert(
       'Restore backup',
       `From "${picked.name}".\n\n` +
-        '• Merge — adds expense logs & categories you don’t already have. Your coins, streak, wardrobe and budget stay unchanged.\n' +
-        '• Replace — wipes current data and restores the backup in full (coins, streak, wardrobe, budget & set-asides and all).',
+        '• Merge — adds expense logs, categories & income history (bonuses, salary changes) you don’t already have. Your coins, streak, wardrobe and set-asides stay unchanged.\n' +
+        '• Replace — wipes current data and restores the backup in full (coins, streak, wardrobe, set-asides & income history and all).',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Merge',
           onPress: () =>
             Alert.alert(
-              'Merge — logs only',
-              'This brings in expense logs and categories only. Your coins, streak, wardrobe and budget won’t change. Continue?',
+              'Merge — records only',
+              'This brings in expense logs, categories and income history only. Your coins, streak, wardrobe and set-asides won’t change. Continue?',
               [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Merge', onPress: () => applyRestore('merge', picked!.text) },

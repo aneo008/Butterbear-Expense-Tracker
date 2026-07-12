@@ -14,6 +14,9 @@ import { useExpenseStore } from '../src/store/useExpenseStore';
 import { Allocation, AllocationGroup } from '../src/db/types';
 import AllocationEditSheet, { EditSheetRequest } from '../src/components/AllocationEditSheet';
 import GroupEditSheet from '../src/components/GroupEditSheet';
+import IncomeEventSheet, { IncomeSheetRequest } from '../src/components/IncomeEventSheet';
+import { incomeForMonth, salaryForMonth, eventsForMonth } from '../src/lib/incomeMath';
+import { Alert } from '../src/lib/dialog';
 import {
   nextDueISO,
   monthCommitment,
@@ -38,11 +41,18 @@ export default function MoneyScreen() {
   const setIncome = useExpenseStore(s => s.setIncome);
   const allocations = useExpenseStore(s => s.allocations);
   const allocationGroups = useExpenseStore(s => s.allocationGroups);
+  const salaryHistory = useExpenseStore(s => s.salaryHistory);
+  const incomeEvents = useExpenseStore(s => s.incomeEvents);
+  const addSalary = useExpenseStore(s => s.addSalary);
+  const deleteSalary = useExpenseStore(s => s.deleteSalary);
 
   const [editRequest, setEditRequest] = useState<EditSheetRequest | null>(null);
   const [editingGroup, setEditingGroup] = useState<AllocationGroup | null>(null);
+  const [incomeSheet, setIncomeSheet] = useState<IncomeSheetRequest | null>(null);
   const [incomeEditing, setIncomeEditing] = useState(false);
   const [incomeText, setIncomeText] = useState('');
+  // 'base' = update the "since forever" salary; a YYYY-MM = salary change from that month.
+  const [salaryFrom, setSalaryFrom] = useState<string>('base');
 
   const today = todayISO();
   const month = currentMonth();
@@ -62,22 +72,54 @@ export default function MoneyScreen() {
       .slice(0, 5);
   }, [allocations, today]);
 
+  // v1.5.4: income is per-month — salary in effect + this month's bonuses.
+  const monthSalary = salaryForMonth(income, salaryHistory, month);
+  const monthExtras = eventsForMonth(incomeEvents, month).reduce((s, e) => s + e.amount, 0);
+  const monthIncome = incomeForMonth(income, salaryHistory, incomeEvents, month);
+
   const commit = monthCommitment(allocations, month);
-  const spendable = income !== null ? income - commit.setAside : null;
+  const spendable = monthIncome !== null ? monthIncome - commit.setAside : null;
 
   const groupIcon = (id: string | null): string =>
     allocationGroups.find(g => g.id === id)?.icon ?? '📌';
 
-  // ---- income editing ----
+  // ---- salary editing (amount + which month it applies from) ----
   const openIncomeEdit = () => {
-    setIncomeText(income !== null ? String(income) : '');
+    setIncomeText(monthSalary !== null ? String(monthSalary) : '');
+    // No history yet → default to updating the base; otherwise a change from this month.
+    setSalaryFrom(salaryHistory.length === 0 ? 'base' : month);
     setIncomeEditing(true);
   };
   const saveIncome = () => {
     const v = Math.round(parseFloat(incomeText) * 100) / 100;
-    setIncome(Number.isFinite(v) && v > 0 ? v : null);
+    const amount = Number.isFinite(v) && v > 0 ? v : null;
+    if (salaryFrom === 'base' || amount === null) {
+      setIncome(amount); // update (or clear) the "since forever" base
+    } else {
+      addSalary({ from_month: salaryFrom, amount });
+    }
     setIncomeEditing(false);
   };
+  const confirmDeleteSalary = (id: string, label: string) => {
+    Alert.alert('Remove salary change?', `"${label}" will be removed — earlier salary applies again.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => deleteSalary(id) },
+    ]);
+  };
+
+  /** From-month choices for a salary change: current + next 3 and previous 3 months. */
+  const salaryFromChoices = (() => {
+    const out: string[] = [];
+    let [y, m] = month.split('-').map(Number);
+    m -= 3;
+    while (m < 1) { m += 12; y -= 1; }
+    for (let i = 0; i < 7; i++) {
+      out.push(`${y}-${m < 10 ? '0' + m : m}`);
+      m += 1;
+      if (m > 12) { m = 1; y += 1; }
+    }
+    return out;
+  })();
 
   // ---- row + card renderers ----
   const renderPaymentRow = (a: Allocation) => {
@@ -172,40 +214,132 @@ export default function MoneyScreen() {
       />
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
 
-        {/* Income */}
+        {/* Income (v1.5.4: per-month — salary in effect + this month's bonuses) */}
         <View style={styles.card}>
-          <Text selectable={false} style={styles.cardLabel}>Monthly income</Text>
+          <Text selectable={false} style={styles.cardLabel}>Income this month</Text>
           {incomeEditing ? (
-            <View style={styles.incomeEditRow}>
-              <TextInput
-                style={styles.incomeInput}
-                value={incomeText}
-                onChangeText={setIncomeText}
-                placeholder="0.00"
-                placeholderTextColor="#BCAF9C"
-                keyboardType="decimal-pad"
-                inputMode="decimal"
-                autoFocus
-              />
-              <TouchableOpacity accessibilityLabel="income-save" onPress={saveIncome} style={styles.incomeSave}>
-                <Text selectable={false} style={styles.incomeSaveText}>Save</Text>
-              </TouchableOpacity>
-              <TouchableOpacity accessibilityLabel="income-cancel" onPress={() => setIncomeEditing(false)} style={styles.incomeCancel}>
-                <Text selectable={false} style={styles.incomeCancelText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
+            <>
+              <View style={styles.incomeEditRow}>
+                <TextInput
+                  style={styles.incomeInput}
+                  value={incomeText}
+                  onChangeText={setIncomeText}
+                  placeholder="0.00"
+                  placeholderTextColor="#BCAF9C"
+                  keyboardType="decimal-pad"
+                  inputMode="decimal"
+                  autoFocus
+                />
+                <TouchableOpacity accessibilityLabel="income-save" onPress={saveIncome} style={styles.incomeSave}>
+                  <Text selectable={false} style={styles.incomeSaveText}>Save</Text>
+                </TouchableOpacity>
+                <TouchableOpacity accessibilityLabel="income-cancel" onPress={() => setIncomeEditing(false)} style={styles.incomeCancel}>
+                  <Text selectable={false} style={styles.incomeCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+              <Text selectable={false} style={styles.fromLabel}>Salary applies from</Text>
+              <View style={styles.fromChips}>
+                <TouchableOpacity
+                  accessibilityLabel="salary-from-base"
+                  onPress={() => setSalaryFrom('base')}
+                  style={[styles.fromChip, salaryFrom === 'base' && styles.fromChipActive]}
+                >
+                  <Text selectable={false} style={[styles.fromChipText, salaryFrom === 'base' && styles.fromChipTextActive]}>
+                    Always
+                  </Text>
+                </TouchableOpacity>
+                {salaryFromChoices.map(m => {
+                  const active = salaryFrom === m;
+                  return (
+                    <TouchableOpacity
+                      key={m}
+                      accessibilityLabel={`salary-from-${m}`}
+                      onPress={() => setSalaryFrom(m)}
+                      style={[styles.fromChip, active && styles.fromChipActive]}
+                    >
+                      <Text selectable={false} style={[styles.fromChipText, active && styles.fromChipTextActive]}>
+                        {formatMonthShort(m)}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </>
           ) : (
             <TouchableOpacity accessibilityLabel="income-edit" onPress={openIncomeEdit}>
-              <Text selectable={false} style={income !== null ? styles.incomeValue : styles.incomeUnset}>
-                {income !== null ? fmt(income) : 'Tap to set'}
+              <Text selectable={false} style={monthIncome !== null ? styles.incomeValue : styles.incomeUnset}>
+                {monthIncome !== null ? fmt(monthIncome) : 'Tap to set'}
               </Text>
             </TouchableOpacity>
           )}
-          {income !== null && (
+          {!incomeEditing && monthExtras > 0 && (
+            <Text selectable={false} style={styles.incomeBreakdown}>
+              Salary {fmt(monthSalary ?? 0)} + extra income {fmt(monthExtras)}
+            </Text>
+          )}
+          {!incomeEditing && monthIncome !== null && (
             <Text selectable={false} style={styles.incomeSub}>
               Set aside this month {fmt(commit.setAside)} · Spendable {fmt(spendable ?? 0)}
             </Text>
           )}
+          {!incomeEditing && salaryHistory.length > 0 && (
+            <View style={styles.salaryHistory}>
+              {income !== null && (
+                <Text selectable={false} style={styles.salaryRow}>
+                  {fmt(income)} · before {formatMonthShort(salaryHistory[0].from_month)}
+                </Text>
+              )}
+              {salaryHistory.map(s => (
+                <View key={s.id} style={styles.salaryRowWrap}>
+                  <Text selectable={false} style={styles.salaryRow}>
+                    {fmt(s.amount)} · since {formatMonthShort(s.from_month)}
+                  </Text>
+                  <Pressable
+                    accessibilityLabel={`salary-delete-${s.from_month}`}
+                    hitSlop={8}
+                    onPress={() => confirmDeleteSalary(s.id, `${fmt(s.amount)} since ${formatMonthShort(s.from_month)}`)}
+                  >
+                    <Text selectable={false} style={styles.salaryDelete}>✕</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Bonuses & extra income */}
+        <Text selectable={false} style={styles.sectionHeader}>Bonuses & extra income</Text>
+        <View style={styles.card}>
+          {incomeEvents.length === 0 ? (
+            <Text selectable={false} style={styles.emptyLine}>
+              Bonuses, 13th month, freelance — tagged to their month so that month's budget is true.
+            </Text>
+          ) : (
+            incomeEvents.map(e => (
+              <TouchableOpacity
+                key={e.id}
+                style={styles.payRow}
+                onPress={() => setIncomeSheet({ editing: e })}
+                accessibilityLabel={`income-${e.label}`}
+              >
+                <View style={styles.payMid}>
+                  <Text selectable={false} style={styles.payLabel}>{e.label}</Text>
+                  <Text selectable={false} style={styles.dueText}>{formatMonthShort(e.month)}</Text>
+                </View>
+                <Text selectable={false} style={styles.incomeAmount}>+ {fmt(e.amount)}</Text>
+              </TouchableOpacity>
+            ))
+          )}
+          <View style={styles.groupFooter}>
+            <View />
+            <TouchableOpacity
+              accessibilityLabel="income-add"
+              onPress={() => setIncomeSheet({ editing: null })}
+              style={styles.addChip}
+            >
+              <Text selectable={false} style={styles.addChipText}>＋ Add income</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Due soon */}
@@ -299,6 +433,7 @@ export default function MoneyScreen() {
 
       <AllocationEditSheet request={editRequest} onClose={() => setEditRequest(null)} />
       <GroupEditSheet group={editingGroup} onClose={() => setEditingGroup(null)} />
+      <IncomeEventSheet request={incomeSheet} onClose={() => setIncomeSheet(null)} />
     </SafeAreaView>
   );
 }
@@ -353,6 +488,33 @@ const styles = StyleSheet.create({
   incomeSaveText: { fontFamily: fonts.bodyBold, fontSize: 14, color: colors.textBrown },
   incomeCancel: { paddingHorizontal: 6, paddingVertical: 9 },
   incomeCancelText: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.textSoft },
+  incomeBreakdown: { fontFamily: fonts.bodyMedium, fontSize: 12, color: '#3C8C4C', marginTop: 4 },
+  fromLabel: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 11,
+    color: colors.textSoft,
+    marginTop: 10,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  fromChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  fromChip: {
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.bearBody,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: colors.bgCard,
+  },
+  fromChipActive: { backgroundColor: colors.butter, borderColor: colors.butter },
+  fromChipText: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textBrown },
+  fromChipTextActive: { fontFamily: fonts.bodyBold },
+  salaryHistory: { marginTop: 8, gap: 2 },
+  salaryRowWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  salaryRow: { fontFamily: fonts.body, fontSize: 12, color: colors.textSoft },
+  salaryDelete: { fontSize: 12, color: '#C57A6E', padding: 2 },
+  incomeAmount: { fontFamily: fonts.bodyBold, fontSize: 15, color: '#3C8C4C' },
 
   // due soon
   dueRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7 },

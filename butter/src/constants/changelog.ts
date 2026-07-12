@@ -17,6 +17,17 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.5.4',
+    pass: 'Phase 5',
+    title: 'Every month, your true income',
+    date: '2026-07-12',
+    items: [
+      { tag: 'new', text: 'Income is now tracked per month. Change your salary from any month (“6000 from Aug”) — past months keep their old salary, so history stays honest.' },
+      { tag: 'new', text: 'Bonuses & extra income — tag a bonus, 13th month or freelance payment to its month; that month’s budget and savings rate include it, other months don’t.' },
+      { tag: 'change', text: 'Merge (restore) now also brings in income history — bonuses and salary changes you don’t already have — so past income from another app can be imported safely.' },
+    ],
+  },
+  {
     version: '1.5.3',
     pass: 'Phase 5',
     title: 'Polish & protection',

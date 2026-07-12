@@ -24,7 +24,7 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.5.3` — **Phase 5 COMPLETE.** Budget & Money core (`v1.5.0`: Money screen — income, grouped recurring payments with due dates, one-offs — + Insights budget card) → **"Info only" flag** (`v1.5.1`, the double-count escape hatch) → **12-month trend chart** (`v1.5.2`) → **polish & protection** (`v1.5.3`: splash, per-row backup validation, once-ever chests, Phase-4 backfill removed, dead code deleted). Next up: **ship native** (strategic priority — unblocks the daily-logging reminder AND payment due-date reminders), Pass F (story), rest of the hardening backlog.
+**Current:** `v1.5.4` — **Phase 5 COMPLETE (+ income addendum).** Budget & Money core (`v1.5.0`) → **"Info only" flag** (`v1.5.1`) → **12-month trend chart** (`v1.5.2`) → **polish & protection** (`v1.5.3`) → **per-month income** (`v1.5.4`: effective-from salary history + month-tagged bonuses; Merge imports income history). Next up: **ship native** (strategic priority — unblocks the daily-logging reminder AND payment due-date reminders), Pass F (story), rest of the hardening backlog.
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 
@@ -39,7 +39,7 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | 3 | Data portability (export/import) | ✅ done |
 | **4** | **Gamification (Closet, coins, streaks)** | ◑ **in progress — Passes A–E + G1 + calculator done; Pass F (story) remains, G3 sfx optional** |
 | — | **Hardening & trust** (from the v1.4.9 review) | ◑ **in progress** — streak, dev data-loss, chests, backup validation fixed; IndexedDB / computeLogUpdate / tests queued |
-| **5** | **Budget, charts & ship polish** | ✅ **done (`v1.5.0`–`v1.5.3`)** — Money screen, info-only flag, trend chart, polish & protection |
+| **5** | **Budget, charts & ship polish** | ✅ **done (`v1.5.0`–`v1.5.4`)** — Money screen, info-only flag, trend chart, polish & protection, per-month income |
 | 6+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
 | — | **Ship native (iOS/Android)** | ⬜ strategic priority (pull forward — unblocks gestures, haptics, reminders) |
 
@@ -170,6 +170,21 @@ what's left to actually spend.
   + dead `App.tsx`/`index.ts` deleted; `insights`/`settings` migrated to theme tokens; donut has
   a screen-reader summary; trend-bar labels bumped for contrast.
 
+### `v1.5.4` — Per-month income (salary history + bonuses)
+- ✨ **Income is per-month now.** Salary changes are **effective-from** ("6000 from Aug '26"):
+  past months keep the salary that was true then, so historical Spendable and savings rates
+  stay honest. The Money card shows this month's income with its salary+bonus breakdown and a
+  small salary-history list; the Insights budget card follows the selected month.
+- ✨ **Bonuses & extra income:** month-tagged entries (bonus, 13th month, freelance) counted
+  only in their month.
+- 🔧 **Merge now includes income history** — bonuses merge by id, salary changes by
+  effective-month (one salary per from_month, so two sources can't contradict) — the intended
+  path for importing past income from another app (convert its export into a Butter backup
+  JSON, then Merge). Coins/streak/wardrobe/set-asides still untouched by Merge.
+- 🔧 Under the hood: new `salary_history` + `income_events` tables (additive; old backups load
+  fine, BACKUP_VERSION still 1); `budget.monthly_budget` lives on as the "since forever" base
+  salary that history rows override; pure math in `src/lib/incomeMath.ts` (`incomeForMonth`).
+
 ### `v1.5.1` — Info-only payments
 - ✨ **"Info only" payments:** a recurring payment can now be marked **Info only** (Budget
   section of the payment editor) — it keeps its group, amount and due date (still appears in
@@ -207,15 +222,17 @@ The retention engine had cracks in trust/durability. Triage from the review:
 - **Local daily reminder notification (native, gentle opt-in, streak-aware)** — the single biggest missing retention lever for a daily-habit app; currently nowhere on the roadmap.
 - **Payment due-date reminders (native) — ⚠️ build when we go native.** Local notifications for the Money screen's recurring payments ("Term life · SGD 120 · due tomorrow"): `nextDueISO()` in `src/lib/allocationMath.ts` already computes every due date, so this is scheduling + opt-in UI only. Sequenced together with the daily logging reminder above (one notifications permission ask, two payoffs). *This is the deliberate other half of the "no reminders in-app" scope fence below — the due dates users are already entering become actionable here.*
 
-## Phase 5 — ✅ COMPLETE (`v1.5.0`–`v1.5.3`)
+## Phase 5 — ✅ COMPLETE (`v1.5.0`–`v1.5.4`)
 Budget & Money core (`v1.5.0`) → info-only flag (`v1.5.1`) → 12-month trend chart (`v1.5.2`) →
-data-safety + ship polish + Phase-4 backfill removal (`v1.5.3`). Deliberately left on the
-backlog: spendable-line overlay on the trend, category drill-down trend, store-ready perf pass
-(nothing felt slow at current data sizes).
+data-safety + ship polish + Phase-4 backfill removal (`v1.5.3`) → per-month income addendum
+(`v1.5.4`, user-requested — locks the money data model before native). Deliberately left on
+the backlog: spendable-line overlay on the trend, category drill-down trend, store-ready perf
+pass (nothing felt slow at current data sizes).
 
-**Scope fences (decided during 5b, hold the line):**
-- *Not* full income tracking (no multiple income sources / income entries) — cuts against the
-  <5-second logging ethos.
+**Scope fences (decided during 5b, revised in v1.5.4, hold the line):**
+- ✅ Per-month income accuracy is IN (`v1.5.4`: effective-from salary history + month-tagged
+  bonuses). Still OUT: per-paycheck logging and multi-source income streams — income stays a
+  few set-and-forget entries, never a second daily-logging burden.
 - *Not* per-cycle paid-tracking ("mark as paid", payment history) or bill reminders in-app —
   the registry stays static; **payment due-date reminders ship with the native build** (see
   Strategic priorities above) — that's how due dates become actionable.

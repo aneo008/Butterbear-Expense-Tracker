@@ -20,6 +20,7 @@ import { currentMonth, monthRange, formatMonthShort, formatMonthLong } from '../
 import { dedupeColors } from '../../src/lib/colors';
 import CategoryDonut, { DonutSegment } from '../../src/components/CategoryDonut';
 import { budgetSummary } from '../../src/lib/allocationMath';
+import { incomeForMonth } from '../../src/lib/incomeMath';
 import { colors } from '../../src/constants/theme';
 
 function formatCurrency(amount: number): string {
@@ -42,6 +43,8 @@ export default function InsightsScreen() {
   const dataVersion = useExpenseStore(s => s.dataVersion);
   const income = useExpenseStore(s => s.income);
   const allocations = useExpenseStore(s => s.allocations);
+  const salaryHistory = useExpenseStore(s => s.salaryHistory);
+  const incomeEvents = useExpenseStore(s => s.incomeEvents);
   const router = useRouter();
 
   const [selectedMonth, setSelectedMonth] = useState(currentMonth());
@@ -105,8 +108,10 @@ export default function InsightsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-        {/* Budget analysis (Phase 5c) — income vs set-asides vs spending for the month */}
-        {income === null ? (
+        {/* Budget analysis (Phase 5c; v1.5.4: income is per-month — salary history + bonuses) */}
+        {(() => {
+          const monthIncome = incomeForMonth(income, salaryHistory, incomeEvents, selectedMonth);
+          return monthIncome === null ? (
           <TouchableOpacity
             style={styles.budgetEmpty}
             activeOpacity={0.7}
@@ -117,7 +122,7 @@ export default function InsightsScreen() {
             </Text>
           </TouchableOpacity>
         ) : (() => {
-          const s = budgetSummary(income, allocations, selectedMonth, total);
+          const s = budgetSummary(monthIncome, allocations, selectedMonth, total);
           const pct = s.spendable > 0 ? Math.min(1, s.spent / s.spendable) : (s.spent > 0 ? 1 : 0);
           const over = s.remaining < 0;
           return (
@@ -168,6 +173,7 @@ export default function InsightsScreen() {
               )}
             </TouchableOpacity>
           );
+        })();
         })()}
 
         {/* 12-month trend (Phase 5e) — hidden until there's a second month of data */}
