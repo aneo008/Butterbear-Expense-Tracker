@@ -17,6 +17,15 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.5.5',
+    pass: 'Phase 5',
+    title: 'Phone-sized fix',
+    date: '2026-07-12',
+    items: [
+      { tag: 'fix', text: 'The payment and income editors now scroll properly on phone-sized screens — no more cut-off fields, and Save/Delete/Cancel always stay in reach at the bottom.' },
+    ],
+  },
+  {
     version: '1.5.4',
     pass: 'Phase 5',
     title: 'Every month, your true income',

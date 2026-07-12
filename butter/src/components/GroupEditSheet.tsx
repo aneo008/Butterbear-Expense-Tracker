@@ -119,6 +119,8 @@ const styles = StyleSheet.create({
     padding: 22,
     width: '100%',
     maxWidth: 340,
+    maxHeight: '90%',
+    overflow: 'hidden',
     ...cardShadow,
   },
   title: { fontFamily: fonts.display, fontSize: 20, color: colors.textBrown, textAlign: 'center', marginBottom: 14 },

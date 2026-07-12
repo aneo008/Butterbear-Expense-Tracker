@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView } from 'react-native';
 import { useExpenseStore } from '../store/useExpenseStore';
 import { IncomeEvent } from '../db/types';
 import { Alert } from '../lib/dialog';
@@ -86,6 +86,13 @@ export default function IncomeEventSheet({ request, onClose }: Props) {
             {editing ? 'Edit income' : 'Extra income'}
           </Text>
 
+          {/* Bounded scroll so short (phone) viewports can reach every field. */}
+          <ScrollView
+            style={styles.fieldsScroll}
+            contentContainerStyle={styles.fieldsBody}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
           <Text selectable={false} style={styles.fieldLabel}>Name</Text>
           <TextInput
             style={styles.input}
@@ -124,6 +131,7 @@ export default function IncomeEventSheet({ request, onClose }: Props) {
               );
             })}
           </View>
+          </ScrollView>
 
           <Pressable accessibilityLabel="income-save" onPress={save} style={styles.saveButton}>
             <Text selectable={false} style={styles.saveText}>{editing ? 'Save changes' : 'Add income'}</Text>
@@ -156,8 +164,12 @@ const styles = StyleSheet.create({
     padding: 22,
     width: '100%',
     maxWidth: 380,
+    maxHeight: '90%',
+    overflow: 'hidden',
     ...cardShadow,
   },
+  fieldsScroll: { alignSelf: 'stretch', flexShrink: 1 },
+  fieldsBody: { paddingBottom: 4 },
   title: { fontFamily: fonts.display, fontSize: 20, color: colors.textBrown, textAlign: 'center', marginBottom: 8 },
 
   fieldLabel: {

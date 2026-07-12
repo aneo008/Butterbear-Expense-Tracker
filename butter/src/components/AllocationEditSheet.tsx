@@ -166,14 +166,23 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
 
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.card} onPress={() => {}}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <Text selectable={false} style={styles.title}>
-                {editing ? 'Edit payment' : 'New payment'}
-              </Text>
+      {/* KAV lives at the overlay level (iOS-only behavior; inert on web/Android) so the
+          card's height chain stays bounded — see the phone-viewport overflow fix. */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.kav}>
+        <Pressable style={styles.overlay} onPress={onClose}>
+          <Pressable style={styles.card} onPress={() => {}}>
+            <Text selectable={false} style={styles.title}>
+              {editing ? 'Edit payment' : 'New payment'}
+            </Text>
 
+            {/* Fields scroll; the ScrollView MUST be a direct flex child of the
+                height-capped card (flexShrink) or it can neither scroll nor clip. */}
+            <ScrollView
+              style={styles.fieldsScroll}
+              contentContainerStyle={styles.fieldsBody}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
               {/* Name + amount */}
               <Text selectable={false} style={styles.fieldLabel}>Name</Text>
               <TextInput
@@ -393,27 +402,29 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
                 placeholderTextColor="#BCAF9C"
               />
 
-              {/* Actions */}
-              <Pressable accessibilityLabel="alloc-save" onPress={save} style={styles.saveButton}>
-                <Text selectable={false} style={styles.saveText}>{editing ? 'Save changes' : 'Add payment'}</Text>
-              </Pressable>
-              {editing && (
-                <Pressable accessibilityLabel="alloc-delete" onPress={confirmDelete} style={styles.deleteButton}>
-                  <Text selectable={false} style={styles.deleteText}>Delete</Text>
-                </Pressable>
-              )}
-              <Pressable accessibilityLabel="alloc-cancel" onPress={onClose} style={styles.cancelButton}>
-                <Text selectable={false} style={styles.cancelText}>Cancel</Text>
-              </Pressable>
             </ScrollView>
-          </KeyboardAvoidingView>
+
+            {/* Actions — pinned below the scroll area, always reachable */}
+            <Pressable accessibilityLabel="alloc-save" onPress={save} style={styles.saveButton}>
+              <Text selectable={false} style={styles.saveText}>{editing ? 'Save changes' : 'Add payment'}</Text>
+            </Pressable>
+            {editing && (
+              <Pressable accessibilityLabel="alloc-delete" onPress={confirmDelete} style={styles.deleteButton}>
+                <Text selectable={false} style={styles.deleteText}>Delete</Text>
+              </Pressable>
+            )}
+            <Pressable accessibilityLabel="alloc-cancel" onPress={onClose} style={styles.cancelButton}>
+              <Text selectable={false} style={styles.cancelText}>Cancel</Text>
+            </Pressable>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  kav: { flex: 1 },
   overlay: {
     flex: 1,
     backgroundColor: '#00000055',
@@ -428,8 +439,11 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 380,
     maxHeight: '90%',
+    overflow: 'hidden',
     ...cardShadow,
   },
+  fieldsScroll: { alignSelf: 'stretch', flexShrink: 1 },
+  fieldsBody: { paddingBottom: 4 },
   title: { fontFamily: fonts.display, fontSize: 20, color: colors.textBrown, textAlign: 'center', marginBottom: 8 },
 
   fieldLabel: {

@@ -24,7 +24,7 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.5.4` — **Phase 5 COMPLETE (+ income addendum).** Budget & Money core (`v1.5.0`) → **"Info only" flag** (`v1.5.1`) → **12-month trend chart** (`v1.5.2`) → **polish & protection** (`v1.5.3`) → **per-month income** (`v1.5.4`: effective-from salary history + month-tagged bonuses; Merge imports income history). Next up: **ship native** (strategic priority — unblocks the daily-logging reminder AND payment due-date reminders), Pass F (story), rest of the hardening backlog.
+**Current:** `v1.5.5` — **Phase 5 COMPLETE (+ income addendum & mobile-sheet fix).** Budget & Money core (`v1.5.0`) → **"Info only" flag** (`v1.5.1`) → **12-month trend chart** (`v1.5.2`) → **polish & protection** (`v1.5.3`) → **per-month income** (`v1.5.4`: effective-from salary history + month-tagged bonuses; Merge imports income history). Next up: **ship native** (strategic priority — unblocks the daily-logging reminder AND payment due-date reminders), Pass F (story), rest of the hardening backlog.
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 
@@ -184,6 +184,15 @@ what's left to actually spend.
 - 🔧 Under the hood: new `salary_history` + `income_events` tables (additive; old backups load
   fine, BACKUP_VERSION still 1); `budget.monthly_budget` lives on as the "since forever" base
   salary that history rows override; pure math in `src/lib/incomeMath.ts` (`incomeForMonth`).
+
+### `v1.5.5` — Fix: editors on phone-sized screens
+- 🐛 The payment/income/group editor sheets were unusable on real phones: content overflowed
+  below the card (no clipping) and couldn't scroll, so bottom fields and buttons were
+  unreachable. Cause: the ScrollView sat inside an unbounded `KeyboardAvoidingView` wrapper,
+  so the card's `maxHeight` never constrained it. Fix: WhatsNewSheet pattern — pinned title,
+  ScrollView as a direct flex child (`flexShrink`), **Save/Delete/Cancel pinned below the
+  scroll area** (always reachable), `overflow: hidden` on the card, KAV moved to the overlay
+  level (iOS-only behavior). *Lesson: verify sheets at a phone-sized viewport, not just desktop.*
 
 ### `v1.5.1` — Info-only payments
 - ✨ **"Info only" payments:** a recurring payment can now be marked **Info only** (Budget
