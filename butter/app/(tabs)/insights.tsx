@@ -45,6 +45,7 @@ export default function InsightsScreen() {
   const allocations = useExpenseStore(s => s.allocations);
   const salaryHistory = useExpenseStore(s => s.salaryHistory);
   const incomeEvents = useExpenseStore(s => s.incomeEvents);
+  const incomeOverrides = useExpenseStore(s => s.incomeOverrides);
   const router = useRouter();
 
   const [selectedMonth, setSelectedMonth] = useState(currentMonth());
@@ -110,7 +111,7 @@ export default function InsightsScreen() {
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         {/* Budget analysis (Phase 5c; v1.5.4: income is per-month — salary history + bonuses) */}
         {(() => {
-          const monthIncome = incomeForMonth(income, salaryHistory, incomeEvents, selectedMonth);
+          const monthIncome = incomeForMonth(income, salaryHistory, incomeOverrides, incomeEvents, selectedMonth);
           return monthIncome === null ? (
           <TouchableOpacity
             style={styles.budgetEmpty}

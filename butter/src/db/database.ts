@@ -85,6 +85,12 @@ export async function initDatabase(): Promise<void> {
       amount REAL NOT NULL,
       month  TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS income_overrides (
+      id     TEXT PRIMARY KEY,
+      month  TEXT NOT NULL,
+      amount REAL NOT NULL
+    );
   `);
 
   // Phase 5b additive columns on allocations (recurring-payment fields). The table

@@ -17,6 +17,15 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.5.6',
+    pass: 'Phase 5',
+    title: 'Key in any month',
+    date: '2026-07-12',
+    items: [
+      { tag: 'new', text: 'Set the income for any single month exactly — tap income, pick the month, choose “This month only”. Other months are untouched (your salary/default still fills them). Great for an irregular month.' },
+    ],
+  },
+  {
     version: '1.5.5',
     pass: 'Phase 5',
     title: 'Phone-sized fix',

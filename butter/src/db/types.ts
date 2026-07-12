@@ -85,6 +85,14 @@ export type IncomeEvent = {
   month: string; // 'YYYY-MM'
 };
 
+// v1.5.6: explicit per-month income. Wins over salary_history for its month (the
+// "key in this exact month" primitive). At most ONE per month (upsert on add/merge).
+export type IncomeOverride = {
+  id: string;
+  month: string; // 'YYYY-MM'
+  amount: number;
+};
+
 export type GameStateFull = GameState & {
   owned_items: string;
   equipped_items: string;
@@ -100,6 +108,7 @@ export type Snapshot = {
   allocation_groups: AllocationGroup[];
   salary_history: SalaryRow[];
   income_events: IncomeEvent[];
+  income_overrides: IncomeOverride[];
 };
 
 // Dev-only: directly patch game_state fields (used by the developer panel).

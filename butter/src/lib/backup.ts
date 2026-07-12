@@ -13,6 +13,7 @@ export type Backup = {
   allocation_groups: Snapshot['allocation_groups'];
   salary_history: Snapshot['salary_history'];
   income_events: Snapshot['income_events'];
+  income_overrides: Snapshot['income_overrides'];
 };
 
 /** Serialize a full app snapshot into a versioned JSON backup string. */
@@ -28,6 +29,7 @@ export function serializeBackup(snap: Snapshot): string {
     allocation_groups: snap.allocation_groups,
     salary_history: snap.salary_history,
     income_events: snap.income_events,
+    income_overrides: snap.income_overrides,
   };
   return JSON.stringify(backup, null, 2);
 }
@@ -106,6 +108,10 @@ export function parseBackup(text: string): Snapshot {
   checkRows(incomeEvents, 'income entries', r =>
     isStr(r.id) && isStr(r.label) && isNum(r.amount) && isStr(r.month)
   );
+  const incomeOverrides = Array.isArray(b.income_overrides) ? b.income_overrides : []; // absent pre-1.5.6
+  checkRows(incomeOverrides, 'monthly income', r =>
+    isStr(r.id) && isStr(r.month) && isNum(r.amount)
+  );
 
   if (b.game_state !== undefined) {
     checkRows([b.game_state], 'progress (game state)', r =>
@@ -123,5 +129,6 @@ export function parseBackup(text: string): Snapshot {
     allocation_groups: allocationGroups,
     salary_history: salaryHistory,
     income_events: incomeEvents,
+    income_overrides: incomeOverrides,
   };
 }

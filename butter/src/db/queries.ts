@@ -11,13 +11,14 @@ import {
   AllocationGroup,
   SalaryRow,
   IncomeEvent,
+  IncomeOverride,
   GameStateFull,
   Snapshot,
   DevPatch,
 } from './types';
 import { Slot, EquippedMap } from '../constants/storeItems';
 
-export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, AllocationGroup, SalaryRow, IncomeEvent, GameStateFull, Snapshot } from './types';
+export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, AllocationGroup, SalaryRow, IncomeEvent, IncomeOverride, GameStateFull, Snapshot } from './types';
 
 export function insertExpense(expense: Omit<Expense, 'created_at'>): void {
   const db = getDb();
@@ -382,6 +383,32 @@ export function deleteIncomeEvent(id: string): void {
   db.runSync('DELETE FROM income_events WHERE id = ?', [id]);
 }
 
+// ---- v1.5.6: per-month income overrides ----
+
+export function getIncomeOverrides(): IncomeOverride[] {
+  const db = getDb();
+  return db.getAllSync<IncomeOverride>(
+    'SELECT id, month, amount FROM income_overrides ORDER BY month DESC'
+  ) ?? [];
+}
+
+/** One override per month: replaces any existing row for that month. */
+export function addIncomeOverride(row: IncomeOverride): void {
+  const db = getDb();
+  db.withTransactionSync(() => {
+    db.runSync('DELETE FROM income_overrides WHERE month = ?', [row.month]);
+    db.runSync(
+      'INSERT INTO income_overrides (id, month, amount) VALUES (?, ?, ?)',
+      [row.id, row.month, row.amount]
+    );
+  });
+}
+
+export function deleteIncomeOverride(id: string): void {
+  const db = getDb();
+  db.runSync('DELETE FROM income_overrides WHERE id = ?', [id]);
+}
+
 /** Full game_state row (all columns) for backups. */
 export function getGameStateFull(): GameStateFull {
   const db = getDb();
@@ -410,6 +437,7 @@ export function getSnapshot(): Snapshot {
     allocation_groups: getAllocationGroups(),
     salary_history: getSalaryHistory(),
     income_events: getIncomeEvents(),
+    income_overrides: getIncomeOverrides(),
   };
 }
 
@@ -473,6 +501,10 @@ export function replaceAllData(snap: Snapshot): void {
     }
     db.runSync('DELETE FROM income_events');
     for (const e of snap.income_events ?? []) insertIncomeEventRaw(e);
+    db.runSync('DELETE FROM income_overrides');
+    for (const o of snap.income_overrides ?? []) {
+      db.runSync('INSERT INTO income_overrides (id, month, amount) VALUES (?, ?, ?)', [o.id, o.month, o.amount]);
+    }
   });
 }
 
@@ -481,6 +513,7 @@ export type MergeResult = {
   expensesAdded: number;
   incomeEventsAdded: number;
   salaryRowsAdded: number;
+  incomeOverridesAdded: number;
 };
 
 /**
@@ -497,11 +530,13 @@ export function mergeData(snap: Snapshot): MergeResult {
   let expensesAdded = 0;
   let incomeEventsAdded = 0;
   let salaryRowsAdded = 0;
+  let incomeOverridesAdded = 0;
   db.withTransactionSync(() => {
     const catBefore = count('categories');
     const expBefore = count('expenses');
     const evtBefore = count('income_events');
     const salBefore = count('salary_history');
+    const ovrBefore = count('income_overrides');
     for (const c of snap.categories) insertCategoryRaw(c, true);
     for (const e of snap.expenses) insertExpenseRaw(e, true);
     for (const ev of snap.income_events ?? []) insertIncomeEventRaw(ev, true);
@@ -512,12 +547,20 @@ export function mergeData(snap: Snapshot): MergeResult {
         [s.id, s.from_month, s.amount, s.from_month]
       );
     }
+    for (const o of snap.income_overrides ?? []) {
+      db.runSync(
+        `INSERT INTO income_overrides (id, month, amount)
+         SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM income_overrides WHERE month = ?)`,
+        [o.id, o.month, o.amount, o.month]
+      );
+    }
     categoriesAdded = count('categories') - catBefore;
     expensesAdded = count('expenses') - expBefore;
     incomeEventsAdded = count('income_events') - evtBefore;
     salaryRowsAdded = count('salary_history') - salBefore;
+    incomeOverridesAdded = count('income_overrides') - ovrBefore;
   });
-  return { categoriesAdded, expensesAdded, incomeEventsAdded, salaryRowsAdded };
+  return { categoriesAdded, expensesAdded, incomeEventsAdded, salaryRowsAdded, incomeOverridesAdded };
 }
 
 // ---- app_meta key/value (last backup date, future flags) ----

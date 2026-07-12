@@ -13,13 +13,14 @@ import {
   AllocationGroup,
   SalaryRow,
   IncomeEvent,
+  IncomeOverride,
   GameStateFull,
   Snapshot,
   DevPatch,
 } from './types';
 import { Slot, EquippedMap } from '../constants/storeItems';
 
-export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, AllocationGroup, SalaryRow, IncomeEvent, GameStateFull, Snapshot } from './types';
+export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, AllocationGroup, SalaryRow, IncomeEvent, IncomeOverride, GameStateFull, Snapshot } from './types';
 
 const STORAGE_KEY = 'butter.db.v1';
 
@@ -32,6 +33,7 @@ type DB = {
   allocation_groups: AllocationGroup[];
   salary_history: SalaryRow[];
   income_events: IncomeEvent[];
+  income_overrides: IncomeOverride[];
   app_meta: Record<string, string>;
 };
 
@@ -60,6 +62,7 @@ function freshDB(): DB {
     allocation_groups: [],
     salary_history: [],
     income_events: [],
+    income_overrides: [],
     app_meta: {},
   };
 }
@@ -104,6 +107,7 @@ export function initWebStore(): void {
       allocation_groups: parsed.allocation_groups ?? [],
       salary_history: parsed.salary_history ?? [],
       income_events: parsed.income_events ?? [],
+      income_overrides: parsed.income_overrides ?? [],
       app_meta: parsed.app_meta ?? {},
     };
   } catch {
@@ -424,6 +428,24 @@ export function deleteIncomeEvent(id: string): void {
   persist();
 }
 
+// ---- v1.5.6: per-month income overrides ----
+
+export function getIncomeOverrides(): IncomeOverride[] {
+  return clone([...db.income_overrides].sort((a, b) => b.month.localeCompare(a.month)));
+}
+
+/** One override per month: replaces any existing row for that month. */
+export function addIncomeOverride(row: IncomeOverride): void {
+  db.income_overrides = db.income_overrides.filter(o => o.month !== row.month);
+  db.income_overrides.push({ ...row });
+  persist();
+}
+
+export function deleteIncomeOverride(id: string): void {
+  db.income_overrides = db.income_overrides.filter(o => o.id !== id);
+  persist();
+}
+
 export function getGameStateFull(): GameStateFull {
   return { ...db.game_state };
 }
@@ -438,6 +460,7 @@ export function getSnapshot(): Snapshot {
     allocation_groups: getAllocationGroups(),
     salary_history: getSalaryHistory(),
     income_events: getIncomeEvents(),
+    income_overrides: getIncomeOverrides(),
   };
 }
 
@@ -452,6 +475,7 @@ export function replaceAllData(snap: Snapshot): void {
   db.allocation_groups = clone(snap.allocation_groups ?? []);
   db.salary_history = clone(snap.salary_history ?? []);
   db.income_events = clone(snap.income_events ?? []);
+  db.income_overrides = clone(snap.income_overrides ?? []);
   persist();
 }
 
@@ -460,6 +484,7 @@ export type MergeResult = {
   expensesAdded: number;
   incomeEventsAdded: number;
   salaryRowsAdded: number;
+  incomeOverridesAdded: number;
 };
 
 /**
@@ -473,6 +498,7 @@ export function mergeData(snap: Snapshot): MergeResult {
   let expensesAdded = 0;
   let incomeEventsAdded = 0;
   let salaryRowsAdded = 0;
+  let incomeOverridesAdded = 0;
   const catIds = new Set(db.categories.map(c => c.id));
   for (const c of snap.categories ?? []) {
     if (!catIds.has(c.id)) {
@@ -505,8 +531,16 @@ export function mergeData(snap: Snapshot): MergeResult {
       salaryRowsAdded += 1;
     }
   }
+  const ovrMonths = new Set(db.income_overrides.map(o => o.month));
+  for (const o of snap.income_overrides ?? []) {
+    if (!ovrMonths.has(o.month)) {
+      db.income_overrides.push({ ...o });
+      ovrMonths.add(o.month);
+      incomeOverridesAdded += 1;
+    }
+  }
   persist();
-  return { categoriesAdded, expensesAdded, incomeEventsAdded, salaryRowsAdded };
+  return { categoriesAdded, expensesAdded, incomeEventsAdded, salaryRowsAdded, incomeOverridesAdded };
 }
 
 // ---- app_meta ----

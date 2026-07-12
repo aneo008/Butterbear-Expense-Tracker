@@ -1,12 +1,12 @@
-// v1.5.4: pure per-month income math. No RN imports — unit-testable.
+// v1.5.4/5.6: pure per-month income math. No RN imports — unit-testable.
 //
-// A month's income = the salary effective for that month + its one-off income
-// events (bonuses etc.). Salary = the salary_history row with the greatest
-// from_month <= month; months before every row (or with no rows at all) fall
-// back to `base` — the legacy budget.monthly_budget "salary since forever".
-import { SalaryRow, IncomeEvent } from '../db/types';
+// A month's income = its BASE income + one-off income events (bonuses etc.).
+// Base income precedence (v1.5.6): a per-month OVERRIDE ("key in this exact month")
+// wins; else the salary_history row with the greatest from_month <= month; else
+// `base` — the legacy budget.monthly_budget "salary since forever".
+import { SalaryRow, IncomeEvent, IncomeOverride } from '../db/types';
 
-/** Salary in effect for a YYYY-MM, or null when nothing is set at all. */
+/** Salary effective for a YYYY-MM (excludes overrides + events), or null. */
 export function salaryForMonth(
   base: number | null,
   salaryHistory: SalaryRow[],
@@ -21,23 +21,39 @@ export function salaryForMonth(
   return best ? best.amount : base;
 }
 
+/**
+ * Base income for a YYYY-MM — the recurring part before bonuses: a per-month
+ * override wins, else the effective salary, else the base. Null when nothing set.
+ */
+export function baseIncomeForMonth(
+  base: number | null,
+  salaryHistory: SalaryRow[],
+  overrides: IncomeOverride[],
+  month: string
+): number | null {
+  const override = overrides.find(o => o.month === month);
+  if (override) return override.amount;
+  return salaryForMonth(base, salaryHistory, month);
+}
+
 /** Σ income events tagged to a YYYY-MM. */
 export function eventsForMonth(events: IncomeEvent[], month: string): IncomeEvent[] {
   return events.filter(e => e.month === month);
 }
 
 /**
- * Total income for a YYYY-MM. Returns null only when there's no salary AND no
- * events for that month — callers show the "set your income" empty state then.
+ * Total income for a YYYY-MM = base income + Σ events. Returns null only when
+ * there's no base income AND no events — callers show the "set income" empty state.
  */
 export function incomeForMonth(
   base: number | null,
   salaryHistory: SalaryRow[],
+  overrides: IncomeOverride[],
   events: IncomeEvent[],
   month: string
 ): number | null {
-  const salary = salaryForMonth(base, salaryHistory, month);
+  const baseIncome = baseIncomeForMonth(base, salaryHistory, overrides, month);
   const extras = eventsForMonth(events, month).reduce((s, e) => s + e.amount, 0);
-  if (salary === null && extras === 0) return null;
-  return (salary ?? 0) + extras;
+  if (baseIncome === null && extras === 0) return null;
+  return (baseIncome ?? 0) + extras;
 }

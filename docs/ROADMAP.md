@@ -170,6 +170,16 @@ what's left to actually spend.
   + dead `App.tsx`/`index.ts` deleted; `insights`/`settings` migrated to theme tokens; donut has
   a screen-reader summary; trend-bar labels bumped for contrast.
 
+### `v1.5.6` — Per-month income override
+- ✨ **Key in any single month's income** ("This month only") without touching later months —
+  the missing primitive over v1.5.4's effective-from salary (which always carried forward). The
+  income editor is now a proper sheet: amount + which-month + scope (**This month only** →
+  override · **From this month on** → salary change · **Always** → base). Overrides show in the
+  income card's history list, deletable.
+- 🔧 New `income_overrides` table (additive; upsert one per month; in backup/restore, merges by
+  month). Income precedence: **override > salary(from) > base**, + bonuses. Pure math
+  `baseIncomeForMonth`/`incomeForMonth` in `src/lib/incomeMath.ts`.
+
 ### `v1.5.4` — Per-month income (salary history + bonuses)
 - ✨ **Income is per-month now.** Salary changes are **effective-from** ("6000 from Aug '26"):
   past months keep the salary that was true then, so historical Spendable and savings rates
