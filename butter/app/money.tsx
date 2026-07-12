@@ -58,9 +58,14 @@ export default function MoneyScreen() {
 
   // ---- derived lists ----
   const recurring = allocations.filter(a => a.kind === 'recurring');
-  const oneoffs = allocations
-    .filter(a => a.kind === 'oneoff')
+  const allOneoffs = allocations.filter(a => a.kind === 'oneoff');
+  // v1.5.8: only this month + upcoming stay on Money; past ones live on the history page.
+  const oneoffs = allOneoffs
+    .filter(a => (a.month ?? '') >= month)
     .sort((a, b) => (a.month ?? '').localeCompare(b.month ?? ''));
+  const pastOneoffCount = allOneoffs.length - oneoffs.length;
+  const upcomingEvents = incomeEvents.filter(e => e.month >= month);
+  const pastEventCount = incomeEvents.length - upcomingEvents.length;
   const ungrouped = recurring.filter(a => a.group_id === null);
 
   const dueSoon = useMemo(() => {
@@ -261,12 +266,12 @@ export default function MoneyScreen() {
         {/* Bonuses & extra income */}
         <Text selectable={false} style={styles.sectionHeader}>Bonuses & extra income</Text>
         <View style={styles.card}>
-          {incomeEvents.length === 0 ? (
+          {upcomingEvents.length === 0 ? (
             <Text selectable={false} style={styles.emptyLine}>
               Bonuses, 13th month, freelance — tagged to their month so that month's budget is true.
             </Text>
           ) : (
-            incomeEvents.map(e => (
+            upcomingEvents.map(e => (
               <TouchableOpacity
                 key={e.id}
                 style={styles.payRow}
@@ -282,7 +287,11 @@ export default function MoneyScreen() {
             ))
           )}
           <View style={styles.groupFooter}>
-            <View />
+            {pastEventCount > 0 ? (
+              <TouchableOpacity accessibilityLabel="income-view-past" onPress={() => router.push('/money-history' as any)}>
+                <Text selectable={false} style={styles.viewPast}>View past ({pastEventCount}) ›</Text>
+              </TouchableOpacity>
+            ) : <View />}
             <TouchableOpacity
               accessibilityLabel="income-add"
               onPress={() => setIncomeSheet({ editing: null })}
@@ -365,7 +374,11 @@ export default function MoneyScreen() {
             ))
           )}
           <View style={styles.groupFooter}>
-            <View />
+            {pastOneoffCount > 0 ? (
+              <TouchableOpacity accessibilityLabel="oneoff-view-past" onPress={() => router.push('/money-history' as any)}>
+                <Text selectable={false} style={styles.viewPast}>View past ({pastOneoffCount}) ›</Text>
+              </TouchableOpacity>
+            ) : <View />}
             <TouchableOpacity
               accessibilityLabel="oneoff-add"
               onPress={() => setEditRequest({ editing: null, presetKind: 'oneoff' })}
@@ -449,6 +462,7 @@ const styles = StyleSheet.create({
     ...softShadow,
   },
   addChipText: { fontFamily: fonts.bodyBold, fontSize: 13, color: colors.textBrown },
+  viewPast: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.butterDeep },
 
   // payment rows
   payRow: {

@@ -170,6 +170,12 @@ what's left to actually spend.
   + dead `App.tsx`/`index.ts` deleted; `insights`/`settings` migrated to theme tokens; donut has
   a screen-reader summary; trend-bar labels bumped for contrast.
 
+### `v1.5.8` — Past income & one-offs page
+- 🔧 Bonuses and one-off set-asides accumulate, so the Money page now lists only **this month +
+  upcoming**; past ones (month < current) move to a dedicated **`app/money-history.tsx`** pushed
+  page reached via **"View past (N) ›"** links. Tap any there to edit/delete via the same sheets.
+  Recurring payments stay on Money (they're config, don't pile up).
+
 ### `v1.5.7` — Percentage set-asides
 - ✨ A recurring set-aside can be a **percentage of income** (tithe, giving to parents) instead
   of a fixed amount — per set-aside you pick **% of total income (incl. bonuses)** or **% of

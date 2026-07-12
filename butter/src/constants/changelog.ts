@@ -17,6 +17,15 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.5.8',
+    pass: 'Phase 5',
+    title: 'Tidier Money page',
+    date: '2026-07-12',
+    items: [
+      { tag: 'change', text: 'The Money page now shows only this month and upcoming bonuses & one-offs. Past ones move to a “Past income & one-offs” page (tap “View past ›”), so the page stays tidy as they add up — and you can still edit or delete them there.' },
+    ],
+  },
+  {
     version: '1.5.7',
     pass: 'Phase 5',
     title: 'Percentage set-asides',
