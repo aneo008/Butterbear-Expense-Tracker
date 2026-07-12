@@ -17,6 +17,15 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.5.7',
+    pass: 'Phase 5',
+    title: 'Percentage set-asides',
+    date: '2026-07-12',
+    items: [
+      { tag: 'new', text: 'Set aside a percentage of your income — perfect for tithe or giving to parents. Choose whether it’s a % of your total income (bonuses included) or your salary only; the amount recalculates each month.' },
+    ],
+  },
+  {
     version: '1.5.6',
     pass: 'Phase 5',
     title: 'Key in any month',

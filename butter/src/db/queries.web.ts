@@ -329,6 +329,8 @@ function normalizeAllocation(a: Partial<Allocation> & Pick<Allocation, 'id' | 'l
     due_day: a.due_day ?? null,
     due_month: a.due_month ?? null,
     info_only: a.info_only ?? null,
+    percent: a.percent ?? null,
+    percent_incl_bonus: a.percent_incl_bonus ?? null,
   };
 }
 

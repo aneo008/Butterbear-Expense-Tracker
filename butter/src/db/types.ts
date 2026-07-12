@@ -57,6 +57,11 @@ export type Allocation = {
   // 1 = informational only: keeps its due date but does NOT reduce Spendable —
   // the escape hatch for payments the user also logs as expenses (double-count).
   info_only: number | null;
+  // v1.5.7: recurring PERCENTAGE set-aside (tithe, parents). Non-null ⇒ deducts
+  // `percent`% of income for the month; `amount` is ignored. percent_incl_bonus:
+  // 1 = % of total income (incl. bonuses); null/0 = % of base income (salary only).
+  percent: number | null;
+  percent_incl_bonus: number | null;
 };
 
 // Phase 5b: user-defined groups for recurring payments (Insurance, Subscriptions…).

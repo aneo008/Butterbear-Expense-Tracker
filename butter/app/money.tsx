@@ -21,7 +21,9 @@ import {
   nextDueISO,
   monthCommitment,
   monthlyEquivalent,
+  allocationAmountForMonth,
   dueLabel,
+  MonthIncome,
 } from '../src/lib/allocationMath';
 import { todayISO, currentMonth, formatDateLabel, formatMonthShort } from '../src/lib/date';
 import { backOrHome } from '../src/lib/nav';
@@ -74,8 +76,12 @@ export default function MoneyScreen() {
   const monthExtras = eventsForMonth(incomeEvents, month).reduce((s, e) => s + e.amount, 0);
   const monthIncome = incomeForMonth(income, salaryHistory, incomeOverrides, incomeEvents, month);
 
-  const commit = monthCommitment(allocations, month);
+  const monthIncomeParts: MonthIncome = { base: monthBaseIncome, total: monthIncome };
+  const commit = monthCommitment(allocations, month, monthIncomeParts);
   const spendable = monthIncome !== null ? monthIncome - commit.setAside : null;
+  // Monthly cost of a set-aside row (percentage rows resolve against this month's income).
+  const rowMonthly = (a: Allocation) =>
+    a.percent != null ? allocationAmountForMonth(a, monthIncomeParts) : monthlyEquivalent(a);
 
   const groupIcon = (id: string | null): string =>
     allocationGroups.find(g => g.id === id)?.icon ?? '📌';
@@ -106,9 +112,9 @@ export default function MoneyScreen() {
         <View style={styles.payMid}>
           <Text selectable={false} style={styles.payLabel}>{a.label}</Text>
           <View style={styles.payTags}>
-            <View style={[styles.badge, a.cycle === 'yearly' ? styles.badgeYearly : styles.badgeMonthly]}>
+            <View style={[styles.badge, a.percent != null ? styles.badgePercent : a.cycle === 'yearly' ? styles.badgeYearly : styles.badgeMonthly]}>
               <Text selectable={false} style={styles.badgeText}>
-                {a.cycle === 'yearly' ? 'yearly' : 'monthly'}
+                {a.percent != null ? 'percentage' : a.cycle === 'yearly' ? 'yearly' : 'monthly'}
               </Text>
             </View>
             {a.info_only === 1 && (
@@ -121,10 +127,17 @@ export default function MoneyScreen() {
           {!!a.note && <Text selectable={false} style={styles.noteText} numberOfLines={1}>{a.note}</Text>}
         </View>
         <View style={styles.payRight}>
-          <Text selectable={false} style={styles.payAmount}>{fmt(a.amount)}</Text>
-          {a.cycle === 'yearly' && (
+          <Text selectable={false} style={styles.payAmount}>
+            {a.percent != null ? `${a.percent}%` : fmt(a.amount)}
+          </Text>
+          {a.percent != null ? (
+            <Text selectable={false} style={styles.equivText}>
+              ≈ {fmt(rowMonthly(a))} this month
+              {a.percent_incl_bonus ? '' : ' · of salary'}
+            </Text>
+          ) : a.cycle === 'yearly' ? (
             <Text selectable={false} style={styles.equivText}>≈ {fmt(monthlyEquivalent(a))}/mo</Text>
-          )}
+          ) : null}
         </View>
       </TouchableOpacity>
     );
@@ -132,7 +145,7 @@ export default function MoneyScreen() {
 
   const renderGroupCard = (g: AllocationGroup) => {
     const members = recurring.filter(a => a.group_id === g.id);
-    const monthlyEquivTotal = members.reduce((s, a) => s + monthlyEquivalent(a), 0);
+    const monthlyEquivTotal = members.reduce((s, a) => s + rowMonthly(a), 0);
     return (
       <View key={g.id} style={styles.card}>
         <View style={styles.groupHeader}>
@@ -453,6 +466,7 @@ const styles = StyleSheet.create({
   badgeMonthly: { backgroundColor: '#EAF4EE' },
   badgeYearly: { backgroundColor: '#F0E9FA' },
   badgeInfo: { backgroundColor: '#EFEBE4' },
+  badgePercent: { backgroundColor: '#FBEEDC' },
   badgeText: { fontFamily: fonts.bodyBold, fontSize: 10, color: colors.textSoft },
   dueText: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.butterDeep },
   noteText: { fontFamily: fonts.body, fontSize: 12, color: colors.textSoft, marginTop: 2 },

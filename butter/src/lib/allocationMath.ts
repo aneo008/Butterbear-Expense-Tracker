@@ -59,8 +59,33 @@ export type MonthCommitment = {
   setAside: number;   // total deducted from income for this month
 };
 
-/** What's already spoken for in a given YYYY-MM. */
-export function monthCommitment(allocations: Allocation[], month: string): MonthCommitment {
+// v1.5.7: a month's income split, so percentage set-asides can be computed.
+export type MonthIncome = {
+  base: number | null;  // salary/override, excl. bonuses
+  total: number | null; // base + bonuses
+};
+
+const NO_INCOME: MonthIncome = { base: null, total: null };
+
+/**
+ * What THIS allocation deducts in the given month: a percentage set-aside resolves
+ * to `percent%` of its chosen income base (0 when that income is unknown); anything
+ * else is its fixed `amount`. Used by monthCommitment + the Money row display.
+ */
+export function allocationAmountForMonth(a: Allocation, income: MonthIncome = NO_INCOME): number {
+  if (a.percent != null) {
+    const basis = a.percent_incl_bonus ? income.total : income.base;
+    return basis != null ? (a.percent / 100) * basis : 0;
+  }
+  return a.amount;
+}
+
+/** What's already spoken for in a given YYYY-MM. `income` needed for % set-asides. */
+export function monthCommitment(
+  allocations: Allocation[],
+  month: string,
+  income: MonthIncome = NO_INCOME
+): MonthCommitment {
   const monthNum = Number(month.slice(5, 7));
   let recurring = 0;
   let yearlyDue = 0;
@@ -72,7 +97,7 @@ export function monthCommitment(allocations: Allocation[], month: string): Month
     } else if (a.cycle === 'yearly') {
       if (a.due_month === monthNum) yearlyDue += a.amount;
     } else {
-      recurring += a.amount; // monthly (or 5a rows with cycle null)
+      recurring += allocationAmountForMonth(a, income); // monthly fixed OR percentage
     }
   }
   return { recurring, yearlyDue, oneoffs, setAside: recurring + yearlyDue + oneoffs };
@@ -87,23 +112,24 @@ export type BudgetSummary = {
   savingsRate: number; // remaining / income (0 when income is 0)
 };
 
-/** The Insights analysis-card numbers for a month. `income` null → caller shows the empty state. */
+/** The Insights analysis-card numbers for a month. Pass the income split so % set-asides resolve. */
 export function budgetSummary(
-  income: number,
+  income: MonthIncome,
   allocations: Allocation[],
   month: string,
   spent: number
 ): BudgetSummary {
-  const { setAside } = monthCommitment(allocations, month);
-  const spendable = income - setAside;
+  const total = income.total ?? 0;
+  const { setAside } = monthCommitment(allocations, month, income);
+  const spendable = total - setAside;
   const remaining = spendable - spent;
   return {
-    income,
+    income: total,
     setAside,
     spendable,
     spent,
     remaining,
-    savingsRate: income > 0 ? remaining / income : 0,
+    savingsRate: total > 0 ? remaining / total : 0,
   };
 }
 

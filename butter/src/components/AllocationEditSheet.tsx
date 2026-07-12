@@ -68,6 +68,8 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
   const [month, setMonth] = useState(currentMonth());
   const [groupId, setGroupId] = useState<string | null>(null);
   const [infoOnly, setInfoOnly] = useState(false);
+  const [isPercent, setIsPercent] = useState(false);      // v1.5.7: % set-aside mode
+  const [percentInclBonus, setPercentInclBonus] = useState(true);
   const [note, setNote] = useState('');
   // Inline "new group" mini-form
   const [newGroupOpen, setNewGroupOpen] = useState(false);
@@ -78,7 +80,6 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
     if (!request) return;
     const a = request.editing;
     setLabel(a?.label ?? '');
-    setAmountText(a ? String(a.amount) : '');
     setKind(a?.kind ?? request.presetKind ?? 'recurring');
     setCycle(a?.cycle ?? 'monthly');
     setDueDayText(a?.due_day != null ? String(a.due_day) : '');
@@ -86,6 +87,9 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
     setMonth(a?.month ?? currentMonth());
     setGroupId(a ? a.group_id : request.presetGroupId ?? null);
     setInfoOnly(a?.info_only === 1);
+    setIsPercent(a?.percent != null);
+    setPercentInclBonus(a ? a.percent_incl_bonus === 1 : true);
+    setAmountText(a ? String(a.percent != null ? a.percent : a.amount) : '');
     setNote(a?.note ?? '');
     setNewGroupOpen(false);
     setNewGroupName('');
@@ -102,43 +106,59 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  const percentMode = kind === 'recurring' && isPercent;
+
   const save = () => {
     const trimmed = label.trim();
-    const amount = Math.round(parseFloat(amountText) * 100) / 100;
+    const num = Math.round(parseFloat(amountText) * 100) / 100;
     if (!trimmed) {
-      Alert.alert('Missing name', 'Give this payment a name (e.g. "Term life insurance").');
+      Alert.alert('Missing name', 'Give this set-aside a name (e.g. "Tithe").');
       return;
     }
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (percentMode) {
+      if (!Number.isFinite(num) || num <= 0 || num > 100) {
+        Alert.alert('Percentage', 'Enter a percentage between 0 and 100.');
+        return;
+      }
+    } else if (!Number.isFinite(num) || num <= 0) {
       Alert.alert('Missing amount', 'Enter an amount greater than zero.');
       return;
     }
     const dueDay = dueDayText.trim() === '' ? null : Number(dueDayText);
-    if (dueDay !== null && (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31)) {
+    if (!percentMode && dueDay !== null && (!Number.isInteger(dueDay) || dueDay < 1 || dueDay > 31)) {
       Alert.alert('Due day', 'The due day must be between 1 and 31.');
       return;
     }
-    if (kind === 'recurring' && cycle === 'yearly' && dueMonth === null) {
+    if (kind === 'recurring' && !isPercent && cycle === 'yearly' && dueMonth === null) {
       Alert.alert('Due month', 'Pick which month this yearly payment lands in.');
       return;
     }
 
     const fields: Omit<Allocation, 'id'> = kind === 'recurring'
-      ? {
-          label: trimmed, amount, note: note.trim() || null, kind,
-          month: null,
-          group_id: groupId,
-          cycle,
-          // Yearly needs a concrete date for the math/labels — default day 1.
-          due_day: cycle === 'yearly' ? (dueDay ?? 1) : dueDay,
-          due_month: cycle === 'yearly' ? dueMonth : null,
-          info_only: infoOnly ? 1 : null,
-        }
+      ? percentMode
+        ? {
+            // Percentage set-aside: monthly, no due date; amount unused (0).
+            label: trimmed, amount: 0, note: note.trim() || null, kind,
+            month: null, group_id: groupId, cycle: 'monthly',
+            due_day: null, due_month: null, info_only: infoOnly ? 1 : null,
+            percent: num, percent_incl_bonus: percentInclBonus ? 1 : null,
+          }
+        : {
+            label: trimmed, amount: num, note: note.trim() || null, kind,
+            month: null,
+            group_id: groupId,
+            cycle,
+            // Yearly needs a concrete date for the math/labels — default day 1.
+            due_day: cycle === 'yearly' ? (dueDay ?? 1) : dueDay,
+            due_month: cycle === 'yearly' ? dueMonth : null,
+            info_only: infoOnly ? 1 : null,
+            percent: null, percent_incl_bonus: null,
+          }
       : {
-          label: trimmed, amount, note: note.trim() || null, kind,
+          label: trimmed, amount: num, note: note.trim() || null, kind,
           month,
           group_id: null, cycle: null, due_day: null, due_month: null,
-          info_only: null,
+          info_only: null, percent: null, percent_incl_bonus: null,
         };
 
     if (editing) updateAllocation(editing.id, fields);
@@ -192,12 +212,14 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
                 placeholder="e.g. Term life insurance"
                 placeholderTextColor="#BCAF9C"
               />
-              <Text selectable={false} style={styles.fieldLabel}>Amount (SGD)</Text>
+              <Text selectable={false} style={styles.fieldLabel}>
+                {percentMode ? 'Percentage of income (%)' : 'Amount (SGD)'}
+              </Text>
               <TextInput
                 style={styles.input}
                 value={amountText}
                 onChangeText={setAmountText}
-                placeholder="0.00"
+                placeholder={percentMode ? '10' : '0.00'}
                 placeholderTextColor="#BCAF9C"
                 keyboardType="decimal-pad"
                 inputMode="decimal"
@@ -222,6 +244,61 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
 
               {kind === 'recurring' ? (
                 <>
+                  {/* Fixed vs percentage-of-income */}
+                  <Text selectable={false} style={styles.fieldLabel}>Set aside as</Text>
+                  <View style={styles.segmentRow}>
+                    <Pressable
+                      accessibilityLabel="mode-fixed"
+                      onPress={() => setIsPercent(false)}
+                      style={[styles.segment, !isPercent && styles.segmentActive]}
+                    >
+                      <Text selectable={false} style={[styles.segmentText, !isPercent && styles.segmentTextActive]}>
+                        Fixed amount
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityLabel="mode-percent"
+                      onPress={() => setIsPercent(true)}
+                      style={[styles.segment, isPercent && styles.segmentActive]}
+                    >
+                      <Text selectable={false} style={[styles.segmentText, isPercent && styles.segmentTextActive]}>
+                        Percentage
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {isPercent && (
+                    <>
+                      <Text selectable={false} style={styles.fieldLabel}>Percentage of</Text>
+                      <View style={styles.segmentRow}>
+                        <Pressable
+                          accessibilityLabel="pct-total"
+                          onPress={() => setPercentInclBonus(true)}
+                          style={[styles.segment, percentInclBonus && styles.segmentActive]}
+                        >
+                          <Text selectable={false} style={[styles.segmentText, percentInclBonus && styles.segmentTextActive]}>
+                            Total income
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          accessibilityLabel="pct-salary"
+                          onPress={() => setPercentInclBonus(false)}
+                          style={[styles.segment, !percentInclBonus && styles.segmentActive]}
+                        >
+                          <Text selectable={false} style={[styles.segmentText, !percentInclBonus && styles.segmentTextActive]}>
+                            Salary only
+                          </Text>
+                        </Pressable>
+                      </View>
+                      <Text selectable={false} style={styles.budgetHint}>
+                        {percentInclBonus
+                          ? 'Deducts this % of everything that comes in — salary plus bonuses that month.'
+                          : 'Deducts this % of your salary only — bonuses don’t increase it.'}
+                      </Text>
+                    </>
+                  )}
+
+                  {isPercent ? null : (<>
                   {/* Cycle */}
                   <Text selectable={false} style={styles.fieldLabel}>Billing cycle</Text>
                   <View style={styles.segmentRow}>
@@ -277,6 +354,7 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
                       })}
                     </View>
                   )}
+                  </>)}
 
                   {/* Group */}
                   <Text selectable={false} style={styles.fieldLabel}>Group</Text>

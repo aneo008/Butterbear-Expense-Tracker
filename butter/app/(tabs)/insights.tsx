@@ -20,7 +20,7 @@ import { currentMonth, monthRange, formatMonthShort, formatMonthLong } from '../
 import { dedupeColors } from '../../src/lib/colors';
 import CategoryDonut, { DonutSegment } from '../../src/components/CategoryDonut';
 import { budgetSummary } from '../../src/lib/allocationMath';
-import { incomeForMonth } from '../../src/lib/incomeMath';
+import { incomeForMonth, baseIncomeForMonth } from '../../src/lib/incomeMath';
 import { colors } from '../../src/constants/theme';
 
 function formatCurrency(amount: number): string {
@@ -123,7 +123,8 @@ export default function InsightsScreen() {
             </Text>
           </TouchableOpacity>
         ) : (() => {
-          const s = budgetSummary(monthIncome, allocations, selectedMonth, total);
+          const monthBase = baseIncomeForMonth(income, salaryHistory, incomeOverrides, selectedMonth);
+          const s = budgetSummary({ base: monthBase, total: monthIncome }, allocations, selectedMonth, total);
           const pct = s.spendable > 0 ? Math.min(1, s.spent / s.spendable) : (s.spent > 0 ? 1 : 0);
           const over = s.remaining < 0;
           return (

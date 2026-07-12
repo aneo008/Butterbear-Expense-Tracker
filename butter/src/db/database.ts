@@ -96,7 +96,7 @@ export async function initDatabase(): Promise<void> {
   // Phase 5b additive columns on allocations (recurring-payment fields). The table
   // already exists on 5a installs, so CREATE TABLE IF NOT EXISTS can't add them —
   // ALTER each one and swallow the "duplicate column" error on later launches.
-  for (const col of ['group_id TEXT', 'cycle TEXT', 'due_day INTEGER', 'due_month INTEGER', 'info_only INTEGER']) {
+  for (const col of ['group_id TEXT', 'cycle TEXT', 'due_day INTEGER', 'due_month INTEGER', 'info_only INTEGER', 'percent REAL', 'percent_incl_bonus INTEGER']) {
     try {
       database.execSync(`ALTER TABLE allocations ADD COLUMN ${col};`);
     } catch {

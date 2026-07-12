@@ -170,6 +170,14 @@ what's left to actually spend.
   + dead `App.tsx`/`index.ts` deleted; `insights`/`settings` migrated to theme tokens; donut has
   a screen-reader summary; trend-bar labels bumped for contrast.
 
+### `v1.5.7` — Percentage set-asides
+- ✨ A recurring set-aside can be a **percentage of income** (tithe, giving to parents) instead
+  of a fixed amount — per set-aside you pick **% of total income (incl. bonuses)** or **% of
+  salary only**, and the deducted amount recomputes each month (so a bonus month tithes more,
+  but salary-only deductions don't). Rows show "10% · ≈ SGD X this month".
+- 🔧 Additive `allocations.percent` + `percent_incl_bonus`; `monthCommitment`/`budgetSummary`
+  now take the month's income split; pure `allocationAmountForMonth` resolves a row's cost.
+
 ### `v1.5.6` — Per-month income override
 - ✨ **Key in any single month's income** ("This month only") without touching later months —
   the missing primitive over v1.5.4's effective-from salary (which always carried forward). The

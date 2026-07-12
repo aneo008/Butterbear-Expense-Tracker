@@ -245,7 +245,8 @@ export function setIncome(value: number | null): void {
 export function getAllocations(): Allocation[] {
   const db = getDb();
   return db.getAllSync<Allocation>(
-    `SELECT id, label, amount, note, kind, month, group_id, cycle, due_day, due_month, info_only
+    `SELECT id, label, amount, note, kind, month, group_id, cycle, due_day, due_month, info_only,
+            percent, percent_incl_bonus
      FROM allocations ORDER BY kind DESC, label`
   ) ?? [];
 }
@@ -253,12 +254,12 @@ export function getAllocations(): Allocation[] {
 function insertAllocationRaw(a: Allocation): void {
   const db = getDb();
   db.runSync(
-    `INSERT INTO allocations (id, label, amount, note, kind, month, group_id, cycle, due_day, due_month, info_only)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO allocations (id, label, amount, note, kind, month, group_id, cycle, due_day, due_month, info_only, percent, percent_incl_bonus)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       a.id, a.label, a.amount, a.note ?? null, a.kind, a.month ?? null,
       a.group_id ?? null, a.cycle ?? null, a.due_day ?? null, a.due_month ?? null,
-      a.info_only ?? null,
+      a.info_only ?? null, a.percent ?? null, a.percent_incl_bonus ?? null,
     ]
   );
 }
@@ -271,12 +272,13 @@ export function updateAllocation(id: string, fields: Omit<Allocation, 'id'>): vo
   const db = getDb();
   db.runSync(
     `UPDATE allocations SET label = ?, amount = ?, note = ?, kind = ?, month = ?,
-       group_id = ?, cycle = ?, due_day = ?, due_month = ?, info_only = ?
+       group_id = ?, cycle = ?, due_day = ?, due_month = ?, info_only = ?,
+       percent = ?, percent_incl_bonus = ?
      WHERE id = ?`,
     [
       fields.label, fields.amount, fields.note ?? null, fields.kind, fields.month ?? null,
       fields.group_id ?? null, fields.cycle ?? null, fields.due_day ?? null, fields.due_month ?? null,
-      fields.info_only ?? null,
+      fields.info_only ?? null, fields.percent ?? null, fields.percent_incl_bonus ?? null,
       id,
     ]
   );
