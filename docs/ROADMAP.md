@@ -24,7 +24,11 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.5.9` — **Phase 5 COMPLETE (Money model refined through real phone usage).** Budget & Money core (`v1.5.0`) → **"Info only" flag** (`v1.5.1`) → **12-month trend chart** (`v1.5.2`) → **polish & protection** (`v1.5.3`) → **per-month income** (`v1.5.4`) → **mobile-sheet fix** (`v1.5.5`) → **income override** (`v1.5.6`) → **percentage set-asides** (`v1.5.7`) → **past-income history page** (`v1.5.8`) → **recorded history for set-asides** (`v1.5.9`, record-only — see scope fences). Next up: **ship native** (strategic priority — unblocks the daily-logging reminder AND payment due-date reminders), Pass F (story), rest of the hardening backlog.
+**Current:** `v1.5.10` — **Phase 5 COMPLETE** (`v1.5.0`–`v1.5.9`, Money model refined through real
+phone usage) **+ a data-safety fix** (`v1.5.10`: stale-session field-erasure, see Hardening
+below — found via a real user report, not part of Phase 5 scope). Next up: **ship native**
+(strategic priority — unblocks the daily-logging reminder AND payment due-date reminders),
+Pass F (story), rest of the hardening backlog.
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 
@@ -38,7 +42,7 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | 2 | Mascot, theme & animation | ✅ done |
 | 3 | Data portability (export/import) | ✅ done |
 | **4** | **Gamification (Closet, coins, streaks)** | ◑ **in progress — Passes A–E + G1 + calculator done; Pass F (story) remains, G3 sfx optional** |
-| — | **Hardening & trust** (from the v1.4.9 review) | ◑ **in progress** — streak, dev data-loss, chests, backup validation fixed; IndexedDB / computeLogUpdate / tests queued |
+| — | **Hardening & trust** (from the v1.4.9 review + since) | ◑ **in progress** — streak, dev data-loss, chests, backup validation, stale-session data loss fixed; IndexedDB / computeLogUpdate / tests queued |
 | **5** | **Budget, charts & ship polish** | ✅ **done (`v1.5.0`–`v1.5.9`)** — Money screen, info-only flag, trend chart, polish & protection, per-month income + override, percentage set-asides, history pages |
 | 6+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
 | — | **Ship native (iOS/Android)** | ⬜ strategic priority (pull forward — unblocks gestures, haptics, reminders) |
@@ -170,6 +174,33 @@ what's left to actually spend.
   + dead `App.tsx`/`index.ts` deleted; `insights`/`settings` migrated to theme tokens; donut has
   a screen-reader summary; trend-bar labels bumped for contrast.
 
+### `v1.5.10` — Data-safety: stop stale sessions from erasing new fields
+- 🐛 **Root cause of a real data-loss incident (2026-07-13):** `initWebStore()` rebuilt its
+  in-memory store as an explicit field list on every load. If a browser tab/PWA process is kept
+  alive across many app updates without a full close+reopen (very plausible — the manifest sets
+  `display: "standalone"`, and standalone PWAs on Android keep their JS process alive across
+  app-switches, only fetching fresh code on a true relaunch), that stale code's `initWebStore()`
+  simply doesn't know newer top-level fields (e.g. `allocations`) exist — so it never copies
+  them into memory. The **next mutation of any kind** (adding an expense, tapping Butter —
+  anything that calls `persist()`) then writes that incomplete object straight back over
+  localStorage, silently and permanently erasing every field the stale code didn't recognize.
+  Confirmed via a user's export: its shape was a byte-for-byte match for `serializeBackup()`
+  from *before Phase 5a ever shipped* (missing `allocations`/`allocation_groups`/`salary_history`/
+  `income_events`/`income_overrides`/`allocation_history` entirely), while `game_state`'s
+  `claimed_chests` (a *later* field) survived — because `game_state` merges via a nested spread,
+  proving newer code HAD run against that same storage at some point before reverting to stale.
+- 🔧 **Fix:** `initWebStore()` now spreads `parsed` as the base of the reconstructed store
+  *before* applying the explicit per-field defaults/normalization — so any field the running
+  code doesn't recognize (past OR future) rides through untouched instead of being dropped.
+  Old code still can't *use* a field it doesn't know about, but it can no longer *destroy* it.
+  **This class of bug can recur for any future top-level field** unless every new field is added
+  the same way (spread-first, not a hand-written literal) — keep this pattern.
+- ⚠️ **This fix is forward-only** — it doesn't recover data already erased by a stale session
+  before the device updates. If it happens again: ask for an earlier JSON export if one exists;
+  otherwise the data likely needs re-entering. Advise users with the app "Added to Home Screen"
+  to fully close (not just background) and relaunch periodically so they don't run stale code
+  for extended stretches.
+
 ### `v1.5.9` — Recorded history for set-asides
 - ✨ A recurring set-aside (e.g. Tithe) can now keep a **per-month recorded history** — log
   what you actually gave in a past month, browsable/deletable from the payment's edit sheet
@@ -259,6 +290,7 @@ The retention engine had cracks in trust/durability. Triage from the review:
 - ◑ **Web storage durability** — ✅ quick win done: `navigator.storage.persist()` at web init (`database.web.ts`, best-effort) + a web-specific **7-day** backup nudge with the reason spelled out (`settings.tsx`). ⬜ still: move off the single `localStorage` key to **IndexedDB** (or OPFS + SQLite-WASM) with a localStorage fallback mirror, to remove the eviction/quota cliff entirely.
 - ✅ **One-time chests are re-earnable** — fixed in `v1.5.3`: `claimed_chests` ledger on `game_state`, chests once-ever.
 - ✅ **`parseBackup` validates shape, not rows** — fixed in `v1.5.3`: per-row shape checks before the destructive replace.
+- ✅ **Stale-session data loss** — fixed in `v1.5.10`: `initWebStore()` now spread-preserves unknown top-level fields instead of silently dropping them (see the `v1.5.10` changelog entry for the full incident writeup). New class of issue found via a real user report, not from the original review list.
 - ⬜ **`app_meta` isn't in the backup format** — so dev-sandbox meta edits (e.g. the What's-New flag) actually leak on Exit; fix the code *or* correct the dev-panel/memory note that claims they revert.
 - ⬜ **Extract the duplicated log-reward transaction** — `updateGameStateAfterLog` is copy-pasted in `queries.ts` and `queries.web.ts`; pull a pure `computeLogUpdate(prev, today)` into `src/lib/` so both layers persist one source of truth (kills the drift class of bug for chests/consumables/decor). Same for the wardrobe buy/sell/equip JSON juggling.
 - ⬜ **Tests + a CI gate** — none today. The pure logic (`streak.ts`, `date.ts`, `backup.ts`, the calculator reducer, `changelog.ts` compareVersions) is ideal unit-test material; add a runner + a lint/type gate to CI.

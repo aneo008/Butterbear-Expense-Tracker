@@ -17,6 +17,15 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.5.10',
+    pass: 'Phase 5',
+    title: 'Data-safety fix',
+    date: '2026-07-13',
+    items: [
+      { tag: 'fix', text: 'Fixed a bug where an old cached copy of the app (e.g. one kept open a long time without fully closing and reopening) could silently erase newer data — like recurring payments — the next time it saved. Closing and reopening the app now always loads your data safely, even from an old session.' },
+    ],
+  },
+  {
     version: '1.5.9',
     pass: 'Phase 5',
     title: 'Recorded history for set-asides',

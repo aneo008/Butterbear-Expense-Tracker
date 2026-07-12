@@ -99,7 +99,13 @@ export function initWebStore(): void {
   }
   try {
     const parsed = JSON.parse(raw) as Partial<DB>;
+    // Spread `parsed` FIRST so any field this build doesn't know about (written
+    // by a newer version of the app that ran against this same localStorage
+    // key) survives verbatim — a stale-cached bundle can then ignore it, but
+    // crucially can no longer ERASE it on the next persist(). Only the fields
+    // below need defaulting/normalization; everything else passes through.
     db = {
+      ...(parsed as DB),
       expenses: parsed.expenses ?? [],
       categories: parsed.categories && parsed.categories.length
         ? parsed.categories
