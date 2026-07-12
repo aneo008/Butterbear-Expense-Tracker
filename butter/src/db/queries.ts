@@ -12,13 +12,14 @@ import {
   SalaryRow,
   IncomeEvent,
   IncomeOverride,
+  AllocationHistoryRow,
   GameStateFull,
   Snapshot,
   DevPatch,
 } from './types';
 import { Slot, EquippedMap } from '../constants/storeItems';
 
-export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, AllocationGroup, SalaryRow, IncomeEvent, IncomeOverride, GameStateFull, Snapshot } from './types';
+export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, AllocationGroup, SalaryRow, IncomeEvent, IncomeOverride, AllocationHistoryRow, GameStateFull, Snapshot } from './types';
 
 export function insertExpense(expense: Omit<Expense, 'created_at'>): void {
   const db = getDb();
@@ -284,9 +285,13 @@ export function updateAllocation(id: string, fields: Omit<Allocation, 'id'>): vo
   );
 }
 
+/** Deleting an allocation also deletes its recorded history (no UI home without a parent). */
 export function deleteAllocation(id: string): void {
   const db = getDb();
-  db.runSync('DELETE FROM allocations WHERE id = ?', [id]);
+  db.withTransactionSync(() => {
+    db.runSync('DELETE FROM allocations WHERE id = ?', [id]);
+    db.runSync('DELETE FROM allocation_history WHERE allocation_id = ?', [id]);
+  });
 }
 
 // ---- Phase 5b: recurring-payment groups ----
@@ -411,6 +416,38 @@ export function deleteIncomeOverride(id: string): void {
   db.runSync('DELETE FROM income_overrides WHERE id = ?', [id]);
 }
 
+// ---- v1.5.9: allocation history (record-only per-month actuals) ----
+
+export function getAllocationHistory(allocationId?: string): AllocationHistoryRow[] {
+  const db = getDb();
+  if (allocationId) {
+    return db.getAllSync<AllocationHistoryRow>(
+      'SELECT id, allocation_id, month, amount FROM allocation_history WHERE allocation_id = ? ORDER BY month DESC',
+      [allocationId]
+    ) ?? [];
+  }
+  return db.getAllSync<AllocationHistoryRow>(
+    'SELECT id, allocation_id, month, amount FROM allocation_history ORDER BY month DESC'
+  ) ?? [];
+}
+
+/** One record per (allocation_id, month): replaces any existing row for that pair. */
+export function addAllocationHistory(row: AllocationHistoryRow): void {
+  const db = getDb();
+  db.withTransactionSync(() => {
+    db.runSync('DELETE FROM allocation_history WHERE allocation_id = ? AND month = ?', [row.allocation_id, row.month]);
+    db.runSync(
+      'INSERT INTO allocation_history (id, allocation_id, month, amount) VALUES (?, ?, ?, ?)',
+      [row.id, row.allocation_id, row.month, row.amount]
+    );
+  });
+}
+
+export function deleteAllocationHistory(id: string): void {
+  const db = getDb();
+  db.runSync('DELETE FROM allocation_history WHERE id = ?', [id]);
+}
+
 /** Full game_state row (all columns) for backups. */
 export function getGameStateFull(): GameStateFull {
   const db = getDb();
@@ -440,6 +477,7 @@ export function getSnapshot(): Snapshot {
     salary_history: getSalaryHistory(),
     income_events: getIncomeEvents(),
     income_overrides: getIncomeOverrides(),
+    allocation_history: getAllocationHistory(),
   };
 }
 
@@ -507,6 +545,13 @@ export function replaceAllData(snap: Snapshot): void {
     for (const o of snap.income_overrides ?? []) {
       db.runSync('INSERT INTO income_overrides (id, month, amount) VALUES (?, ?, ?)', [o.id, o.month, o.amount]);
     }
+    db.runSync('DELETE FROM allocation_history');
+    for (const h of snap.allocation_history ?? []) {
+      db.runSync(
+        'INSERT INTO allocation_history (id, allocation_id, month, amount) VALUES (?, ?, ?, ?)',
+        [h.id, h.allocation_id, h.month, h.amount]
+      );
+    }
   });
 }
 
@@ -516,6 +561,7 @@ export type MergeResult = {
   incomeEventsAdded: number;
   salaryRowsAdded: number;
   incomeOverridesAdded: number;
+  allocationHistoryAdded: number;
 };
 
 /**
@@ -533,12 +579,14 @@ export function mergeData(snap: Snapshot): MergeResult {
   let incomeEventsAdded = 0;
   let salaryRowsAdded = 0;
   let incomeOverridesAdded = 0;
+  let allocationHistoryAdded = 0;
   db.withTransactionSync(() => {
     const catBefore = count('categories');
     const expBefore = count('expenses');
     const evtBefore = count('income_events');
     const salBefore = count('salary_history');
     const ovrBefore = count('income_overrides');
+    const histBefore = count('allocation_history');
     for (const c of snap.categories) insertCategoryRaw(c, true);
     for (const e of snap.expenses) insertExpenseRaw(e, true);
     for (const ev of snap.income_events ?? []) insertIncomeEventRaw(ev, true);
@@ -556,13 +604,25 @@ export function mergeData(snap: Snapshot): MergeResult {
         [o.id, o.month, o.amount, o.month]
       );
     }
+    // allocation_history: dedupe by (allocation_id, month); skip rows whose
+    // allocation doesn't exist locally (no parent to attach to, e.g. wrong device/export).
+    for (const h of snap.allocation_history ?? []) {
+      db.runSync(
+        `INSERT INTO allocation_history (id, allocation_id, month, amount)
+         SELECT ?, ?, ?, ?
+         WHERE EXISTS (SELECT 1 FROM allocations WHERE id = ?)
+           AND NOT EXISTS (SELECT 1 FROM allocation_history WHERE allocation_id = ? AND month = ?)`,
+        [h.id, h.allocation_id, h.month, h.amount, h.allocation_id, h.allocation_id, h.month]
+      );
+    }
     categoriesAdded = count('categories') - catBefore;
     expensesAdded = count('expenses') - expBefore;
     incomeEventsAdded = count('income_events') - evtBefore;
     salaryRowsAdded = count('salary_history') - salBefore;
     incomeOverridesAdded = count('income_overrides') - ovrBefore;
+    allocationHistoryAdded = count('allocation_history') - histBefore;
   });
-  return { categoriesAdded, expensesAdded, incomeEventsAdded, salaryRowsAdded, incomeOverridesAdded };
+  return { categoriesAdded, expensesAdded, incomeEventsAdded, salaryRowsAdded, incomeOverridesAdded, allocationHistoryAdded };
 }
 
 // ---- app_meta key/value (last backup date, future flags) ----

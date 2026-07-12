@@ -91,6 +91,13 @@ export async function initDatabase(): Promise<void> {
       month  TEXT NOT NULL,
       amount REAL NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS allocation_history (
+      id            TEXT PRIMARY KEY,
+      allocation_id TEXT NOT NULL,
+      month         TEXT NOT NULL,
+      amount        REAL NOT NULL
+    );
   `);
 
   // Phase 5b additive columns on allocations (recurring-payment fields). The table

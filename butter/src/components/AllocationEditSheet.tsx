@@ -17,6 +17,10 @@ import * as Haptics from '../lib/haptics';
 import { currentMonth, formatMonthShort } from '../lib/date';
 import { colors, radius, fonts, cardShadow } from '../constants/theme';
 
+function fmt(n: number): string {
+  return `SGD ${n.toFixed(2)}`;
+}
+
 // Phase 5b: one sheet for adding/editing a set-aside or recurring payment —
 // label, amount, group, cycle (monthly/yearly) + due date, one-off month, note.
 // Groups can be created inline (small name + icon form) without leaving the sheet.
@@ -48,12 +52,29 @@ function upcomingMonths(): string[] {
   return out;
 }
 
+/** 12 months back through 2 months ahead (for logging a historical actual). */
+function historyMonthChoices(): string[] {
+  const out: string[] = [];
+  let [y, m] = currentMonth().split('-').map(Number);
+  m -= 12;
+  while (m < 1) { m += 12; y -= 1; }
+  for (let i = 0; i < 15; i++) {
+    out.push(`${y}-${m < 10 ? '0' + m : m}`);
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+  }
+  return out;
+}
+
 export default function AllocationEditSheet({ request, onClose }: Props) {
   const allocationGroups = useExpenseStore(s => s.allocationGroups);
   const addAllocation = useExpenseStore(s => s.addAllocation);
   const updateAllocation = useExpenseStore(s => s.updateAllocation);
   const deleteAllocation = useExpenseStore(s => s.deleteAllocation);
   const addAllocationGroup = useExpenseStore(s => s.addAllocationGroup);
+  const allocationHistoryAll = useExpenseStore(s => s.allocationHistory);
+  const addAllocationHistory = useExpenseStore(s => s.addAllocationHistory);
+  const deleteAllocationHistory = useExpenseStore(s => s.deleteAllocationHistory);
 
   const visible = request !== null;
   const editing = request?.editing ?? null;
@@ -75,6 +96,10 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupIcon, setNewGroupIcon] = useState(GROUP_ICON_CHOICES[0]);
+  // v1.5.9: "Recorded history" mini-form (log a past actual for this allocation)
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyMonth, setHistoryMonth] = useState(currentMonth());
+  const [historyAmountText, setHistoryAmountText] = useState('');
 
   useEffect(() => {
     if (!request) return;
@@ -94,7 +119,36 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
     setNewGroupOpen(false);
     setNewGroupName('');
     setNewGroupIcon(GROUP_ICON_CHOICES[0]);
+    setHistoryOpen(false);
+    setHistoryMonth(currentMonth());
+    setHistoryAmountText('');
   }, [request]);
+
+  // v1.5.9: recorded actuals for the allocation being edited (record-only — never
+  // feeds monthCommitment/Spendable; today's config still drives every month's math).
+  const history = editing
+    ? allocationHistoryAll.filter(h => h.allocation_id === editing.id).sort((a, b) => b.month.localeCompare(a.month))
+    : [];
+
+  const addHistoryRow = () => {
+    if (!editing) return;
+    const v = Math.round(parseFloat(historyAmountText) * 100) / 100;
+    if (!Number.isFinite(v) || v <= 0) {
+      Alert.alert('Missing amount', 'Enter an amount greater than zero.');
+      return;
+    }
+    addAllocationHistory({ allocation_id: editing.id, month: historyMonth, amount: v });
+    setHistoryOpen(false);
+    setHistoryAmountText('');
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const confirmDeleteHistory = (id: string, label: string) => {
+    Alert.alert('Remove this record?', `${label} will be removed.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => deleteAllocationHistory(id) },
+    ]);
+  };
 
   const createGroup = () => {
     const name = newGroupName.trim();
@@ -445,6 +499,74 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
                       ? "Info only: keeps its due date but doesn't reduce Spendable — for payments you also log as expenses, so they aren't counted twice."
                       : 'This amount is set aside from Spendable each month.'}
                   </Text>
+
+                  {/* v1.5.9: recorded history — only for an existing allocation (needs an id
+                      to attach to). Record-only: doesn't change Spendable for any month. */}
+                  {editing && (
+                    <>
+                      <Text selectable={false} style={styles.fieldLabel}>Recorded history</Text>
+                      {history.length === 0 && !historyOpen && (
+                        <Text selectable={false} style={styles.emptyHistoryText}>
+                          No actual amounts logged yet — the amount above still applies to every month.
+                        </Text>
+                      )}
+                      {history.map(h => (
+                        <View key={h.id} style={styles.historyRowWrap}>
+                          <Text selectable={false} style={styles.historyRow}>
+                            {formatMonthShort(h.month)} · {fmt(h.amount)}
+                          </Text>
+                          <Pressable
+                            accessibilityLabel={`history-delete-${h.month}`}
+                            hitSlop={8}
+                            onPress={() => confirmDeleteHistory(h.id, `${formatMonthShort(h.month)} (${fmt(h.amount)})`)}
+                          >
+                            <Text selectable={false} style={styles.historyDelete}>✕</Text>
+                          </Pressable>
+                        </View>
+                      ))}
+                      {historyOpen ? (
+                        <View style={styles.newGroupBox}>
+                          <View style={styles.chipWrap}>
+                            {historyMonthChoices().map(m => {
+                              const active = historyMonth === m;
+                              return (
+                                <Pressable
+                                  key={m}
+                                  accessibilityLabel={`history-month-${m}`}
+                                  onPress={() => setHistoryMonth(m)}
+                                  style={[styles.chip, active && styles.chipActive]}
+                                >
+                                  <Text selectable={false} style={[styles.chipText, active && styles.chipTextActive]}>
+                                    {formatMonthShort(m)}
+                                  </Text>
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+                          <TextInput
+                            style={styles.input}
+                            value={historyAmountText}
+                            onChangeText={setHistoryAmountText}
+                            placeholder="0.00"
+                            placeholderTextColor="#BCAF9C"
+                            keyboardType="decimal-pad"
+                            inputMode="decimal"
+                          />
+                          <Pressable accessibilityLabel="history-save" onPress={addHistoryRow} style={styles.smallButton}>
+                            <Text selectable={false} style={styles.smallButtonText}>Save record</Text>
+                          </Pressable>
+                        </View>
+                      ) : (
+                        <Pressable
+                          accessibilityLabel="history-add"
+                          onPress={() => setHistoryOpen(true)}
+                          style={[styles.chip, styles.chipDashed, styles.historyAddChip]}
+                        >
+                          <Text selectable={false} style={styles.chipText}>＋ Log a month's actual amount</Text>
+                        </Pressable>
+                      )}
+                    </>
+                  )}
                 </>
               ) : (
                 <>
@@ -623,4 +745,10 @@ const styles = StyleSheet.create({
   deleteText: { fontFamily: fonts.bodyBold, fontSize: 14, color: '#D9534F' },
   cancelButton: { paddingVertical: 10, alignItems: 'center' },
   cancelText: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.textSoft },
+
+  emptyHistoryText: { fontFamily: fonts.body, fontSize: 12, color: colors.textSoft, lineHeight: 17 },
+  historyRowWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 3 },
+  historyRow: { flex: 1, fontFamily: fonts.body, fontSize: 13, color: colors.textBrown },
+  historyDelete: { fontSize: 12, color: '#C57A6E', padding: 2 },
+  historyAddChip: { alignSelf: 'flex-start', marginTop: 4 },
 });

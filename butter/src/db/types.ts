@@ -82,6 +82,18 @@ export type SalaryRow = {
   amount: number;
 };
 
+// v1.5.9: recorded historical actual for a recurring allocation in a given month
+// (e.g. "Tithe was actually $530 in May 2024"). Record-only — does NOT feed
+// monthCommitment/budgetSummary; today's config (fixed amount or %) still drives
+// Spendable for every month. Purely a stored fact, browsable per-allocation.
+// At most ONE per (allocation_id, month) — upsert on add/merge.
+export type AllocationHistoryRow = {
+  id: string;
+  allocation_id: string;
+  month: string; // 'YYYY-MM'
+  amount: number;
+};
+
 // One-off income tagged to a month (bonus, 13th month, freelance) — many per month.
 export type IncomeEvent = {
   id: string;
@@ -114,6 +126,7 @@ export type Snapshot = {
   salary_history: SalaryRow[];
   income_events: IncomeEvent[];
   income_overrides: IncomeOverride[];
+  allocation_history: AllocationHistoryRow[];
 };
 
 // Dev-only: directly patch game_state fields (used by the developer panel).

@@ -24,7 +24,7 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.5.5` — **Phase 5 COMPLETE (+ income addendum & mobile-sheet fix).** Budget & Money core (`v1.5.0`) → **"Info only" flag** (`v1.5.1`) → **12-month trend chart** (`v1.5.2`) → **polish & protection** (`v1.5.3`) → **per-month income** (`v1.5.4`: effective-from salary history + month-tagged bonuses; Merge imports income history). Next up: **ship native** (strategic priority — unblocks the daily-logging reminder AND payment due-date reminders), Pass F (story), rest of the hardening backlog.
+**Current:** `v1.5.9` — **Phase 5 COMPLETE (Money model refined through real phone usage).** Budget & Money core (`v1.5.0`) → **"Info only" flag** (`v1.5.1`) → **12-month trend chart** (`v1.5.2`) → **polish & protection** (`v1.5.3`) → **per-month income** (`v1.5.4`) → **mobile-sheet fix** (`v1.5.5`) → **income override** (`v1.5.6`) → **percentage set-asides** (`v1.5.7`) → **past-income history page** (`v1.5.8`) → **recorded history for set-asides** (`v1.5.9`, record-only — see scope fences). Next up: **ship native** (strategic priority — unblocks the daily-logging reminder AND payment due-date reminders), Pass F (story), rest of the hardening backlog.
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 
@@ -39,7 +39,7 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | 3 | Data portability (export/import) | ✅ done |
 | **4** | **Gamification (Closet, coins, streaks)** | ◑ **in progress — Passes A–E + G1 + calculator done; Pass F (story) remains, G3 sfx optional** |
 | — | **Hardening & trust** (from the v1.4.9 review) | ◑ **in progress** — streak, dev data-loss, chests, backup validation fixed; IndexedDB / computeLogUpdate / tests queued |
-| **5** | **Budget, charts & ship polish** | ✅ **done (`v1.5.0`–`v1.5.4`)** — Money screen, info-only flag, trend chart, polish & protection, per-month income |
+| **5** | **Budget, charts & ship polish** | ✅ **done (`v1.5.0`–`v1.5.9`)** — Money screen, info-only flag, trend chart, polish & protection, per-month income + override, percentage set-asides, history pages |
 | 6+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
 | — | **Ship native (iOS/Android)** | ⬜ strategic priority (pull forward — unblocks gestures, haptics, reminders) |
 
@@ -170,6 +170,20 @@ what's left to actually spend.
   + dead `App.tsx`/`index.ts` deleted; `insights`/`settings` migrated to theme tokens; donut has
   a screen-reader summary; trend-bar labels bumped for contrast.
 
+### `v1.5.9` — Recorded history for set-asides
+- ✨ A recurring set-aside (e.g. Tithe) can now keep a **per-month recorded history** — log
+  what you actually gave in a past month, browsable/deletable from the payment's edit sheet
+  ("Recorded history" section, shown once the payment exists).
+- 🔧 **Deliberately record-only**: `allocation_history {id, allocation_id, month, amount}` does
+  **not** feed `monthCommitment`/`budgetSummary`/Insights — today's amount or percentage still
+  drives Spendable for every month, past or present. This is a scoped, conscious exception to
+  "allocations are config, not records" (see scope fences below) — it's a stored fact, not a
+  computed input, by explicit user decision (exact historical accuracy wasn't worth the
+  complexity of teaching the budget math to prefer locked-in past values over live config).
+  Cascade-deletes with its parent allocation (no orphaned history with nothing to attach to).
+  Merge matches by **(allocation_id, month)** — requires the allocation to already exist
+  locally (matches by real ID, not label — consistent with everywhere else merge is id-based).
+
 ### `v1.5.8` — Past income & one-offs page
 - 🔧 Bonuses and one-off set-asides accumulate, so the Money page now lists only **this month +
   upcoming**; past ones (month < current) move to a dedicated **`app/money-history.tsx`** pushed
@@ -255,17 +269,28 @@ The retention engine had cracks in trust/durability. Triage from the review:
 - **Local daily reminder notification (native, gentle opt-in, streak-aware)** — the single biggest missing retention lever for a daily-habit app; currently nowhere on the roadmap.
 - **Payment due-date reminders (native) — ⚠️ build when we go native.** Local notifications for the Money screen's recurring payments ("Term life · SGD 120 · due tomorrow"): `nextDueISO()` in `src/lib/allocationMath.ts` already computes every due date, so this is scheduling + opt-in UI only. Sequenced together with the daily logging reminder above (one notifications permission ask, two payoffs). *This is the deliberate other half of the "no reminders in-app" scope fence below — the due dates users are already entering become actionable here.*
 
-## Phase 5 — ✅ COMPLETE (`v1.5.0`–`v1.5.4`)
+## Phase 5 — ✅ COMPLETE (`v1.5.0`–`v1.5.9`)
 Budget & Money core (`v1.5.0`) → info-only flag (`v1.5.1`) → 12-month trend chart (`v1.5.2`) →
 data-safety + ship polish + Phase-4 backfill removal (`v1.5.3`) → per-month income addendum
-(`v1.5.4`, user-requested — locks the money data model before native). Deliberately left on
-the backlog: spendable-line overlay on the trend, category drill-down trend, store-ready perf
-pass (nothing felt slow at current data sizes).
+(`v1.5.4`) → mobile-sheet fix (`v1.5.5`) → income override (`v1.5.6`) → percentage set-asides
+(`v1.5.7`) → past-income history page (`v1.5.8`) → set-aside recorded history (`v1.5.9`) — the
+last four all user-requested from real phone usage, locking the money data model before native.
+Deliberately left on the backlog: spendable-line overlay on the trend, category drill-down
+trend, store-ready perf pass (nothing felt slow at current data sizes).
 
-**Scope fences (decided during 5b, revised in v1.5.4, hold the line):**
-- ✅ Per-month income accuracy is IN (`v1.5.4`: effective-from salary history + month-tagged
-  bonuses). Still OUT: per-paycheck logging and multi-source income streams — income stays a
-  few set-and-forget entries, never a second daily-logging burden.
+**Scope fences (decided during 5b, revised through v1.5.9, hold the line):**
+- ✅ Per-month income accuracy is IN (`v1.5.4` effective-from salary history + bonuses;
+  `v1.5.6` per-month override for a single exact month). Still OUT: per-paycheck logging and
+  multi-source income streams — income stays a few set-and-forget entries, never a second
+  daily-logging burden.
+- ✅ Percentage-of-income set-asides shipped (`v1.5.7`) — tithe/giving-to-parents as a live %,
+  not just a fixed amount.
+- ✅ **Recorded history for set-asides shipped (`v1.5.9`) — but deliberately record-only.**
+  `allocation_history` stores past actuals per allocation; it does NOT feed the budget math —
+  today's config always drives Spendable, past or present. This is a conscious, narrow
+  exception carved into "allocations are config, not records" for bookkeeping only. **Do not
+  widen it** (e.g. don't make history feed Insights retroactively) without a fresh decision —
+  that was explicitly ruled out as not worth the complexity for closed-book past months.
 - *Not* per-cycle paid-tracking ("mark as paid", payment history) or bill reminders in-app —
   the registry stays static; **payment due-date reminders ship with the native build** (see
   Strategic priorities above) — that's how due dates become actionable.

@@ -14,6 +14,7 @@ export type Backup = {
   salary_history: Snapshot['salary_history'];
   income_events: Snapshot['income_events'];
   income_overrides: Snapshot['income_overrides'];
+  allocation_history: Snapshot['allocation_history'];
 };
 
 /** Serialize a full app snapshot into a versioned JSON backup string. */
@@ -30,6 +31,7 @@ export function serializeBackup(snap: Snapshot): string {
     salary_history: snap.salary_history,
     income_events: snap.income_events,
     income_overrides: snap.income_overrides,
+    allocation_history: snap.allocation_history,
   };
   return JSON.stringify(backup, null, 2);
 }
@@ -112,6 +114,10 @@ export function parseBackup(text: string): Snapshot {
   checkRows(incomeOverrides, 'monthly income', r =>
     isStr(r.id) && isStr(r.month) && isNum(r.amount)
   );
+  const allocationHistory = Array.isArray(b.allocation_history) ? b.allocation_history : []; // absent pre-1.5.9
+  checkRows(allocationHistory, 'set-aside history', r =>
+    isStr(r.id) && isStr(r.allocation_id) && isStr(r.month) && isNum(r.amount)
+  );
 
   if (b.game_state !== undefined) {
     checkRows([b.game_state], 'progress (game state)', r =>
@@ -130,5 +136,6 @@ export function parseBackup(text: string): Snapshot {
     salary_history: salaryHistory,
     income_events: incomeEvents,
     income_overrides: incomeOverrides,
+    allocation_history: allocationHistory,
   };
 }

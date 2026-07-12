@@ -17,6 +17,15 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.5.9',
+    pass: 'Phase 5',
+    title: 'Recorded history for set-asides',
+    date: '2026-07-13',
+    items: [
+      { tag: 'new', text: 'Recurring set-asides (like Tithe) can now keep a per-month history — log what you actually gave in a past month, browsable when you edit the payment. It\'s a record only: it doesn\'t change any month\'s Spendable, which still uses today\'s amount or percentage.' },
+    ],
+  },
+  {
     version: '1.5.8',
     pass: 'Phase 5',
     title: 'Tidier Money page',

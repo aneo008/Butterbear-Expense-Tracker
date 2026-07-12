@@ -14,13 +14,14 @@ import {
   SalaryRow,
   IncomeEvent,
   IncomeOverride,
+  AllocationHistoryRow,
   GameStateFull,
   Snapshot,
   DevPatch,
 } from './types';
 import { Slot, EquippedMap } from '../constants/storeItems';
 
-export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, AllocationGroup, SalaryRow, IncomeEvent, IncomeOverride, GameStateFull, Snapshot } from './types';
+export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, AllocationGroup, SalaryRow, IncomeEvent, IncomeOverride, AllocationHistoryRow, GameStateFull, Snapshot } from './types';
 
 const STORAGE_KEY = 'butter.db.v1';
 
@@ -34,6 +35,7 @@ type DB = {
   salary_history: SalaryRow[];
   income_events: IncomeEvent[];
   income_overrides: IncomeOverride[];
+  allocation_history: AllocationHistoryRow[];
   app_meta: Record<string, string>;
 };
 
@@ -63,6 +65,7 @@ function freshDB(): DB {
     salary_history: [],
     income_events: [],
     income_overrides: [],
+    allocation_history: [],
     app_meta: {},
   };
 }
@@ -108,6 +111,7 @@ export function initWebStore(): void {
       salary_history: parsed.salary_history ?? [],
       income_events: parsed.income_events ?? [],
       income_overrides: parsed.income_overrides ?? [],
+      allocation_history: parsed.allocation_history ?? [],
       app_meta: parsed.app_meta ?? {},
     };
   } catch {
@@ -351,8 +355,10 @@ export function updateAllocation(id: string, fields: Omit<Allocation, 'id'>): vo
   }
 }
 
+/** Deleting an allocation also deletes its recorded history (no UI home without a parent). */
 export function deleteAllocation(id: string): void {
   db.allocations = db.allocations.filter(a => a.id !== id);
+  db.allocation_history = db.allocation_history.filter(h => h.allocation_id !== id);
   persist();
 }
 
@@ -448,6 +454,29 @@ export function deleteIncomeOverride(id: string): void {
   persist();
 }
 
+// ---- v1.5.9: allocation history (record-only per-month actuals) ----
+
+export function getAllocationHistory(allocationId?: string): AllocationHistoryRow[] {
+  const rows = allocationId
+    ? db.allocation_history.filter(h => h.allocation_id === allocationId)
+    : db.allocation_history;
+  return clone([...rows].sort((a, b) => b.month.localeCompare(a.month)));
+}
+
+/** One record per (allocation_id, month): replaces any existing row for that pair. */
+export function addAllocationHistory(row: AllocationHistoryRow): void {
+  db.allocation_history = db.allocation_history.filter(
+    h => !(h.allocation_id === row.allocation_id && h.month === row.month)
+  );
+  db.allocation_history.push({ ...row });
+  persist();
+}
+
+export function deleteAllocationHistory(id: string): void {
+  db.allocation_history = db.allocation_history.filter(h => h.id !== id);
+  persist();
+}
+
 export function getGameStateFull(): GameStateFull {
   return { ...db.game_state };
 }
@@ -463,6 +492,7 @@ export function getSnapshot(): Snapshot {
     salary_history: getSalaryHistory(),
     income_events: getIncomeEvents(),
     income_overrides: getIncomeOverrides(),
+    allocation_history: getAllocationHistory(),
   };
 }
 
@@ -478,6 +508,7 @@ export function replaceAllData(snap: Snapshot): void {
   db.salary_history = clone(snap.salary_history ?? []);
   db.income_events = clone(snap.income_events ?? []);
   db.income_overrides = clone(snap.income_overrides ?? []);
+  db.allocation_history = clone(snap.allocation_history ?? []);
   persist();
 }
 
@@ -487,6 +518,7 @@ export type MergeResult = {
   incomeEventsAdded: number;
   salaryRowsAdded: number;
   incomeOverridesAdded: number;
+  allocationHistoryAdded: number;
 };
 
 /**
@@ -501,6 +533,7 @@ export function mergeData(snap: Snapshot): MergeResult {
   let incomeEventsAdded = 0;
   let salaryRowsAdded = 0;
   let incomeOverridesAdded = 0;
+  let allocationHistoryAdded = 0;
   const catIds = new Set(db.categories.map(c => c.id));
   for (const c of snap.categories ?? []) {
     if (!catIds.has(c.id)) {
@@ -541,8 +574,20 @@ export function mergeData(snap: Snapshot): MergeResult {
       incomeOverridesAdded += 1;
     }
   }
+  // allocation_history: dedupe by (allocation_id, month); skip rows whose
+  // allocation doesn't exist locally (no parent to attach to).
+  const allocIds = new Set(db.allocations.map(a => a.id));
+  const histKeys = new Set(db.allocation_history.map(h => `${h.allocation_id}|${h.month}`));
+  for (const h of snap.allocation_history ?? []) {
+    const key = `${h.allocation_id}|${h.month}`;
+    if (allocIds.has(h.allocation_id) && !histKeys.has(key)) {
+      db.allocation_history.push({ ...h });
+      histKeys.add(key);
+      allocationHistoryAdded += 1;
+    }
+  }
   persist();
-  return { categoriesAdded, expensesAdded, incomeEventsAdded, salaryRowsAdded, incomeOverridesAdded };
+  return { categoriesAdded, expensesAdded, incomeEventsAdded, salaryRowsAdded, incomeOverridesAdded, allocationHistoryAdded };
 }
 
 // ---- app_meta ----

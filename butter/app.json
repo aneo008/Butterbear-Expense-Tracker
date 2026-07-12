@@ -2,7 +2,7 @@
   "expo": {
     "name": "Butter",
     "slug": "butter",
-    "version": "1.5.8",
+    "version": "1.5.9",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.butter.expensetracker",
-      "buildNumber": "18"
+      "buildNumber": "19"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +23,7 @@
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "package": "com.butter.expensetracker",
-      "versionCode": 18
+      "versionCode": 19
     },
     "web": {
       "bundler": "metro",
