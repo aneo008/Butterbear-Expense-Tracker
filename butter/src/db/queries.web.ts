@@ -247,6 +247,34 @@ export function getMonthBreakdown(month: string): CategoryBreakdownRow[] {
     .sort((a, b) => b.total - a.total);
 }
 
+/** v1.6.2: spending grouped by category for a whole YYYY year, biggest first. */
+export function getYearBreakdown(year: number): CategoryBreakdownRow[] {
+  const yearStr = String(year);
+  const totals = new Map<string, { total: number; count: number }>();
+  for (const e of db.expenses) {
+    if (e.spent_at.slice(0, 4) !== yearStr) continue;
+    const cur = totals.get(e.category_id) ?? { total: 0, count: 0 };
+    cur.total += e.amount;
+    cur.count += 1;
+    totals.set(e.category_id, cur);
+  }
+  return Array.from(totals.entries())
+    .map(([category_id, v]) => ({ category_id, total: v.total, count: v.count }))
+    .sort((a, b) => b.total - a.total);
+}
+
+/** v1.6.2: the single biggest expense within [start, end] (YYYY-MM-DD, inclusive), or null. */
+export function getTopExpense(start: string, end: string): Expense | null {
+  let top: Expense | null = null;
+  for (const e of db.expenses) {
+    if (e.spent_at < start || e.spent_at > end) continue;
+    if (!top || e.amount > top.amount || (e.amount === top.amount && e.spent_at > top.spent_at)) {
+      top = e;
+    }
+  }
+  return top ? { ...top } : null;
+}
+
 // ---- categories ----
 
 export function getAllCategories(): Category[] {

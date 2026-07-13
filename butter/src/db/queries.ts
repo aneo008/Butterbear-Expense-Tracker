@@ -117,6 +117,31 @@ export function getMonthBreakdown(month: string): CategoryBreakdownRow[] {
   );
 }
 
+/** v1.6.2: spending grouped by category for a whole YYYY year, biggest first. */
+export function getYearBreakdown(year: number): CategoryBreakdownRow[] {
+  const db = getDb();
+  return db.getAllSync<CategoryBreakdownRow>(
+    `SELECT category_id, SUM(amount) as total, COUNT(*) as count
+     FROM expenses
+     WHERE substr(spent_at, 1, 4) = ?
+     GROUP BY category_id
+     ORDER BY total DESC`,
+    [String(year)]
+  );
+}
+
+/** v1.6.2: the single biggest expense within [start, end] (YYYY-MM-DD, inclusive), or null. */
+export function getTopExpense(start: string, end: string): Expense | null {
+  const db = getDb();
+  return db.getFirstSync<Expense>(
+    `SELECT * FROM expenses
+     WHERE spent_at >= ? AND spent_at <= ?
+     ORDER BY amount DESC, spent_at DESC
+     LIMIT 1`,
+    [start, end]
+  ) ?? null;
+}
+
 export function getAllCategories(): Category[] {
   const db = getDb();
   // Rank by usage in the last 30 days (most used first); unused categories fall

@@ -24,14 +24,15 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.6.1` — **Phase 6 (Analytics & income UX) in progress.** Phase 5 is COMPLETE
-(`v1.5.0`–`v1.5.9`, Money model refined through real phone usage) **+ two data-safety fixes**
-(`v1.5.10`: stale-session field-erasure; `v1.6.1`: two-open-tabs clobbering — see Hardening
-below, both found via real user reports, neither part of the original Phase 5/6 scope). `v1.6.0`
-made the **Money screen month-aware** (tapping an old month's Insights budget card now opens
-that month, not today's). Next: `v1.6.2` — a yearly analytics dashboard on Insights. After
-Phase 6: **ship native** (strategic priority — unblocks the daily-logging reminder AND payment
-due-date reminders), Pass F (story), rest of the hardening backlog.
+**Current:** `v1.6.2` — **Phase 6 (Analytics & income UX) COMPLETE** (`v1.6.0`–`v1.6.2`). Phase 5
+is COMPLETE (`v1.5.0`–`v1.5.9`, Money model refined through real phone usage) **+ two
+data-safety fixes** (`v1.5.10`: stale-session field-erasure; `v1.6.1`: two-open-tabs clobbering
+— see Hardening below, both found via real user reports, neither part of the original Phase
+5/6 scope). Phase 6 shipped: month-aware Money screen (`v1.6.0`), the two-tab data-safety fix
+(`v1.6.1`), and a yearly analytics dashboard on Insights — Month ⇄ Year toggle, year budget
+card, income/spending trends, category donut, Highlights, and a "Compared to last year" card
+(`v1.6.2`). Next: **ship native** (strategic priority — unblocks the daily-logging reminder AND
+payment due-date reminders), Pass F (story), rest of the hardening backlog.
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 
@@ -47,7 +48,7 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | **4** | **Gamification (Closet, coins, streaks)** | ◑ **in progress — Passes A–E + G1 + calculator done; Pass F (story) remains, G3 sfx optional** |
 | — | **Hardening & trust** (from the v1.4.9 review + since) | ◑ **in progress** — streak, dev data-loss, chests, backup validation, stale-session data loss fixed; IndexedDB / computeLogUpdate / tests queued |
 | **5** | **Budget, charts & ship polish** | ✅ **done (`v1.5.0`–`v1.5.9`)** — Money screen, info-only flag, trend chart, polish & protection, per-month income + override, percentage set-asides, history pages |
-| **6** | **Analytics & income UX** | ◑ **in progress** — `v1.6.0` month-aware Money screen + `v1.6.1` two-tab data-safety fix done; `v1.6.2` year dashboard next |
+| **6** | **Analytics & income UX** | ✅ **done (`v1.6.0`–`v1.6.2`)** — month-aware Money screen, two-tab data-safety fix, yearly analytics dashboard |
 | 7+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
 | — | **Ship native (iOS/Android)** | ⬜ strategic priority (pull forward — unblocks gestures, haptics, reminders) |
 
@@ -276,7 +277,7 @@ what's left to actually spend.
 - 🔧 Under the hood: additive `allocations.info_only` column (old data/backups unaffected);
   the skip lives in `monthCommitment()` so the Money summary and Insights card both honour it.
 
-## Phase 6 — Analytics & income UX · `v1.6` *(in progress)*
+## Phase 6 — Analytics & income UX · `v1.6` *(✅ COMPLETE)*
 Two things surfaced from real daily phone usage: the Money screen couldn't show a past month
 (tapping March's Insights budget card silently opened today's Money instead), and there was no
 way to see spending/income patterns across a whole year. Analytics is read-side — it needs zero
@@ -285,6 +286,33 @@ schema change and serves the "go-to finance app" goal without reopening the Mone
 **Scope fence:** `allocation_history` (the `v1.5.9` record-only ledger) stays OUT of all
 analytics computation, per the standing fence — year set-aside totals are computed live via
 `monthCommitment`, same as everywhere else.
+
+### `v1.6.2` — Yearly analytics dashboard
+- ✨ **Month ⇄ Year toggle on Insights.** Year mode reuses the same visual language as month
+  mode: a **year budget card** (Income · Set aside · Spendable / Spent / Remaining / savings
+  rate, with a "Jan–Jul 2026 so far" footnote for the current year), **income-by-month** and
+  **spending-by-month** trend charts (tap a bar to jump straight to that month in Month mode),
+  a **category donut** for the whole year with each legend row showing an avg SGD/mo line
+  (legend rows are display-only in year mode — the category drill-down screen stays a
+  month-mode feature), a **Highlights card** (biggest/lightest month, top category, single
+  biggest expense, bonuses, one-offs, recurring/yearly/one-off set-aside split), and a
+  **"Compared to last year" card** (which categories moved up/down as a % of spend,
+  overspent-months count, committed-vs-free trend from the year's first to latest month, bonus
+  dependency %) — hidden when the prior year has no actual recorded data.
+- 🔧 **Elapsed-months rule:** the current year's totals only aggregate January through the
+  current month — no projecting unset future income/set-asides. Past years always use all 12.
+  Trend *charts* still show the full Jan–Dec axis (future months simply read 0), matching the
+  existing 12-month spending trend's visual language.
+- 🔧 New pure lib `src/lib/yearMath.ts` (`yearSummary`, no RN imports, unit-tested via a
+  headless harness covering the elapsed-months rule, income precedence, percentage set-asides
+  reacting to a bonus month, the commitment split summing to `setAside`, and an empty year
+  producing zeros without a divide-by-zero). New queries `getYearBreakdown(year)` and
+  `getTopExpense(start, end)` (native + web, mirroring the existing month-query patterns).
+- 🔧 Year chips (newest first) span from the earliest **recorded** year — expenses, salary
+  changes, overrides, bonuses, or one-offs — through the current year. The "Compared to last
+  year" card deliberately gates on that same recorded-year list rather than "does prior-year
+  income exist" alone, since a base salary set with "Always" scope applies retroactively
+  forever and would otherwise make every prior year look like it has data.
 
 ### `v1.6.1` — Data-safety: stop two open tabs from clobbering each other
 - 🐛 **Root cause of a real data-loss report (2026-07-13):** a July income entry (and,

@@ -17,6 +17,17 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.6.2',
+    pass: 'Phase 6',
+    title: 'Yearly analytics dashboard',
+    date: '2026-07-13',
+    items: [
+      { tag: 'new', text: 'Insights now has a Month / Year toggle. Year view shows your income, set-asides and spending for the whole year, a category breakdown, and highlights — biggest month, top category, your biggest single expense, bonuses and one-offs.' },
+      { tag: 'new', text: 'A "Compared to last year" card shows which categories went up or down, how many months you went over budget, and how your bonus dependency changed — once you have a second year of data.' },
+      { tag: 'change', text: 'Tap any bar in the year\'s income or spending chart to jump straight to that month.' },
+    ],
+  },
+  {
     version: '1.6.1',
     pass: 'Phase 6',
     title: 'Data-safety fix',
