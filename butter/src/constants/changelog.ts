@@ -17,6 +17,15 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.6.1',
+    pass: 'Phase 6',
+    title: 'Data-safety fix',
+    date: '2026-07-13',
+    items: [
+      { tag: 'fix', text: 'Fixed a bug where having the app open in two places at once (e.g. the home-screen app and a browser tab) could cause a newly added entry — like a bonus — to silently disappear if the older tab saved something afterward. Every save now checks for the latest data first, so this can no longer happen.' },
+    ],
+  },
+  {
     version: '1.6.0',
     pass: 'Phase 6',
     title: 'Month-aware Money screen',

@@ -24,14 +24,14 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.6.0` — **Phase 6 (Analytics & income UX) in progress.** Phase 5 is COMPLETE
-(`v1.5.0`–`v1.5.9`, Money model refined through real phone usage) **+ a data-safety fix**
-(`v1.5.10`: stale-session field-erasure, see Hardening below — found via a real user report,
-not part of Phase 5 scope). `v1.6.0` makes the **Money screen month-aware** (tapping an old
-month's Insights budget card now opens that month, not today's). Next: `v1.6.1` — a yearly
-analytics dashboard on Insights. After Phase 6: **ship native** (strategic priority — unblocks
-the daily-logging reminder AND payment due-date reminders), Pass F (story), rest of the
-hardening backlog.
+**Current:** `v1.6.1` — **Phase 6 (Analytics & income UX) in progress.** Phase 5 is COMPLETE
+(`v1.5.0`–`v1.5.9`, Money model refined through real phone usage) **+ two data-safety fixes**
+(`v1.5.10`: stale-session field-erasure; `v1.6.1`: two-open-tabs clobbering — see Hardening
+below, both found via real user reports, neither part of the original Phase 5/6 scope). `v1.6.0`
+made the **Money screen month-aware** (tapping an old month's Insights budget card now opens
+that month, not today's). Next: `v1.6.2` — a yearly analytics dashboard on Insights. After
+Phase 6: **ship native** (strategic priority — unblocks the daily-logging reminder AND payment
+due-date reminders), Pass F (story), rest of the hardening backlog.
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 
@@ -47,7 +47,7 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | **4** | **Gamification (Closet, coins, streaks)** | ◑ **in progress — Passes A–E + G1 + calculator done; Pass F (story) remains, G3 sfx optional** |
 | — | **Hardening & trust** (from the v1.4.9 review + since) | ◑ **in progress** — streak, dev data-loss, chests, backup validation, stale-session data loss fixed; IndexedDB / computeLogUpdate / tests queued |
 | **5** | **Budget, charts & ship polish** | ✅ **done (`v1.5.0`–`v1.5.9`)** — Money screen, info-only flag, trend chart, polish & protection, per-month income + override, percentage set-asides, history pages |
-| **6** | **Analytics & income UX** | ◑ **in progress** — `v1.6.0` month-aware Money screen done; `v1.6.1` year dashboard next |
+| **6** | **Analytics & income UX** | ◑ **in progress** — `v1.6.0` month-aware Money screen + `v1.6.1` two-tab data-safety fix done; `v1.6.2` year dashboard next |
 | 7+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
 | — | **Ship native (iOS/Android)** | ⬜ strategic priority (pull forward — unblocks gestures, haptics, reminders) |
 
@@ -286,6 +286,27 @@ schema change and serves the "go-to finance app" goal without reopening the Mone
 analytics computation, per the standing fence — year set-aside totals are computed live via
 `monthCommitment`, same as everywhere else.
 
+### `v1.6.1` — Data-safety: stop two open tabs from clobbering each other
+- 🐛 **Root cause of a real data-loss report (2026-07-13):** a July income entry (and,
+  separately and earlier, a set of recurring payments) went missing after being added — not
+  because of stale cached code (the `v1.5.10` bug), but because **two instances of the app were
+  open at once** (a home-screen PWA + a separate browser tab, or multiple tabs), each holding
+  its own in-memory copy of the data from whenever it last loaded. Every mutation blindly wrote
+  its *entire* in-memory copy back over `localStorage` — so if instance A added an entry, then
+  instance B (never reloaded, still holding an older snapshot) saved *anything* afterward, even
+  something unrelated, B's stale copy silently overwrote A's newer one, erasing the addition.
+- 🔧 **Fix:** every data-changing function in the web data layer now re-reads the latest saved
+  state from `localStorage` immediately before applying its change (`resync()` in
+  `queries.web.ts`), so a change always builds on the freshest known state instead of a
+  possibly-stale in-memory copy. Verified with two real browser tabs: tab A adds a bonus, tab B
+  (loaded before A's write, never reloaded) then adds an unrelated one-off — both survive.
+- ⚠️ **Practical takeaway:** avoid keeping the app open in two places at once when possible
+  (e.g. close the browser tab once the home-screen app is set up) — this fix closes the silent
+  data-loss risk, but the underlying "last save wins" model still means truly simultaneous edits
+  in two places can overwrite each other's *other* fields (e.g. two coin-earning taps at the
+  exact same instant). Additive lists (expenses, income, recurring payments) are now safe;
+  scalar counters (coins, streak) are not specifically hardened here.
+
 ### `v1.6.0` — Month-aware Money screen
 - 🐛 **Fixed:** tapping an old month's card on Insights (budget card, or the "set your income"
   empty state) now opens **that month** on Money, not always today's. `insights.tsx` passes
@@ -319,6 +340,7 @@ The retention engine had cracks in trust/durability. Triage from the review:
 - ✅ **One-time chests are re-earnable** — fixed in `v1.5.3`: `claimed_chests` ledger on `game_state`, chests once-ever.
 - ✅ **`parseBackup` validates shape, not rows** — fixed in `v1.5.3`: per-row shape checks before the destructive replace.
 - ✅ **Stale-session data loss** — fixed in `v1.5.10`: `initWebStore()` now spread-preserves unknown top-level fields instead of silently dropping them (see the `v1.5.10` changelog entry for the full incident writeup). New class of issue found via a real user report, not from the original review list.
+- ✅ **Two-open-tabs data loss** — fixed in `v1.6.1`: every web mutator now re-syncs from `localStorage` immediately before writing (`resync()`), so a second stale tab/PWA instance can no longer overwrite a fresher one's addition (see the `v1.6.1` changelog entry). A distinct class from `v1.5.10` — same symptom (things vanish after being added), different mechanism (two *current* copies racing, not old code dropping unknown fields).
 - ⬜ **`app_meta` isn't in the backup format** — so dev-sandbox meta edits (e.g. the What's-New flag) actually leak on Exit; fix the code *or* correct the dev-panel/memory note that claims they revert.
 - ⬜ **Extract the duplicated log-reward transaction** — `updateGameStateAfterLog` is copy-pasted in `queries.ts` and `queries.web.ts`; pull a pure `computeLogUpdate(prev, today)` into `src/lib/` so both layers persist one source of truth (kills the drift class of bug for chests/consumables/decor). Same for the wardrobe buy/sell/equip JSON juggling.
 - ⬜ **Tests + a CI gate** — none today. The pure logic (`streak.ts`, `date.ts`, `backup.ts`, the calculator reducer, `changelog.ts` compareVersions) is ideal unit-test material; add a runner + a lint/type gate to CI.

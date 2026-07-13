@@ -98,31 +98,59 @@ export function initWebStore(): void {
     return;
   }
   try {
-    const parsed = JSON.parse(raw) as Partial<DB>;
-    // Spread `parsed` FIRST so any field this build doesn't know about (written
-    // by a newer version of the app that ran against this same localStorage
-    // key) survives verbatim — a stale-cached bundle can then ignore it, but
-    // crucially can no longer ERASE it on the next persist(). Only the fields
-    // below need defaulting/normalization; everything else passes through.
-    db = {
-      ...(parsed as DB),
-      expenses: parsed.expenses ?? [],
-      categories: parsed.categories && parsed.categories.length
-        ? parsed.categories
-        : DEFAULT_CATEGORIES.map(c => ({ ...c })),
-      game_state: { ...defaultGameState(), ...(parsed.game_state ?? {}) },
-      budget: parsed.budget ?? { monthly_budget: null, currency: 'SGD' },
-      allocations: (parsed.allocations ?? []).map(normalizeAllocation),
-      allocation_groups: parsed.allocation_groups ?? [],
-      salary_history: parsed.salary_history ?? [],
-      income_events: parsed.income_events ?? [],
-      income_overrides: parsed.income_overrides ?? [],
-      allocation_history: parsed.allocation_history ?? [],
-      app_meta: parsed.app_meta ?? {},
-    };
+    applyParsed(JSON.parse(raw));
   } catch {
     db = freshDB();
     persist();
+  }
+}
+
+// Spread `parsed` FIRST so any field this build doesn't know about (written by
+// a newer version of the app that ran against this same localStorage key)
+// survives verbatim — a stale-cached bundle can then ignore it, but crucially
+// can no longer ERASE it on the next persist(). Only the fields below need
+// defaulting/normalization; everything else passes through.
+function applyParsed(parsed: Partial<DB>): void {
+  db = {
+    ...(parsed as DB),
+    expenses: parsed.expenses ?? [],
+    categories: parsed.categories && parsed.categories.length
+      ? parsed.categories
+      : DEFAULT_CATEGORIES.map(c => ({ ...c })),
+    game_state: { ...defaultGameState(), ...(parsed.game_state ?? {}) },
+    budget: parsed.budget ?? { monthly_budget: null, currency: 'SGD' },
+    allocations: (parsed.allocations ?? []).map(normalizeAllocation),
+    allocation_groups: parsed.allocation_groups ?? [],
+    salary_history: parsed.salary_history ?? [],
+    income_events: parsed.income_events ?? [],
+    income_overrides: parsed.income_overrides ?? [],
+    allocation_history: parsed.allocation_history ?? [],
+    app_meta: parsed.app_meta ?? {},
+  };
+}
+
+/**
+ * Re-sync `db` from localStorage immediately before a mutation, so the change
+ * always builds on the freshest saved state instead of a possibly-stale
+ * in-memory copy. Guards against two open tabs/instances of the app (e.g. a
+ * home-screen PWA + a browser tab) silently clobbering each other's latest
+ * edit — whichever mutates second would otherwise overwrite storage with its
+ * own stale snapshot, erasing anything the other instance just added (this is
+ * exactly how a July income entry and, earlier, a set of recurring payments
+ * went missing — not the stale-code field-erasure v1.5.10 fixed, but two
+ * current instances racing). No-op if storage is unavailable, empty, or
+ * unparseable — mutators still have a valid in-memory `db` to operate on.
+ */
+function resync(): void {
+  if (!hasStorage()) return;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    applyParsed(JSON.parse(raw));
+  } catch {
+    // Corrupt read — keep working from the current in-memory copy. Unlike
+    // initWebStore this isn't first-load, so resetting here would itself be
+    // a data-loss bug.
   }
 }
 
@@ -141,6 +169,7 @@ function clone<T>(rows: T[]): T[] {
 // ---- expenses ----
 
 export function insertExpense(expense: Omit<Expense, 'created_at'>): void {
+  resync();
   db.expenses.push({ ...expense, note: expense.note ?? null, created_at: new Date().toISOString() });
   persist();
 }
@@ -149,6 +178,7 @@ export function updateExpense(
   id: string,
   fields: { amount: number; category_id: string; note: string | null; spent_at: string }
 ): void {
+  resync();
   const e = db.expenses.find(x => x.id === id);
   if (e) {
     e.amount = fields.amount;
@@ -160,6 +190,7 @@ export function updateExpense(
 }
 
 export function deleteExpense(id: string): void {
+  resync();
   db.expenses = db.expenses.filter(e => e.id !== id);
   persist();
 }
@@ -235,6 +266,7 @@ export function getAllCategories(): Category[] {
 }
 
 export function addCategory(fields: { name: string; icon: string; color: string }): Category {
+  resync();
   const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const maxOrder = db.categories.reduce((m, c) => Math.max(m, c.sort_order ?? 0), 0);
   const cat: Category = { id, name: fields.name, icon: fields.icon, color: fields.color, is_custom: 1, sort_order: maxOrder + 1 };
@@ -259,6 +291,7 @@ export function getGameState(): GameState {
 }
 
 export function updateGameStateAfterLog(): void {
+  resync();
   const today = todayISO();
   const gs = db.game_state;
 
@@ -319,6 +352,7 @@ export function getIncome(): number | null {
 }
 
 export function setIncome(value: number | null): void {
+  resync();
   db.budget.monthly_budget = value;
   persist();
 }
@@ -349,11 +383,13 @@ export function getAllocations(): Allocation[] {
 }
 
 export function addAllocation(a: Allocation): void {
+  resync();
   db.allocations.push(normalizeAllocation(a));
   persist();
 }
 
 export function updateAllocation(id: string, fields: Omit<Allocation, 'id'>): void {
+  resync();
   const i = db.allocations.findIndex(a => a.id === id);
   if (i >= 0) {
     db.allocations[i] = normalizeAllocation({ id, ...fields });
@@ -363,6 +399,7 @@ export function updateAllocation(id: string, fields: Omit<Allocation, 'id'>): vo
 
 /** Deleting an allocation also deletes its recorded history (no UI home without a parent). */
 export function deleteAllocation(id: string): void {
+  resync();
   db.allocations = db.allocations.filter(a => a.id !== id);
   db.allocation_history = db.allocation_history.filter(h => h.allocation_id !== id);
   persist();
@@ -379,11 +416,13 @@ export function getAllocationGroups(): AllocationGroup[] {
 }
 
 export function addAllocationGroup(g: AllocationGroup): void {
+  resync();
   db.allocation_groups.push({ ...g, sort_order: g.sort_order ?? 0 });
   persist();
 }
 
 export function updateAllocationGroup(id: string, fields: Omit<AllocationGroup, 'id'>): void {
+  resync();
   const i = db.allocation_groups.findIndex(g => g.id === id);
   if (i >= 0) {
     db.allocation_groups[i] = { id, ...fields, sort_order: fields.sort_order ?? 0 };
@@ -393,6 +432,7 @@ export function updateAllocationGroup(id: string, fields: Omit<AllocationGroup, 
 
 /** Delete a group; its member payments become ungrouped (never deleted). */
 export function deleteAllocationGroup(id: string): void {
+  resync();
   for (const a of db.allocations) {
     if (a.group_id === id) a.group_id = null;
   }
@@ -408,12 +448,14 @@ export function getSalaryHistory(): SalaryRow[] {
 
 /** One salary per effective-month: replaces any existing row with the same from_month. */
 export function addSalary(row: SalaryRow): void {
+  resync();
   db.salary_history = db.salary_history.filter(s => s.from_month !== row.from_month);
   db.salary_history.push({ ...row });
   persist();
 }
 
 export function deleteSalary(id: string): void {
+  resync();
   db.salary_history = db.salary_history.filter(s => s.id !== id);
   persist();
 }
@@ -425,11 +467,13 @@ export function getIncomeEvents(): IncomeEvent[] {
 }
 
 export function addIncomeEvent(e: IncomeEvent): void {
+  resync();
   db.income_events.push({ ...e });
   persist();
 }
 
 export function updateIncomeEvent(id: string, fields: Omit<IncomeEvent, 'id'>): void {
+  resync();
   const i = db.income_events.findIndex(e => e.id === id);
   if (i >= 0) {
     db.income_events[i] = { id, ...fields };
@@ -438,6 +482,7 @@ export function updateIncomeEvent(id: string, fields: Omit<IncomeEvent, 'id'>): 
 }
 
 export function deleteIncomeEvent(id: string): void {
+  resync();
   db.income_events = db.income_events.filter(e => e.id !== id);
   persist();
 }
@@ -450,12 +495,14 @@ export function getIncomeOverrides(): IncomeOverride[] {
 
 /** One override per month: replaces any existing row for that month. */
 export function addIncomeOverride(row: IncomeOverride): void {
+  resync();
   db.income_overrides = db.income_overrides.filter(o => o.month !== row.month);
   db.income_overrides.push({ ...row });
   persist();
 }
 
 export function deleteIncomeOverride(id: string): void {
+  resync();
   db.income_overrides = db.income_overrides.filter(o => o.id !== id);
   persist();
 }
@@ -471,6 +518,7 @@ export function getAllocationHistory(allocationId?: string): AllocationHistoryRo
 
 /** One record per (allocation_id, month): replaces any existing row for that pair. */
 export function addAllocationHistory(row: AllocationHistoryRow): void {
+  resync();
   db.allocation_history = db.allocation_history.filter(
     h => !(h.allocation_id === row.allocation_id && h.month === row.month)
   );
@@ -479,6 +527,7 @@ export function addAllocationHistory(row: AllocationHistoryRow): void {
 }
 
 export function deleteAllocationHistory(id: string): void {
+  resync();
   db.allocation_history = db.allocation_history.filter(h => h.id !== id);
   persist();
 }
@@ -534,6 +583,7 @@ export type MergeResult = {
  * NOTE: keep semantics in lockstep with queries.ts.
  */
 export function mergeData(snap: Snapshot): MergeResult {
+  resync();
   let categoriesAdded = 0;
   let expensesAdded = 0;
   let incomeEventsAdded = 0;
@@ -603,6 +653,7 @@ export function getMeta(key: string): string | null {
 }
 
 export function setMeta(key: string, value: string): void {
+  resync();
   db.app_meta[key] = value;
   persist();
 }
@@ -657,6 +708,7 @@ export function getEquippedItems(): EquippedMap {
  * Returns false (no-op) if already owned or insufficient coins.
  */
 export function buyItem(itemId: string, price: number): boolean {
+  resync();
   let owned: string[];
   try { owned = JSON.parse(db.game_state.owned_items); } catch { owned = []; }
   if (owned.includes(itemId)) return false;
@@ -673,6 +725,7 @@ export function buyItem(itemId: string, price: number): boolean {
  * worn in. Returns the refund amount (0 if not owned).
  */
 export function sellItem(itemId: string, price: number): number {
+  resync();
   let owned: string[];
   try { owned = JSON.parse(db.game_state.owned_items); } catch { owned = []; }
   if (!owned.includes(itemId)) return 0;
@@ -692,6 +745,7 @@ export function sellItem(itemId: string, price: number): number {
 
 /** Set the equipped item for a slot. */
 export function equipItem(itemId: string, slot: Slot): void {
+  resync();
   let equipped: EquippedMap;
   try { equipped = JSON.parse(db.game_state.equipped_items); } catch { equipped = {}; }
   equipped[slot] = itemId;
@@ -701,6 +755,7 @@ export function equipItem(itemId: string, slot: Slot): void {
 
 /** Remove an item from the equipped slot. */
 export function unequipItem(slot: Slot): void {
+  resync();
   let equipped: EquippedMap;
   try { equipped = JSON.parse(db.game_state.equipped_items); } catch { equipped = {}; }
   delete equipped[slot];
@@ -710,6 +765,7 @@ export function unequipItem(slot: Slot): void {
 
 /** Replace the entire equipped map (bulk equip, used by Pass C changing room). */
 export function equipLook(look: EquippedMap): void {
+  resync();
   db.game_state.equipped_items = JSON.stringify(look);
   persist();
 }
