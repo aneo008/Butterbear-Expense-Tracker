@@ -24,15 +24,17 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.6.2` — **Phase 6 (Analytics & income UX) COMPLETE** (`v1.6.0`–`v1.6.2`). Phase 5
-is COMPLETE (`v1.5.0`–`v1.5.9`, Money model refined through real phone usage) **+ two
-data-safety fixes** (`v1.5.10`: stale-session field-erasure; `v1.6.1`: two-open-tabs clobbering
-— see Hardening below, both found via real user reports, neither part of the original Phase
-5/6 scope). Phase 6 shipped: month-aware Money screen (`v1.6.0`), the two-tab data-safety fix
-(`v1.6.1`), and a yearly analytics dashboard on Insights — Month ⇄ Year toggle, year budget
-card, income/spending trends, category donut, Highlights, and a "Compared to last year" card
-(`v1.6.2`). Next: **ship native** (strategic priority — unblocks the daily-logging reminder AND
-payment due-date reminders), Pass F (story), rest of the hardening backlog.
+**Current:** `v1.6.3` — a small polish fix shipped after Phase 6 closed (Money screen's salary
+history list was unbounded; capped it, same pattern used for bonuses/one-offs). **Phase 6
+(Analytics & income UX) is COMPLETE** (`v1.6.0`–`v1.6.2`). Phase 5 is COMPLETE (`v1.5.0`–
+`v1.5.9`, Money model refined through real phone usage) **+ two data-safety fixes**
+(`v1.5.10`: stale-session field-erasure; `v1.6.1`: two-open-tabs clobbering — see Hardening
+below, both found via real user reports, neither part of the original Phase 5/6 scope). Phase 6
+shipped: month-aware Money screen (`v1.6.0`), the two-tab data-safety fix (`v1.6.1`), and a
+yearly analytics dashboard on Insights — Month ⇄ Year toggle, year budget card, income/spending
+trends, category donut, Highlights, and a "Compared to last year" card (`v1.6.2`). Next: **ship
+native** (strategic priority — unblocks the daily-logging reminder AND payment due-date
+reminders), Pass F (story), rest of the hardening backlog.
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 
@@ -48,7 +50,7 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | **4** | **Gamification (Closet, coins, streaks)** | ◑ **in progress — Passes A–E + G1 + calculator done; Pass F (story) remains, G3 sfx optional** |
 | — | **Hardening & trust** (from the v1.4.9 review + since) | ◑ **in progress** — streak, dev data-loss, chests, backup validation, stale-session data loss fixed; IndexedDB / computeLogUpdate / tests queued |
 | **5** | **Budget, charts & ship polish** | ✅ **done (`v1.5.0`–`v1.5.9`)** — Money screen, info-only flag, trend chart, polish & protection, per-month income + override, percentage set-asides, history pages |
-| **6** | **Analytics & income UX** | ✅ **done (`v1.6.0`–`v1.6.2`)** — month-aware Money screen, two-tab data-safety fix, yearly analytics dashboard |
+| **6** | **Analytics & income UX** | ✅ **done (`v1.6.0`–`v1.6.2`)** — month-aware Money screen, two-tab data-safety fix, yearly analytics dashboard, **+ `v1.6.3` fix** (unbounded salary-history list) |
 | 7+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
 | — | **Ship native (iOS/Android)** | ⬜ strategic priority (pull forward — unblocks gestures, haptics, reminders) |
 
@@ -286,6 +288,23 @@ schema change and serves the "go-to finance app" goal without reopening the Mone
 **Scope fence:** `allocation_history` (the `v1.5.9` record-only ledger) stays OUT of all
 analytics computation, per the standing fence — year set-aside totals are computed live via
 `monthCommitment`, same as everywhere else.
+
+### `v1.6.3` — Fix: unbounded salary-history list *(shipped after Phase 6 closed)*
+- 🐛 A user who imported a real 24-entry `salary_history` (spanning two years of raises) found
+  the Money screen's Income card rendering **every single row inline**, unbounded — the card
+  stretched to 24+ lines, each with a delete icon, pushing the rest of the page far below the
+  fold. `salaryHistory.map(...)` had no cap, unlike the sibling "Bonuses & extra income" and
+  "One-off set-asides" sections on the same screen, which already solved this exact problem
+  (`v1.5.8`) with a "View past (N) ›" link to `app/money-history.tsx`.
+- 🔧 **Fix:** the Income card now shows only the salary entry actually **in effect right now**
+  (derived the same way the card's own "Base SGD X" figure is — the most recent entry whose
+  `from_month` has arrived, not just the last array index, so a future-scheduled raise can't be
+  mistaken for "current"), plus a "View past (N) ›" link for everything else. `money-history.tsx`
+  gained a third section, "Past salary changes," styled consistently with its existing two
+  sections; salary rows there are delete-only (no edit sheet exists for `salary_history` rows —
+  only add/delete, unchanged from before). Verified live with the user's real 24-row shape,
+  the 0/1-row edge case (link correctly absent), and a future-dated row (correctly excluded
+  from "active" without vanishing).
 
 ### `v1.6.2` — Yearly analytics dashboard
 - ✨ **Month ⇄ Year toggle on Insights.** Year mode reuses the same visual language as month

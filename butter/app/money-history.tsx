@@ -5,6 +5,7 @@ import { useExpenseStore } from '../src/store/useExpenseStore';
 import { Allocation } from '../src/db/types';
 import AllocationEditSheet, { EditSheetRequest } from '../src/components/AllocationEditSheet';
 import IncomeEventSheet, { IncomeSheetRequest } from '../src/components/IncomeEventSheet';
+import { Alert } from '../src/lib/dialog';
 import { currentMonth, formatMonthShort } from '../src/lib/date';
 import { backOrHome } from '../src/lib/nav';
 import { colors, radius, fonts, cardShadow } from '../src/constants/theme';
@@ -20,6 +21,8 @@ export default function MoneyHistoryScreen() {
   const router = useRouter();
   const incomeEvents = useExpenseStore(s => s.incomeEvents);
   const allocations = useExpenseStore(s => s.allocations);
+  const salaryHistory = useExpenseStore(s => s.salaryHistory);
+  const deleteSalary = useExpenseStore(s => s.deleteSalary);
 
   const [editRequest, setEditRequest] = useState<EditSheetRequest | null>(null);
   const [incomeSheet, setIncomeSheet] = useState<IncomeSheetRequest | null>(null);
@@ -30,14 +33,29 @@ export default function MoneyHistoryScreen() {
     .filter(a => a.kind === 'oneoff' && (a.month ?? '') < cm)
     .sort((a, b) => (b.month ?? '').localeCompare(a.month ?? ''));
 
-  const empty = pastBonuses.length === 0 && pastOneoffs.length === 0;
+  // v1.6.3: same "active" selection as money.tsx — everything except the one
+  // actually in effect right now lives here (a future-dated row, if one
+  // exists, also lands here rather than vanishing).
+  const activeSalary = [...salaryHistory].reverse().find(s => s.from_month <= cm) ?? null;
+  const pastSalary = salaryHistory
+    .filter(s => s.id !== activeSalary?.id)
+    .sort((a, b) => b.from_month.localeCompare(a.from_month));
+
+  const confirmDeleteSalary = (id: string, label: string) => {
+    Alert.alert('Remove salary change?', `"${label}" will be removed — earlier salary applies again.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => deleteSalary(id) },
+    ]);
+  };
+
+  const empty = pastBonuses.length === 0 && pastOneoffs.length === 0 && pastSalary.length === 0;
 
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen
         options={{
           headerShown: true,
-          headerTitle: '🗂️ Past income & one-offs',
+          headerTitle: '🗂️ Past income & changes',
           headerStyle: { backgroundColor: colors.bgCream },
           headerShadowVisible: false,
           headerTintColor: colors.textBrown,
@@ -52,7 +70,8 @@ export default function MoneyHistoryScreen() {
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
         {empty && (
           <Text selectable={false} style={styles.empty}>
-            Nothing here yet. Past bonuses and one-off set-asides move here once their month has passed. 🧈
+            Nothing here yet. Past bonuses, one-off set-asides and superseded salary changes
+            move here once they're no longer current. 🧈
           </Text>
         )}
 
@@ -95,6 +114,31 @@ export default function MoneyHistoryScreen() {
                   </View>
                   <Text selectable={false} style={styles.amount}>{fmt(a.amount)}</Text>
                 </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
+
+        {pastSalary.length > 0 && (
+          <>
+            <Text selectable={false} style={styles.sectionHeader}>Past salary changes</Text>
+            <View style={styles.card}>
+              {/* No edit sheet exists for salary_history rows (IncomeEditSheet only adds new
+                  ones) — these rows are delete-only, same as on the Money screen. */}
+              {pastSalary.map(s => (
+                <View key={s.id} style={styles.row}>
+                  <View style={styles.mid}>
+                    <Text selectable={false} style={styles.rowLabel}>Since {formatMonthShort(s.from_month)}</Text>
+                  </View>
+                  <Text selectable={false} style={styles.amount}>{fmt(s.amount)}</Text>
+                  <Pressable
+                    accessibilityLabel={`salary-delete-${s.from_month}`}
+                    hitSlop={8}
+                    onPress={() => confirmDeleteSalary(s.id, `${fmt(s.amount)} since ${formatMonthShort(s.from_month)}`)}
+                  >
+                    <Text selectable={false} style={styles.salaryDelete}>✕</Text>
+                  </Pressable>
+                </View>
               ))}
             </View>
           </>
@@ -142,4 +186,5 @@ const styles = StyleSheet.create({
   rowMonth: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.textSoft, marginTop: 2 },
   amount: { fontFamily: fonts.bodyBold, fontSize: 15, color: colors.textBrown },
   income: { fontFamily: fonts.bodyBold, fontSize: 15, color: '#3C8C4C' },
+  salaryDelete: { fontSize: 12, color: '#C57A6E', padding: 2 },
 });

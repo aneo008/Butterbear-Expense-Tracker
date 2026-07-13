@@ -80,6 +80,14 @@ export default function MoneyScreen() {
   const pastEventCount = isViewingCurrent ? incomeEvents.length - upcomingEvents.length : 0;
   const ungrouped = recurring.filter(a => a.group_id === null);
 
+  // v1.6.3: salary_history can grow indefinitely (one row per raise/change) — show only the
+  // one actually in effect inline, the rest behind "View past". Ascending-sorted; the active
+  // row is the most recent one whose from_month has arrived — same selection rule as
+  // salaryForMonth() in incomeMath.ts. A row scheduled for a future month intentionally does
+  // NOT count as "active" yet (it still shows up under "View past" rather than vanishing).
+  const activeSalary = [...salaryHistory].reverse().find(s => s.from_month <= viewedMonth) ?? null;
+  const pastSalary = salaryHistory.filter(s => s.id !== activeSalary?.id);
+
   // Due dates are forward-looking from TODAY — meaningless when browsing a past month.
   const dueSoon = useMemo(() => {
     if (!isViewingCurrent) return [];
@@ -273,20 +281,25 @@ export default function MoneyScreen() {
                   {fmt(income)} · before {formatMonthShort(salaryHistory[0].from_month)}
                 </Text>
               )}
-              {salaryHistory.map(s => (
-                <View key={s.id} style={styles.salaryRowWrap}>
+              {activeSalary && (
+                <View style={styles.salaryRowWrap}>
                   <Text selectable={false} style={styles.salaryRow}>
-                    {fmt(s.amount)} · since {formatMonthShort(s.from_month)}
+                    {fmt(activeSalary.amount)} · since {formatMonthShort(activeSalary.from_month)}
                   </Text>
                   <Pressable
-                    accessibilityLabel={`salary-delete-${s.from_month}`}
+                    accessibilityLabel={`salary-delete-${activeSalary.from_month}`}
                     hitSlop={8}
-                    onPress={() => confirmDeleteSalary(s.id, `${fmt(s.amount)} since ${formatMonthShort(s.from_month)}`)}
+                    onPress={() => confirmDeleteSalary(activeSalary.id, `${fmt(activeSalary.amount)} since ${formatMonthShort(activeSalary.from_month)}`)}
                   >
                     <Text selectable={false} style={styles.salaryDelete}>✕</Text>
                   </Pressable>
                 </View>
-              ))}
+              )}
+              {pastSalary.length > 0 && (
+                <TouchableOpacity accessibilityLabel="salary-view-past" onPress={() => router.push('/money-history' as any)}>
+                  <Text selectable={false} style={styles.viewPast}>View past ({pastSalary.length}) ›</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>

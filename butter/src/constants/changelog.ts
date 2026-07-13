@@ -17,6 +17,15 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.6.3',
+    pass: 'Phase 6',
+    title: 'Tidier salary history',
+    date: '2026-07-13',
+    items: [
+      { tag: 'fix', text: 'The Money page no longer lists every salary change you\'ve ever made — it now shows just the one currently in effect, with a "View past" link to see the rest, so the page stays short even after years of raises.' },
+    ],
+  },
+  {
     version: '1.6.2',
     pass: 'Phase 6',
     title: 'Yearly analytics dashboard',
