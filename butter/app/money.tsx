@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Pressable,
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useLocalSearchParams } from 'expo-router';
 import { useExpenseStore } from '../src/store/useExpenseStore';
 import { Allocation, AllocationGroup } from '../src/db/types';
 import AllocationEditSheet, { EditSheetRequest } from '../src/components/AllocationEditSheet';
@@ -25,7 +25,7 @@ import {
   dueLabel,
   MonthIncome,
 } from '../src/lib/allocationMath';
-import { todayISO, currentMonth, formatDateLabel, formatMonthShort } from '../src/lib/date';
+import { todayISO, currentMonth, formatDateLabel, formatMonthShort, formatMonthLong } from '../src/lib/date';
 import { backOrHome } from '../src/lib/nav';
 import { colors, radius, fonts, cardShadow, softShadow } from '../src/constants/theme';
 
@@ -37,8 +37,11 @@ function fmt(n: number): string {
   return `SGD ${n.toFixed(2)}`;
 }
 
+const MONTH_RE = /^\d{4}-\d{2}$/;
+
 export default function MoneyScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ month?: string }>();
   const income = useExpenseStore(s => s.income);
   const allocations = useExpenseStore(s => s.allocations);
   const allocationGroups = useExpenseStore(s => s.allocationGroups);
@@ -54,37 +57,48 @@ export default function MoneyScreen() {
   const [incomeEditOpen, setIncomeEditOpen] = useState(false);
 
   const today = todayISO();
-  const month = currentMonth();
+  // v1.6.0: Money is month-aware via ?month= (e.g. tapping an old month's Insights budget
+  // card). Falls back to the current month when absent/malformed.
+  const viewedMonth = params.month && MONTH_RE.test(params.month) ? params.month : currentMonth();
+  const isViewingCurrent = viewedMonth === currentMonth();
+  const backToCurrentMonth = () => router.replace('/money' as any);
 
   // ---- derived lists ----
   const recurring = allocations.filter(a => a.kind === 'recurring');
   const allOneoffs = allocations.filter(a => a.kind === 'oneoff');
-  // v1.5.8: only this month + upcoming stay on Money; past ones live on the history page.
-  const oneoffs = allOneoffs
-    .filter(a => (a.month ?? '') >= month)
-    .sort((a, b) => (a.month ?? '').localeCompare(b.month ?? ''));
-  const pastOneoffCount = allOneoffs.length - oneoffs.length;
-  const upcomingEvents = incomeEvents.filter(e => e.month >= month);
-  const pastEventCount = incomeEvents.length - upcomingEvents.length;
+  // v1.5.8: on the current month, show this-month + upcoming (past ones live on the history
+  // page). Viewing an older month: show only that exact month's entries — "past" is relative
+  // to today, not to whatever month is being browsed.
+  const oneoffs = (isViewingCurrent
+    ? allOneoffs.filter(a => (a.month ?? '') >= viewedMonth)
+    : allOneoffs.filter(a => a.month === viewedMonth)
+  ).sort((a, b) => (a.month ?? '').localeCompare(b.month ?? ''));
+  const pastOneoffCount = isViewingCurrent ? allOneoffs.length - oneoffs.length : 0;
+  const upcomingEvents = isViewingCurrent
+    ? incomeEvents.filter(e => e.month >= viewedMonth)
+    : incomeEvents.filter(e => e.month === viewedMonth);
+  const pastEventCount = isViewingCurrent ? incomeEvents.length - upcomingEvents.length : 0;
   const ungrouped = recurring.filter(a => a.group_id === null);
 
+  // Due dates are forward-looking from TODAY — meaningless when browsing a past month.
   const dueSoon = useMemo(() => {
+    if (!isViewingCurrent) return [];
     return recurring
       .map(a => ({ a, due: nextDueISO(a, today) }))
       .filter((x): x is { a: Allocation; due: string } => x.due !== null)
       .sort((x, y) => x.due.localeCompare(y.due))
       .slice(0, 5);
-  }, [allocations, today]);
+  }, [allocations, today, isViewingCurrent]);
 
   // v1.5.4/5.6: income is per-month — base income (override > salary > base) + bonuses.
-  const monthBaseIncome = baseIncomeForMonth(income, salaryHistory, incomeOverrides, month);
-  const monthExtras = eventsForMonth(incomeEvents, month).reduce((s, e) => s + e.amount, 0);
-  const monthIncome = incomeForMonth(income, salaryHistory, incomeOverrides, incomeEvents, month);
+  const monthBaseIncome = baseIncomeForMonth(income, salaryHistory, incomeOverrides, viewedMonth);
+  const monthExtras = eventsForMonth(incomeEvents, viewedMonth).reduce((s, e) => s + e.amount, 0);
+  const monthIncome = incomeForMonth(income, salaryHistory, incomeOverrides, incomeEvents, viewedMonth);
 
   const monthIncomeParts: MonthIncome = { base: monthBaseIncome, total: monthIncome };
-  const commit = monthCommitment(allocations, month, monthIncomeParts);
+  const commit = monthCommitment(allocations, viewedMonth, monthIncomeParts);
   const spendable = monthIncome !== null ? monthIncome - commit.setAside : null;
-  // Monthly cost of a set-aside row (percentage rows resolve against this month's income).
+  // Monthly cost of a set-aside row (percentage rows resolve against the viewed month's income).
   const rowMonthly = (a: Allocation) =>
     a.percent != null ? allocationAmountForMonth(a, monthIncomeParts) : monthlyEquivalent(a);
 
@@ -137,7 +151,7 @@ export default function MoneyScreen() {
           </Text>
           {a.percent != null ? (
             <Text selectable={false} style={styles.equivText}>
-              ≈ {fmt(rowMonthly(a))} this month
+              ≈ {fmt(rowMonthly(a))}{isViewingCurrent ? ' this month' : ''}
               {a.percent_incl_bonus ? '' : ' · of salary'}
             </Text>
           ) : a.cycle === 'yearly' ? (
@@ -204,9 +218,23 @@ export default function MoneyScreen() {
       />
       <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
 
-        {/* Income (v1.5.6: per-month — override > salary > base, + this month's bonuses) */}
+        {/* v1.6.0: viewed-month banner — only shown when browsing a month other than now */}
+        {!isViewingCurrent && (
+          <View style={styles.viewingBanner}>
+            <Text selectable={false} style={styles.viewingBannerText}>
+              Viewing {formatMonthLong(viewedMonth)}
+            </Text>
+            <TouchableOpacity accessibilityLabel="back-to-current-month" onPress={backToCurrentMonth}>
+              <Text selectable={false} style={styles.viewingBannerBack}>Back to this month ›</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Income (v1.5.6: per-month — override > salary > base, + that month's bonuses) */}
         <View style={styles.card}>
-          <Text selectable={false} style={styles.cardLabel}>Income this month</Text>
+          <Text selectable={false} style={styles.cardLabel}>
+            {isViewingCurrent ? 'Income this month' : `Income — ${formatMonthShort(viewedMonth)}`}
+          </Text>
           <TouchableOpacity accessibilityLabel="income-edit" onPress={() => setIncomeEditOpen(true)}>
             <Text selectable={false} style={monthIncome !== null ? styles.incomeValue : styles.incomeUnset}>
               {monthIncome !== null ? fmt(monthIncome) : 'Tap to set'}
@@ -219,7 +247,7 @@ export default function MoneyScreen() {
           )}
           {monthIncome !== null && (
             <Text selectable={false} style={styles.incomeSub}>
-              Set aside this month {fmt(commit.setAside)} · Spendable {fmt(spendable ?? 0)}
+              Set aside {fmt(commit.setAside)} · Spendable {fmt(spendable ?? 0)}
             </Text>
           )}
 
@@ -294,7 +322,7 @@ export default function MoneyScreen() {
             ) : <View />}
             <TouchableOpacity
               accessibilityLabel="income-add"
-              onPress={() => setIncomeSheet({ editing: null })}
+              onPress={() => setIncomeSheet({ editing: null, presetMonth: viewedMonth })}
               style={styles.addChip}
             >
               <Text selectable={false} style={styles.addChipText}>＋ Add income</Text>
@@ -381,7 +409,7 @@ export default function MoneyScreen() {
             ) : <View />}
             <TouchableOpacity
               accessibilityLabel="oneoff-add"
-              onPress={() => setEditRequest({ editing: null, presetKind: 'oneoff' })}
+              onPress={() => setEditRequest({ editing: null, presetKind: 'oneoff', presetMonth: viewedMonth })}
               style={styles.addChip}
             >
               <Text selectable={false} style={styles.addChipText}>＋ Add one-off</Text>
@@ -398,7 +426,7 @@ export default function MoneyScreen() {
       <AllocationEditSheet request={editRequest} onClose={() => setEditRequest(null)} />
       <GroupEditSheet group={editingGroup} onClose={() => setEditingGroup(null)} />
       <IncomeEventSheet request={incomeSheet} onClose={() => setIncomeSheet(null)} />
-      <IncomeEditSheet visible={incomeEditOpen} onClose={() => setIncomeEditOpen(false)} />
+      <IncomeEditSheet visible={incomeEditOpen} initialMonth={viewedMonth} onClose={() => setIncomeEditOpen(false)} />
     </SafeAreaView>
   );
 }
@@ -426,6 +454,20 @@ const styles = StyleSheet.create({
     ...cardShadow,
   },
   cardLabel: { fontFamily: fonts.bodyBold, fontSize: 13, color: colors.textSoft },
+
+  // v1.6.0: viewed-month banner
+  viewingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.butter,
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  viewingBannerText: { fontFamily: fonts.bodyBold, fontSize: 13, color: colors.textBrown },
+  viewingBannerBack: { fontFamily: fonts.bodyBold, fontSize: 13, color: colors.textBrown, textDecorationLine: 'underline' },
 
   // income
   incomeValue: { fontFamily: fonts.display, fontSize: 26, color: colors.textBrown, marginTop: 2 },

@@ -12,6 +12,7 @@ import { colors, radius, fonts, cardShadow } from '../constants/theme';
 
 export type IncomeSheetRequest = {
   editing: IncomeEvent | null; // null = add mode
+  presetMonth?: string;        // preselect month when adding (e.g. from a viewed-month screen)
 };
 
 type Props = {
@@ -50,7 +51,7 @@ export default function IncomeEventSheet({ request, onClose }: Props) {
     if (!request) return;
     setLabel(request.editing?.label ?? '');
     setAmountText(request.editing ? String(request.editing.amount) : '');
-    setMonth(request.editing?.month ?? currentMonth());
+    setMonth(request.editing?.month ?? request.presetMonth ?? currentMonth());
   }, [request]);
 
   const save = () => {

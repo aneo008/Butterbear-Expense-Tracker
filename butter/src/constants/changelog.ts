@@ -17,6 +17,16 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.6.0',
+    pass: 'Phase 6',
+    title: 'Month-aware Money screen',
+    date: '2026-07-13',
+    items: [
+      { tag: 'fix', text: 'Tapping an old month\'s card on Insights now opens that month on the Money page instead of always showing today\'s.' },
+      { tag: 'new', text: 'Viewing a past month shows a "Viewing ⟨Month⟩" banner with a one-tap way back, and scopes bonuses/one-offs to just that month.' },
+    ],
+  },
+  {
     version: '1.5.10',
     pass: 'Phase 5',
     title: 'Data-safety fix',

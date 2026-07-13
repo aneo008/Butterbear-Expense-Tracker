@@ -29,6 +29,7 @@ export type EditSheetRequest = {
   editing: Allocation | null;                // null = add mode
   presetGroupId?: string | null;             // preselect group when adding from a group card
   presetKind?: 'recurring' | 'oneoff';
+  presetMonth?: string;                      // preselect one-off month (e.g. a viewed-month screen)
 };
 
 type Props = {
@@ -109,7 +110,7 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
     setCycle(a?.cycle ?? 'monthly');
     setDueDayText(a?.due_day != null ? String(a.due_day) : '');
     setDueMonth(a?.due_month ?? null);
-    setMonth(a?.month ?? currentMonth());
+    setMonth(a?.month ?? request.presetMonth ?? currentMonth());
     setGroupId(a ? a.group_id : request.presetGroupId ?? null);
     setInfoOnly(a?.info_only === 1);
     setIsPercent(a?.percent != null);

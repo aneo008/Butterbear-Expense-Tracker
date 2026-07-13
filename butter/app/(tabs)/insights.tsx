@@ -116,7 +116,7 @@ export default function InsightsScreen() {
           <TouchableOpacity
             style={styles.budgetEmpty}
             activeOpacity={0.7}
-            onPress={() => router.push('/money' as any)}
+            onPress={() => router.push({ pathname: '/money', params: { month: selectedMonth } } as any)}
           >
             <Text selectable={false} style={styles.budgetEmptyText}>
               💰 Set your income to unlock budget insights ›
@@ -131,7 +131,7 @@ export default function InsightsScreen() {
             <TouchableOpacity
               style={styles.budgetCard}
               activeOpacity={0.7}
-              onPress={() => router.push('/money' as any)}
+              onPress={() => router.push({ pathname: '/money', params: { month: selectedMonth } } as any)}
             >
               <View style={styles.budgetTopRow}>
                 <View style={styles.budgetCell}>

@@ -24,11 +24,14 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.5.10` — **Phase 5 COMPLETE** (`v1.5.0`–`v1.5.9`, Money model refined through real
-phone usage) **+ a data-safety fix** (`v1.5.10`: stale-session field-erasure, see Hardening
-below — found via a real user report, not part of Phase 5 scope). Next up: **ship native**
-(strategic priority — unblocks the daily-logging reminder AND payment due-date reminders),
-Pass F (story), rest of the hardening backlog.
+**Current:** `v1.6.0` — **Phase 6 (Analytics & income UX) in progress.** Phase 5 is COMPLETE
+(`v1.5.0`–`v1.5.9`, Money model refined through real phone usage) **+ a data-safety fix**
+(`v1.5.10`: stale-session field-erasure, see Hardening below — found via a real user report,
+not part of Phase 5 scope). `v1.6.0` makes the **Money screen month-aware** (tapping an old
+month's Insights budget card now opens that month, not today's). Next: `v1.6.1` — a yearly
+analytics dashboard on Insights. After Phase 6: **ship native** (strategic priority — unblocks
+the daily-logging reminder AND payment due-date reminders), Pass F (story), rest of the
+hardening backlog.
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 
@@ -44,7 +47,8 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | **4** | **Gamification (Closet, coins, streaks)** | ◑ **in progress — Passes A–E + G1 + calculator done; Pass F (story) remains, G3 sfx optional** |
 | — | **Hardening & trust** (from the v1.4.9 review + since) | ◑ **in progress** — streak, dev data-loss, chests, backup validation, stale-session data loss fixed; IndexedDB / computeLogUpdate / tests queued |
 | **5** | **Budget, charts & ship polish** | ✅ **done (`v1.5.0`–`v1.5.9`)** — Money screen, info-only flag, trend chart, polish & protection, per-month income + override, percentage set-asides, history pages |
-| 6+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
+| **6** | **Analytics & income UX** | ◑ **in progress** — `v1.6.0` month-aware Money screen done; `v1.6.1` year dashboard next |
+| 7+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
 | — | **Ship native (iOS/Android)** | ⬜ strategic priority (pull forward — unblocks gestures, haptics, reminders) |
 
 ---
@@ -272,6 +276,30 @@ what's left to actually spend.
 - 🔧 Under the hood: additive `allocations.info_only` column (old data/backups unaffected);
   the skip lives in `monthCommitment()` so the Money summary and Insights card both honour it.
 
+## Phase 6 — Analytics & income UX · `v1.6` *(in progress)*
+Two things surfaced from real daily phone usage: the Money screen couldn't show a past month
+(tapping March's Insights budget card silently opened today's Money instead), and there was no
+way to see spending/income patterns across a whole year. Analytics is read-side — it needs zero
+schema change and serves the "go-to finance app" goal without reopening the Money data model.
+
+**Scope fence:** `allocation_history` (the `v1.5.9` record-only ledger) stays OUT of all
+analytics computation, per the standing fence — year set-aside totals are computed live via
+`monthCommitment`, same as everywhere else.
+
+### `v1.6.0` — Month-aware Money screen
+- 🐛 **Fixed:** tapping an old month's card on Insights (budget card, or the "set your income"
+  empty state) now opens **that month** on Money, not always today's. `insights.tsx` passes
+  `?month=` on both navigation calls; `money.tsx` reads it via `useLocalSearchParams`.
+- ✨ **Viewing a past month:** a **"Viewing ⟨Month⟩"** banner appears with a **"Back to this
+  month ›"** link. The income card shows that month's figure and base+bonus breakdown; bonuses
+  and one-offs are scoped to exactly that month (no "View past" links — you're already looking
+  at the past); **Due soon is hidden** (due dates are forward-looking from today, meaningless
+  when looking backward). Recurring payments (config, not per-month records) always show.
+- 🔧 Adding a bonus or one-off while viewing a past month now **presets that month** in the
+  add sheet instead of defaulting to today (`presetMonth` added to `IncomeEventSheet` and
+  `AllocationEditSheet`, mirroring the existing `presetKind`/`presetGroupId` pattern). Viewing
+  the current month is unchanged from pre-`v1.6.0` behavior.
+
 ---
 
 # Roadmap (upcoming)
@@ -329,7 +357,7 @@ trend, store-ready perf pass (nothing felt slow at current data sizes).
 - ✅ Double-count escape hatch shipped (`v1.5.1`): the per-payment **"Info only"** flag. If
   double-counting still bites, tune that — don't invent anything bigger.
 
-## Content & economy backlog — draw from, don't sequence · `v1.6+`
+## Content & economy backlog — draw from, don't sequence · `v1.7+`
 Per the v1.4.9 review, phases 6–9 were four consecutive "meta-game supply" phases for a
 14-item, pre-native, pre-notification app. Keep them as a **backlog to pull from once there's
 a retained audience**, not a fixed sequence — ship whatever best serves the current player.
