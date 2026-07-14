@@ -24,17 +24,24 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.6.3` — a small polish fix shipped after Phase 6 closed (Money screen's salary
-history list was unbounded; capped it, same pattern used for bonuses/one-offs). **Phase 6
+**Current:** `v1.6.4` — a third data-safety fix shipped after Phase 6 closed: a stale-cached-
+bundle guard (`reloadIfStale()`) that detects an ancient served JS bundle on startup and forces
+a fresh reload before it can touch `localStorage`, closing the root cause behind two prior
+real-user data-loss reports (GitHub Pages has no cache-control/service-worker layer, so a
+months-old cached `index.html` could keep getting served on cold start). **Web-only — flagged
+in Strategic priorities for deletion once native ships**, since native has no equivalent
+staleness problem. `v1.6.3` was a smaller polish fix shipped just before it (Money screen's
+salary history list was unbounded; capped it, same pattern used for bonuses/one-offs). **Phase 6
 (Analytics & income UX) is COMPLETE** (`v1.6.0`–`v1.6.2`). Phase 5 is COMPLETE (`v1.5.0`–
-`v1.5.9`, Money model refined through real phone usage) **+ two data-safety fixes**
-(`v1.5.10`: stale-session field-erasure; `v1.6.1`: two-open-tabs clobbering — see Hardening
-below, both found via real user reports, neither part of the original Phase 5/6 scope). Phase 6
-shipped: month-aware Money screen (`v1.6.0`), the two-tab data-safety fix (`v1.6.1`), and a
-yearly analytics dashboard on Insights — Month ⇄ Year toggle, year budget card, income/spending
-trends, category donut, Highlights, and a "Compared to last year" card (`v1.6.2`). Next: **ship
-native** (strategic priority — unblocks the daily-logging reminder AND payment due-date
-reminders), Pass F (story), rest of the hardening backlog.
+`v1.5.9`, Money model refined through real phone usage) **+ three data-safety fixes**
+(`v1.5.10`: stale-session field-erasure; `v1.6.1`: two-open-tabs clobbering; `v1.6.4`: stale-
+cached-bundle guard — see Hardening below, all three found via real user reports, none part of
+the original Phase 5/6 scope). Phase 6 shipped: month-aware Money screen (`v1.6.0`), the
+two-tab data-safety fix (`v1.6.1`), and a yearly analytics dashboard on Insights — Month ⇄ Year
+toggle, year budget card, income/spending trends, category donut, Highlights, and a "Compared
+to last year" card (`v1.6.2`). Next: **ship native** (strategic priority — unblocks the
+daily-logging reminder AND payment due-date reminders, AND retires the `v1.6.4` workaround),
+Pass F (story), rest of the hardening backlog.
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 
@@ -50,7 +57,7 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | **4** | **Gamification (Closet, coins, streaks)** | ◑ **in progress — Passes A–E + G1 + calculator done; Pass F (story) remains, G3 sfx optional** |
 | — | **Hardening & trust** (from the v1.4.9 review + since) | ◑ **in progress** — streak, dev data-loss, chests, backup validation, stale-session data loss fixed; IndexedDB / computeLogUpdate / tests queued |
 | **5** | **Budget, charts & ship polish** | ✅ **done (`v1.5.0`–`v1.5.9`)** — Money screen, info-only flag, trend chart, polish & protection, per-month income + override, percentage set-asides, history pages |
-| **6** | **Analytics & income UX** | ✅ **done (`v1.6.0`–`v1.6.2`)** — month-aware Money screen, two-tab data-safety fix, yearly analytics dashboard, **+ `v1.6.3` fix** (unbounded salary-history list) |
+| **6** | **Analytics & income UX** | ✅ **done (`v1.6.0`–`v1.6.2`)** — month-aware Money screen, two-tab data-safety fix, yearly analytics dashboard, **+ `v1.6.3`** (unbounded salary-history list) **+ `v1.6.4`** (stale-cached-bundle guard, web-only, delete on native ship) |
 | 7+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
 | — | **Ship native (iOS/Android)** | ⬜ strategic priority (pull forward — unblocks gestures, haptics, reminders) |
 
@@ -289,6 +296,41 @@ schema change and serves the "go-to finance app" goal without reopening the Mone
 analytics computation, per the standing fence — year set-aside totals are computed live via
 `monthCommitment`, same as everywhere else.
 
+### `v1.6.4` — Fix: stale-cached-bundle guard *(third data-safety fix, shipped after Phase 6 closed)*
+- 🐛 **A third real data-loss report, different root cause from the first two.** A user's two
+  exports 9.5 hours apart showed a successful restore (`salary_history: 24`, `income_events: 4`)
+  fully wiped back to `0` — while `allocations` stayed intact the whole time, the same
+  fingerprint as before. But this time they confirmed no second instance was open (ruling out
+  the `v1.6.1` two-tab race) and reported the decisive clue: **"app opened with build 13, but
+  updated after i reopen."** Build 13 = `v1.5.3`, from months before `salary_history`/
+  `income_events` even existed (`v1.5.4`). Root cause: the app is a static SPA on GitHub Pages
+  with `index.html` at a fixed URL and **zero cache-control or service-worker layer anywhere in
+  the stack** (confirmed — no `_headers` file, GitHub Pages doesn't support one; no service
+  worker exists in this project at all). A mobile/installed-PWA browser can serve a months-stale
+  cached `index.html` — pointing at an equally ancient, already-superseded JS bundle — on cold
+  start, until some later revalidation catches up. Build 13's `initWebStore()` doesn't know
+  fields added after it was built exist, so it silently drops them on its next `persist()`. The
+  `v1.5.10` fix is powerless here: build 13 is a frozen, already-downloaded artifact that simply
+  doesn't contain it — no code shipped today can retroactively patch a bundle that already ran.
+- 🔧 **Fix:** `reloadIfStale()` (`src/lib/staleness.web.ts`) runs before `initDatabase()` on
+  every web load — fetches a small `version.json` (written at build time by
+  `scripts/inject-web-head.mjs`) with a cache-busting query param + `cache: 'no-store'`, and if
+  it reports a newer build than the one actually running, forces a fresh reload via
+  `location.replace()` (preserving the current path) **before any code can touch
+  `localStorage`**. A `sessionStorage` flag caps this to one automatic retry per session so a
+  persistently-stale edge case can't trap the user in a reload loop. Best-effort only — any
+  fetch failure (offline, timeout, 404) falls through to proceeding normally, so this can never
+  break the app's existing offline usability. Verified live against the real built `dist/`
+  output served at the production base path: happy path (no visible delay), a simulated newer
+  build (exactly one cache-busted reload, confirmed via network log), the loop guard (a second
+  detection in the same session logs a warning instead of looping), and a 404'd `version.json`
+  (app still loads normally).
+- ⚠️ **This is a web-only workaround for GitHub Pages' lack of cache-control, not a permanent
+  architecture piece.** Native has no static-HTML-caching concept at all — updates replace the
+  installed binary wholesale via the App/Play Store — so this problem structurally cannot occur
+  there. Flagged in Strategic priorities for deletion (`staleness.ts`/`staleness.web.ts`, the
+  `version.json` step, and the `_layout.tsx` call site) the day native ships.
+
 ### `v1.6.3` — Fix: unbounded salary-history list *(shipped after Phase 6 closed)*
 - 🐛 A user who imported a real 24-entry `salary_history` (spanning two years of raises) found
   the Money screen's Income card rendering **every single row inline**, unbounded — the card
@@ -394,7 +436,7 @@ The retention engine had cracks in trust/durability. Triage from the review:
 - ◑ **Polish nits** — done in `v1.5.3`: theme-token migration (insights/settings), donut non-visual alt, trend-label contrast, orphaned `history.tsx`/`App.tsx`/`index.ts` deleted; rarity was already labelled with text (not colour-only). Still open: `CoinFly` hardcoded screen coords (measure the chip); consider generating `constants/changelog.ts` from ROADMAP in `gen-roadmap.mjs`; a broader small-text contrast audit (textSoft on white is ~3:1).
 
 ## Strategic priorities — from the review *(bigger bets)*
-- **Ship native (TestFlight / EAS) — pull forward from Phase 5.** The whole thesis (haptic logging, gestures, a daily companion, later reminders) only exists on a phone; the web deploy has done its job as a proving ground. This also unblocks the two deferred gestures (sheet swipe-down, Insights month swipe).
+- **Ship native (TestFlight / EAS) — pull forward from Phase 5.** The whole thesis (haptic logging, gestures, a daily companion, later reminders) only exists on a phone; the web deploy has done its job as a proving ground. This also unblocks the two deferred gestures (sheet swipe-down, Insights month swipe). **⚠️ When this ships, delete the `v1.6.4` stale-bundle workaround** (`src/lib/staleness.ts`/`staleness.web.ts`, the `version.json` generation step in `scripts/inject-web-head.mjs`, and the `reloadIfStale()` call in `app/_layout.tsx`) — it's a web-only fix for GitHub Pages having no cache-control/service-worker layer; native has no static-HTML-caching concept at all (updates replace the installed binary wholesale via the App/Play Store), so the problem it solves can't occur there. Don't carry it forward as unexplained dead code.
 - **Local daily reminder notification (native, gentle opt-in, streak-aware)** — the single biggest missing retention lever for a daily-habit app; currently nowhere on the roadmap.
 - **Payment due-date reminders (native) — ⚠️ build when we go native.** Local notifications for the Money screen's recurring payments ("Term life · SGD 120 · due tomorrow"): `nextDueISO()` in `src/lib/allocationMath.ts` already computes every due date, so this is scheduling + opt-in UI only. Sequenced together with the daily logging reminder above (one notifications permission ask, two payoffs). *This is the deliberate other half of the "no reminders in-app" scope fence below — the due dates users are already entering become actionable here.*
 

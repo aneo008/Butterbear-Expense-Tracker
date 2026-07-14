@@ -1,4 +1,6 @@
-// Inject home-screen / PWA <head> tags into the exported web build.
+// Inject home-screen / PWA <head> tags into the exported web build, and write a
+// small version.json the running app fetches (cache-busted) on startup to detect
+// a stale cached bundle before it can touch localStorage — see src/lib/staleness.web.ts.
 // Expo's `output: single` ignores app/+html.tsx, so we post-process dist/index.html
 // after `expo export -p web`. Idempotent. Run before copying index.html → 404.html.
 //
@@ -12,6 +14,13 @@ if (!existsSync(file)) {
   console.error(`${file} not found — run "expo export -p web" first.`);
   process.exit(1);
 }
+
+const appConfig = JSON.parse(readFileSync('app.json', 'utf8')).expo;
+const buildNumber =
+  appConfig.ios?.buildNumber ??
+  (appConfig.android?.versionCode != null ? String(appConfig.android.versionCode) : '0');
+writeFileSync('dist/version.json', JSON.stringify({ build: buildNumber }));
+console.log('Wrote dist/version.json — build', buildNumber);
 
 const head = `
     <link rel="apple-touch-icon" href="${BASE}/apple-touch-icon.png" />

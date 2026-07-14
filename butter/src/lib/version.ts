@@ -13,3 +13,7 @@ export const BUILD_NUMBER =
   (expo.android?.versionCode != null ? String(expo.android.versionCode) : '0');
 
 export const VERSION_LABEL = `Butter v${APP_VERSION} (build ${BUILD_NUMBER})`;
+
+// Web deploy base path (e.g. GitHub Pages project path) — used by staleness.web.ts
+// to fetch version.json from the right absolute URL regardless of the current route.
+export const BASE_PATH = expo.experiments?.baseUrl ?? '';

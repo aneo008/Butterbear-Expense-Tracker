@@ -17,6 +17,15 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.6.4',
+    pass: 'Phase 6',
+    title: 'Data-safety fix',
+    date: '2026-07-14',
+    items: [
+      { tag: 'fix', text: 'Fixed a rare but serious bug where a very old cached copy of the app could still load on some devices and silently erase newer data (like income or bonus entries) before catching up. The app now checks for updates before touching your data, and refreshes itself automatically if it\'s out of date.' },
+    ],
+  },
+  {
     version: '1.6.3',
     pass: 'Phase 6',
     title: 'Tidier salary history',
