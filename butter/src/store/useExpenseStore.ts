@@ -48,8 +48,11 @@ import {
   getAllocationHistory,
   addAllocationHistory as addAllocationHistoryQuery,
   deleteAllocationHistory as deleteAllocationHistoryQuery,
+  getAllocationAmountHistory,
+  addAllocationAmountHistory as addAllocationAmountHistoryQuery,
+  deleteAllocationAmountHistory as deleteAllocationAmountHistoryQuery,
 } from '../db/queries';
-import { DevPatch, Allocation, AllocationGroup, SalaryRow, IncomeEvent, IncomeOverride, AllocationHistoryRow } from '../db/types';
+import { DevPatch, Allocation, AllocationGroup, SalaryRow, IncomeEvent, IncomeOverride, AllocationHistoryRow, AllocationAmountHistoryRow } from '../db/types';
 import { serializeBackup, parseBackup } from '../lib/backup';
 
 const DEV_BACKUP_KEY = 'dev_backup';
@@ -118,6 +121,7 @@ type ExpenseStore = {
   incomeEvents: IncomeEvent[]; // v1.5.4: month-tagged bonuses / extra income
   incomeOverrides: IncomeOverride[]; // v1.5.6: per-month keyed-in income
   allocationHistory: AllocationHistoryRow[]; // v1.5.9: recorded historical actuals (record-only)
+  allocationAmountHistory: AllocationAmountHistoryRow[]; // v1.6.5: effective-dated amount/percent changes (feeds budget math)
   isAddSheetOpen: boolean;
   editingExpense: Expense | null;
   // Bumped on every data mutation so screens that query SQLite directly
@@ -162,6 +166,8 @@ type ExpenseStore = {
   deleteIncomeOverride: (id: string) => void;
   addAllocationHistory: (fields: Omit<AllocationHistoryRow, 'id'>) => void;
   deleteAllocationHistory: (id: string) => void;
+  addAllocationAmountHistory: (fields: Omit<AllocationAmountHistoryRow, 'id'>) => void;
+  deleteAllocationAmountHistory: (id: string) => void;
   // Dev tools
   devActive: boolean; // dev sandbox in effect this session (changes revert on exit)
   devSetGameState: (patch: DevPatch) => void;
@@ -193,6 +199,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   incomeEvents: [],
   incomeOverrides: [],
   allocationHistory: [],
+  allocationAmountHistory: [],
   isAddSheetOpen: false,
   editingExpense: null,
   dataVersion: 0,
@@ -214,7 +221,8 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     const incomeEvents = getIncomeEvents();
     const incomeOverrides = getIncomeOverrides();
     const allocationHistory = getAllocationHistory();
-    set({ expenses, todayTotal, categories, gameState, ownedItems, equippedItems, income, allocations, allocationGroups, salaryHistory, incomeEvents, incomeOverrides, allocationHistory, dataVersion: get().dataVersion + 1 });
+    const allocationAmountHistory = getAllocationAmountHistory();
+    set({ expenses, todayTotal, categories, gameState, ownedItems, equippedItems, income, allocations, allocationGroups, salaryHistory, incomeEvents, incomeOverrides, allocationHistory, allocationAmountHistory, dataVersion: get().dataVersion + 1 });
   },
 
   addExpense: (expense) => {
@@ -346,6 +354,15 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   },
   deleteAllocationHistory: (id) => {
     deleteAllocationHistoryQuery(id);
+    get().loadData();
+  },
+  addAllocationAmountHistory: (fields) => {
+    const id = `alloc-amt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    addAllocationAmountHistoryQuery({ id, ...fields });
+    get().loadData();
+  },
+  deleteAllocationAmountHistory: (id) => {
+    deleteAllocationAmountHistoryQuery(id);
     get().loadData();
   },
 

@@ -17,6 +17,17 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.6.5',
+    pass: 'Phase 6',
+    title: 'Set-aside changes with a start date',
+    date: '2026-07-16',
+    items: [
+      { tag: 'new', text: 'Recurring payments and percentage set-asides now remember when their amount changed. Editing one defaults to "From a month on" — past months keep the old value, so your history stays true. Pick "Always" only when fixing a typo.' },
+      { tag: 'new', text: 'An "Amount history" section in the payment editor lists every recorded change, and switching between Fixed and Percentage warns you if recorded changes would be hidden (they\'re kept, and come back when you switch back).' },
+      { tag: 'fix', text: 'Group subtotals no longer count "Info only" payments (they never reduced Spendable, so the subtotal was overstating). Also fixed: switching Fixed ⇄ Percentage kept the old number in the input, which could save a wrong value.' },
+    ],
+  },
+  {
     version: '1.6.4',
     pass: 'Phase 6',
     title: 'Data-safety fix',

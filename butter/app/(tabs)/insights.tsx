@@ -51,6 +51,7 @@ export default function InsightsScreen() {
   const salaryHistory = useExpenseStore(s => s.salaryHistory);
   const incomeEvents = useExpenseStore(s => s.incomeEvents);
   const incomeOverrides = useExpenseStore(s => s.incomeOverrides);
+  const allocationAmountHistory = useExpenseStore(s => s.allocationAmountHistory);
   const router = useRouter();
 
   const [selectedMonth, setSelectedMonth] = useState(currentMonth());
@@ -104,6 +105,7 @@ export default function InsightsScreen() {
           overrides: incomeOverrides,
           events: incomeEvents,
           allocations,
+          allocationAmountHistory,
           monthlyTotals: getMonthlyTotals(`${year}-01`, `${year}-12`),
         });
       setYearSum(buildYear(selectedYear));
@@ -112,7 +114,7 @@ export default function InsightsScreen() {
       setPrevYearSum(buildYear(selectedYear - 1));
       setPrevYearBreakdown(getYearBreakdown(selectedYear - 1));
     }
-  }, [selectedMonth, dataVersion, scope, selectedYear, income, allocations, salaryHistory, incomeEvents, incomeOverrides]);
+  }, [selectedMonth, dataVersion, scope, selectedYear, income, allocations, salaryHistory, incomeEvents, incomeOverrides, allocationAmountHistory]);
 
   useFocusEffect(reload);
 
@@ -279,7 +281,7 @@ export default function InsightsScreen() {
           </TouchableOpacity>
         ) : (() => {
           const monthBase = baseIncomeForMonth(income, salaryHistory, incomeOverrides, selectedMonth);
-          const s = budgetSummary({ base: monthBase, total: monthIncome }, allocations, selectedMonth, total);
+          const s = budgetSummary({ base: monthBase, total: monthIncome }, allocations, selectedMonth, total, allocationAmountHistory);
           const pct = s.spendable > 0 ? Math.min(1, s.spent / s.spendable) : (s.spent > 0 ? 1 : 0);
           const over = s.remaining < 0;
           return (

@@ -13,13 +13,14 @@ import {
   IncomeEvent,
   IncomeOverride,
   AllocationHistoryRow,
+  AllocationAmountHistoryRow,
   GameStateFull,
   Snapshot,
   DevPatch,
 } from './types';
 import { Slot, EquippedMap } from '../constants/storeItems';
 
-export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, AllocationGroup, SalaryRow, IncomeEvent, IncomeOverride, AllocationHistoryRow, GameStateFull, Snapshot } from './types';
+export type { Expense, GameState, CategoryBreakdownRow, BudgetRow, Allocation, AllocationGroup, SalaryRow, IncomeEvent, IncomeOverride, AllocationHistoryRow, AllocationAmountHistoryRow, GameStateFull, Snapshot } from './types';
 
 export function insertExpense(expense: Omit<Expense, 'created_at'>): void {
   const db = getDb();
@@ -310,12 +311,13 @@ export function updateAllocation(id: string, fields: Omit<Allocation, 'id'>): vo
   );
 }
 
-/** Deleting an allocation also deletes its recorded history (no UI home without a parent). */
+/** Deleting an allocation also deletes its recorded + amount history (no UI home without a parent). */
 export function deleteAllocation(id: string): void {
   const db = getDb();
   db.withTransactionSync(() => {
     db.runSync('DELETE FROM allocations WHERE id = ?', [id]);
     db.runSync('DELETE FROM allocation_history WHERE allocation_id = ?', [id]);
+    db.runSync('DELETE FROM allocation_amount_history WHERE allocation_id = ?', [id]);
   });
 }
 
@@ -473,6 +475,38 @@ export function deleteAllocationHistory(id: string): void {
   db.runSync('DELETE FROM allocation_history WHERE id = ?', [id]);
 }
 
+// ---- v1.6.5: allocation amount history (effective-dated config — feeds budget math) ----
+
+export function getAllocationAmountHistory(allocationId?: string): AllocationAmountHistoryRow[] {
+  const db = getDb();
+  if (allocationId) {
+    return db.getAllSync<AllocationAmountHistoryRow>(
+      'SELECT id, allocation_id, from_month, amount, percent FROM allocation_amount_history WHERE allocation_id = ? ORDER BY from_month',
+      [allocationId]
+    ) ?? [];
+  }
+  return db.getAllSync<AllocationAmountHistoryRow>(
+    'SELECT id, allocation_id, from_month, amount, percent FROM allocation_amount_history ORDER BY from_month'
+  ) ?? [];
+}
+
+/** One change per (allocation_id, from_month): replaces any existing row for that pair. */
+export function addAllocationAmountHistory(row: AllocationAmountHistoryRow): void {
+  const db = getDb();
+  db.withTransactionSync(() => {
+    db.runSync('DELETE FROM allocation_amount_history WHERE allocation_id = ? AND from_month = ?', [row.allocation_id, row.from_month]);
+    db.runSync(
+      'INSERT INTO allocation_amount_history (id, allocation_id, from_month, amount, percent) VALUES (?, ?, ?, ?, ?)',
+      [row.id, row.allocation_id, row.from_month, row.amount ?? null, row.percent ?? null]
+    );
+  });
+}
+
+export function deleteAllocationAmountHistory(id: string): void {
+  const db = getDb();
+  db.runSync('DELETE FROM allocation_amount_history WHERE id = ?', [id]);
+}
+
 /** Full game_state row (all columns) for backups. */
 export function getGameStateFull(): GameStateFull {
   const db = getDb();
@@ -503,6 +537,7 @@ export function getSnapshot(): Snapshot {
     income_events: getIncomeEvents(),
     income_overrides: getIncomeOverrides(),
     allocation_history: getAllocationHistory(),
+    allocation_amount_history: getAllocationAmountHistory(),
   };
 }
 
@@ -577,6 +612,13 @@ export function replaceAllData(snap: Snapshot): void {
         [h.id, h.allocation_id, h.month, h.amount]
       );
     }
+    db.runSync('DELETE FROM allocation_amount_history');
+    for (const h of snap.allocation_amount_history ?? []) {
+      db.runSync(
+        'INSERT INTO allocation_amount_history (id, allocation_id, from_month, amount, percent) VALUES (?, ?, ?, ?, ?)',
+        [h.id, h.allocation_id, h.from_month, h.amount ?? null, h.percent ?? null]
+      );
+    }
   });
 }
 
@@ -587,6 +629,7 @@ export type MergeResult = {
   salaryRowsAdded: number;
   incomeOverridesAdded: number;
   allocationHistoryAdded: number;
+  allocationAmountHistoryAdded: number;
 };
 
 /**
@@ -605,6 +648,7 @@ export function mergeData(snap: Snapshot): MergeResult {
   let salaryRowsAdded = 0;
   let incomeOverridesAdded = 0;
   let allocationHistoryAdded = 0;
+  let allocationAmountHistoryAdded = 0;
   db.withTransactionSync(() => {
     const catBefore = count('categories');
     const expBefore = count('expenses');
@@ -612,6 +656,7 @@ export function mergeData(snap: Snapshot): MergeResult {
     const salBefore = count('salary_history');
     const ovrBefore = count('income_overrides');
     const histBefore = count('allocation_history');
+    const amtHistBefore = count('allocation_amount_history');
     for (const c of snap.categories) insertCategoryRaw(c, true);
     for (const e of snap.expenses) insertExpenseRaw(e, true);
     for (const ev of snap.income_events ?? []) insertIncomeEventRaw(ev, true);
@@ -640,14 +685,26 @@ export function mergeData(snap: Snapshot): MergeResult {
         [h.id, h.allocation_id, h.month, h.amount, h.allocation_id, h.allocation_id, h.month]
       );
     }
+    // allocation_amount_history: same dedupe/orphan-guard pattern, keyed on
+    // (allocation_id, from_month).
+    for (const h of snap.allocation_amount_history ?? []) {
+      db.runSync(
+        `INSERT INTO allocation_amount_history (id, allocation_id, from_month, amount, percent)
+         SELECT ?, ?, ?, ?, ?
+         WHERE EXISTS (SELECT 1 FROM allocations WHERE id = ?)
+           AND NOT EXISTS (SELECT 1 FROM allocation_amount_history WHERE allocation_id = ? AND from_month = ?)`,
+        [h.id, h.allocation_id, h.from_month, h.amount ?? null, h.percent ?? null, h.allocation_id, h.allocation_id, h.from_month]
+      );
+    }
     categoriesAdded = count('categories') - catBefore;
     expensesAdded = count('expenses') - expBefore;
     incomeEventsAdded = count('income_events') - evtBefore;
     salaryRowsAdded = count('salary_history') - salBefore;
     incomeOverridesAdded = count('income_overrides') - ovrBefore;
     allocationHistoryAdded = count('allocation_history') - histBefore;
+    allocationAmountHistoryAdded = count('allocation_amount_history') - amtHistBefore;
   });
-  return { categoriesAdded, expensesAdded, incomeEventsAdded, salaryRowsAdded, incomeOverridesAdded, allocationHistoryAdded };
+  return { categoriesAdded, expensesAdded, incomeEventsAdded, salaryRowsAdded, incomeOverridesAdded, allocationHistoryAdded, allocationAmountHistoryAdded };
 }
 
 // ---- app_meta key/value (last backup date, future flags) ----

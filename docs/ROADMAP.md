@@ -24,24 +24,19 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.6.4` — a third data-safety fix shipped after Phase 6 closed: a stale-cached-
-bundle guard (`reloadIfStale()`) that detects an ancient served JS bundle on startup and forces
-a fresh reload before it can touch `localStorage`, closing the root cause behind two prior
-real-user data-loss reports (GitHub Pages has no cache-control/service-worker layer, so a
-months-old cached `index.html` could keep getting served on cold start). **Web-only — flagged
-in Strategic priorities for deletion once native ships**, since native has no equivalent
-staleness problem. `v1.6.3` was a smaller polish fix shipped just before it (Money screen's
-salary history list was unbounded; capped it, same pattern used for bonuses/one-offs). **Phase 6
-(Analytics & income UX) is COMPLETE** (`v1.6.0`–`v1.6.2`). Phase 5 is COMPLETE (`v1.5.0`–
-`v1.5.9`, Money model refined through real phone usage) **+ three data-safety fixes**
-(`v1.5.10`: stale-session field-erasure; `v1.6.1`: two-open-tabs clobbering; `v1.6.4`: stale-
-cached-bundle guard — see Hardening below, all three found via real user reports, none part of
-the original Phase 5/6 scope). Phase 6 shipped: month-aware Money screen (`v1.6.0`), the
-two-tab data-safety fix (`v1.6.1`), and a yearly analytics dashboard on Insights — Month ⇄ Year
-toggle, year budget card, income/spending trends, category donut, Highlights, and a "Compared
-to last year" card (`v1.6.2`). Next: **ship native** (strategic priority — unblocks the
-daily-logging reminder AND payment due-date reminders, AND retires the `v1.6.4` workaround),
-Pass F (story), rest of the hardening backlog.
+**Current:** `v1.6.5` — **effective-dated amounts & percentages for recurring set-asides**
+(`allocation_amount_history`): editing a premium/tithe now defaults to "From a month on," so
+past months keep the value that was true then — the same fix income got via `salary_history`,
+applied per-payment, for both fixed amounts AND percentages. Bundles three bug fixes found in a
+user-requested sanity sweep (group subtotals counted info-only rows; the Fixed⇄Percentage
+toggle kept the stale input value; percent+yearly rows computed $0). Before that: `v1.6.4`
+(stale-cached-bundle guard, web-only, flagged in Strategic priorities for deletion once native
+ships) and `v1.6.3` (unbounded salary-history list). **Phase 6 (Analytics & income UX) is
+COMPLETE** (`v1.6.0`–`v1.6.2`). Phase 5 is COMPLETE (`v1.5.0`–`v1.5.9`) **+ three data-safety
+fixes** (`v1.5.10` stale-session field-erasure; `v1.6.1` two-open-tabs clobbering; `v1.6.4`
+stale-cached-bundle guard — all found via real user reports). Next: **ship native** (strategic
+priority — unblocks the daily-logging reminder AND payment due-date reminders, AND retires the
+`v1.6.4` workaround), Pass F (story), rest of the hardening backlog.
 
 Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.github.io/Butterbear-Expense-Tracker`
 
@@ -57,7 +52,7 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | **4** | **Gamification (Closet, coins, streaks)** | ◑ **in progress — Passes A–E + G1 + calculator done; Pass F (story) remains, G3 sfx optional** |
 | — | **Hardening & trust** (from the v1.4.9 review + since) | ◑ **in progress** — streak, dev data-loss, chests, backup validation, stale-session data loss fixed; IndexedDB / computeLogUpdate / tests queued |
 | **5** | **Budget, charts & ship polish** | ✅ **done (`v1.5.0`–`v1.5.9`)** — Money screen, info-only flag, trend chart, polish & protection, per-month income + override, percentage set-asides, history pages |
-| **6** | **Analytics & income UX** | ✅ **done (`v1.6.0`–`v1.6.2`)** — month-aware Money screen, two-tab data-safety fix, yearly analytics dashboard, **+ `v1.6.3`** (unbounded salary-history list) **+ `v1.6.4`** (stale-cached-bundle guard, web-only, delete on native ship) |
+| **6** | **Analytics & income UX** | ✅ **done (`v1.6.0`–`v1.6.2`)** — month-aware Money screen, two-tab data-safety fix, yearly analytics dashboard, **+ `v1.6.3`** (unbounded salary-history list) **+ `v1.6.4`** (stale-cached-bundle guard, web-only, delete on native ship) **+ `v1.6.5`** (effective-dated set-aside amounts/percentages + 3 bundled bug fixes) |
 | 7+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
 | — | **Ship native (iOS/Android)** | ⬜ strategic priority (pull forward — unblocks gestures, haptics, reminders) |
 
@@ -295,6 +290,44 @@ schema change and serves the "go-to finance app" goal without reopening the Mone
 **Scope fence:** `allocation_history` (the `v1.5.9` record-only ledger) stays OUT of all
 analytics computation, per the standing fence — year set-aside totals are computed live via
 `monthCommitment`, same as everywhere else.
+
+### `v1.6.5` — Effective-dated amounts & percentages for recurring set-asides
+- ✨ **A recurring set-aside's amount (or percentage) now has a date it starts from.** Editing
+  a premium from $100 to $120 used to rewrite EVERY month, past and future — the same problem
+  income had before `salary_history`, now fixed the same way, per-payment. The edit sheet gains
+  an **"Apply change"** scope: **"From a month on"** (the default — writes an
+  `allocation_amount_history` row `{allocation_id, from_month, amount|percent}`; past months
+  keep the value that was true then) vs **"Always"** (the old fully-retroactive behavior, for
+  fixing typos). Works for **both fixed amounts and percentages** (a tithe going 10%→12% had
+  the identical problem, user-requested during planning). A new **"Amount history"** section in
+  the edit sheet lists every recorded change, deletable. The existing v1.5.9 "Recorded history"
+  (note-only, never feeds math) stays untouched alongside it — explicitly reconfirmed with the
+  user this session; the two ledgers serve different purposes.
+- 🔧 **Resolution mirrors `salary_history`:** most recent `from_month <= M` wins, falling back
+  to the allocation's own value; per-mode isolation (amount-rows are invisible to the percent
+  resolver and vice versa, so history from a previous Fixed/Percentage mode lies dormant —
+  hidden, never deleted — and a **save-time warning** fires when a mode switch would hide
+  recorded changes, with the count and "reappear the moment you switch back" spelled out; no
+  warning when there's nothing to hide). Fixed-vs-percent MODE stays structural, not dated.
+  New table cascades on allocation delete, merges by `(allocation_id, from_month)` with the
+  parent-must-exist guard, validates in `parseBackup`, and follows the spread-first
+  `initWebStore` + `resync()` patterns from day one. Threaded everywhere costs are computed:
+  Money (rows, group subtotals, Due-soon — which now shows the amount effective in the month a
+  payment actually falls due), Insights budget card, and the year dashboard's per-month loop.
+  Verified via a 19-check math harness + a 4-check backup round-trip harness + live at phone
+  width (fixed + percent flows, both scopes, cancel/confirm on the mode-switch warning,
+  dormant-history resurfacing, cascade delete).
+- 🐛 **Three bundled fixes** from a user-requested sanity sweep of the same code:
+  1. **Group subtotals counted info-only payments** — a group's "≈ $X/mo" footer contradicted
+     the Set-aside figure (which correctly skips them) whenever the group held an info-only row
+     (the user's 9 insurance policies are ALL info-only, so this was visible daily).
+  2. **The Fixed⇄Percentage toggle kept the stale input value** — editing a 10% row, switching
+     to Fixed and saving silently produced a $10 fixed amount. The field now clears on a real
+     mode switch.
+  3. **Percent-mode + yearly-cycle rows computed $0** — `monthCommitment`'s yearly branch read
+     `amount` raw (hardcoded 0 for percent rows) and never checked `percent`. Not reachable via
+     the UI (which forces monthly for percent rows) but reachable via backup restore; fixed by
+     routing the yearly branch through the same dispatcher as everything else.
 
 ### `v1.6.4` — Fix: stale-cached-bundle guard *(third data-safety fix, shipped after Phase 6 closed)*
 - 🐛 **A third real data-loss report, different root cause from the first two.** A user's two

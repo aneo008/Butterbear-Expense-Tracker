@@ -6,7 +6,10 @@
 //   It deducts from spendable IN THAT MONTH ONLY (cash-flow-true, mirroring the
 //   one-off philosophy); monthlyEquivalent() is informational display only.
 // - kind 'oneoff' → tagged to a single YYYY-MM via `month`.
-import { Allocation } from '../db/types';
+// - v1.6.5: a recurring row's amount/percent is EFFECTIVE-DATED via
+//   allocation_amount_history (most recent from_month <= M wins, falling back to
+//   the allocation's own value) — mirrors salary_history, scoped per-allocation.
+import { Allocation, AllocationAmountHistoryRow } from '../db/types';
 
 /** Days in a month. `month` is 1–12. */
 export function daysInMonth(year: number, month: number): number {
@@ -46,10 +49,16 @@ export function nextDueISO(a: Allocation, todayISO: string): string | null {
   return clampedISO(nextY, nextM, a.due_day);
 }
 
-/** The monthly-equivalent cost of a recurring payment (yearly ÷ 12). Display only. */
-export function monthlyEquivalent(a: Allocation): number {
+/**
+ * The monthly-equivalent cost of a recurring payment (yearly ÷ 12), resolved for
+ * the given month via amount history. Display only. ⚠️ Fixed-amount rows only —
+ * callers must route percent-mode rows through allocationAmountForMonth instead
+ * (this returns the raw amount, which is 0 for percent rows).
+ */
+export function monthlyEquivalent(a: Allocation, month: string, history: AllocationAmountHistoryRow[]): number {
   if (a.kind !== 'recurring') return 0;
-  return a.cycle === 'yearly' ? a.amount / 12 : a.amount;
+  const amount = allocationBaseAmountForMonth(a, month, history);
+  return a.cycle === 'yearly' ? amount / 12 : amount;
 }
 
 export type MonthCommitment = {
@@ -65,26 +74,70 @@ export type MonthIncome = {
   total: number | null; // base + bonuses
 };
 
-const NO_INCOME: MonthIncome = { base: null, total: null };
+/**
+ * v1.6.5: the best effective-dated history row for one allocation + month —
+ * greatest from_month <= month wins, considering only rows where `field` is set
+ * (amount-rows and percent-rows never cross-contaminate each other's resolution,
+ * so history from a previous fixed/percent mode lies dormant, not misread).
+ */
+function bestHistoryRow(
+  allocationId: string,
+  month: string,
+  history: AllocationAmountHistoryRow[],
+  field: 'amount' | 'percent'
+): AllocationAmountHistoryRow | null {
+  let best: AllocationAmountHistoryRow | null = null;
+  for (const row of history) {
+    if (row.allocation_id !== allocationId || row[field] == null) continue;
+    if (row.from_month <= month && (best === null || row.from_month > best.from_month)) best = row;
+  }
+  return best;
+}
+
+/** The fixed amount in force for a month: history wins, else the allocation's own amount. */
+export function allocationBaseAmountForMonth(
+  a: Allocation,
+  month: string,
+  history: AllocationAmountHistoryRow[]
+): number {
+  return bestHistoryRow(a.id, month, history, 'amount')?.amount ?? a.amount;
+}
+
+/** The percentage in force for a month: history wins, else the allocation's own percent. */
+export function allocationBasePercentForMonth(
+  a: Allocation,
+  month: string,
+  history: AllocationAmountHistoryRow[]
+): number {
+  return bestHistoryRow(a.id, month, history, 'percent')?.percent ?? a.percent ?? 0;
+}
 
 /**
  * What THIS allocation deducts in the given month: a percentage set-aside resolves
- * to `percent%` of its chosen income base (0 when that income is unknown); anything
- * else is its fixed `amount`. Used by monthCommitment + the Money row display.
+ * to that month's effective percent of its chosen income base (0 when that income
+ * is unknown); anything else is the month's effective fixed amount. Used by
+ * monthCommitment + the Money row display.
  */
-export function allocationAmountForMonth(a: Allocation, income: MonthIncome = NO_INCOME): number {
+export function allocationAmountForMonth(
+  a: Allocation,
+  income: MonthIncome,
+  month: string,
+  history: AllocationAmountHistoryRow[]
+): number {
   if (a.percent != null) {
+    const pct = allocationBasePercentForMonth(a, month, history);
     const basis = a.percent_incl_bonus ? income.total : income.base;
-    return basis != null ? (a.percent / 100) * basis : 0;
+    return basis != null ? (pct / 100) * basis : 0;
   }
-  return a.amount;
+  return allocationBaseAmountForMonth(a, month, history);
 }
 
 /** What's already spoken for in a given YYYY-MM. `income` needed for % set-asides. */
 export function monthCommitment(
   allocations: Allocation[],
   month: string,
-  income: MonthIncome = NO_INCOME
+  income: MonthIncome,
+  history: AllocationAmountHistoryRow[]
 ): MonthCommitment {
   const monthNum = Number(month.slice(5, 7));
   let recurring = 0;
@@ -95,9 +148,11 @@ export function monthCommitment(
     if (a.kind === 'oneoff') {
       if (a.month === month) oneoffs += a.amount;
     } else if (a.cycle === 'yearly') {
-      if (a.due_month === monthNum) yearlyDue += a.amount;
+      // Unified dispatch (v1.6.5): previously read a.amount raw, which both
+      // ignored amount history AND silently zeroed a percent+yearly row.
+      if (a.due_month === monthNum) yearlyDue += allocationAmountForMonth(a, income, month, history);
     } else {
-      recurring += allocationAmountForMonth(a, income); // monthly fixed OR percentage
+      recurring += allocationAmountForMonth(a, income, month, history); // monthly fixed OR percentage
     }
   }
   return { recurring, yearlyDue, oneoffs, setAside: recurring + yearlyDue + oneoffs };
@@ -117,10 +172,11 @@ export function budgetSummary(
   income: MonthIncome,
   allocations: Allocation[],
   month: string,
-  spent: number
+  spent: number,
+  history: AllocationAmountHistoryRow[]
 ): BudgetSummary {
   const total = income.total ?? 0;
-  const { setAside } = monthCommitment(allocations, month, income);
+  const { setAside } = monthCommitment(allocations, month, income, history);
   const spendable = total - setAside;
   const remaining = spendable - spent;
   return {

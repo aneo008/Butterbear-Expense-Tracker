@@ -15,6 +15,7 @@ import { Allocation, AllocationCycle } from '../db/types';
 import { Alert } from '../lib/dialog';
 import * as Haptics from '../lib/haptics';
 import { currentMonth, formatMonthShort } from '../lib/date';
+import { allocationBaseAmountForMonth, allocationBasePercentForMonth } from '../lib/allocationMath';
 import { colors, radius, fonts, cardShadow } from '../constants/theme';
 
 function fmt(n: number): string {
@@ -76,6 +77,11 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
   const allocationHistoryAll = useExpenseStore(s => s.allocationHistory);
   const addAllocationHistory = useExpenseStore(s => s.addAllocationHistory);
   const deleteAllocationHistory = useExpenseStore(s => s.deleteAllocationHistory);
+  // v1.6.5: effective-dated amount/percent changes — aliased locally to keep the
+  // two similarly-named ledgers (record-only vs config) visually distinct in here.
+  const amountHistoryAll = useExpenseStore(s => s.allocationAmountHistory);
+  const addAmountHistoryRow = useExpenseStore(s => s.addAllocationAmountHistory);
+  const deleteAmountHistoryRow = useExpenseStore(s => s.deleteAllocationAmountHistory);
 
   const visible = request !== null;
   const editing = request?.editing ?? null;
@@ -101,6 +107,10 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyMonth, setHistoryMonth] = useState(currentMonth());
   const [historyAmountText, setHistoryAmountText] = useState('');
+  // v1.6.5: how an amount/percent edit applies — effective from a month (default,
+  // past months keep their old value) or always (retroactive, the old behavior).
+  const [amountScope, setAmountScope] = useState<'from' | 'always'>('from');
+  const [amountFromMonth, setAmountFromMonth] = useState(currentMonth());
 
   useEffect(() => {
     if (!request) return;
@@ -115,7 +125,13 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
     setInfoOnly(a?.info_only === 1);
     setIsPercent(a?.percent != null);
     setPercentInclBonus(a ? a.percent_incl_bonus === 1 : true);
-    setAmountText(a ? String(a.percent != null ? a.percent : a.amount) : '');
+    // Prefill with the value in force THIS month (history-resolved), not the raw
+    // base — after an effective-dated change, the base can be years stale.
+    setAmountText(a
+      ? String(a.percent != null
+          ? allocationBasePercentForMonth(a, currentMonth(), amountHistoryAll)
+          : allocationBaseAmountForMonth(a, currentMonth(), amountHistoryAll))
+      : '');
     setNote(a?.note ?? '');
     setNewGroupOpen(false);
     setNewGroupName('');
@@ -123,13 +139,38 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
     setHistoryOpen(false);
     setHistoryMonth(currentMonth());
     setHistoryAmountText('');
+    setAmountScope('from');
+    setAmountFromMonth(currentMonth());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request]);
 
-  // v1.5.9: recorded actuals for the allocation being edited (record-only — never
-  // feeds monthCommitment/Spendable; today's config still drives every month's math).
+  // v1.5.9: recorded actuals for the allocation being edited. Record-only — THIS
+  // ledger never feeds monthCommitment/Spendable (unlike the v1.6.5 amount history
+  // below, which does).
   const history = editing
     ? allocationHistoryAll.filter(h => h.allocation_id === editing.id).sort((a, b) => b.month.localeCompare(a.month))
     : [];
+
+  const percentMode = kind === 'recurring' && isPercent;
+
+  // v1.6.5: this allocation's effective-dated changes, newest first, split by the
+  // CURRENT mode (rows from the other mode lie dormant — hidden, never deleted).
+  const amountHistory = editing
+    ? amountHistoryAll
+        .filter(h => h.allocation_id === editing.id && (percentMode ? h.percent != null : h.amount != null))
+        .sort((a, b) => b.from_month.localeCompare(a.from_month))
+    : [];
+  // Saving a Fixed<->Percentage switch is a structural change (updates the whole
+  // allocation); the from-month scope only applies within an unchanged mode.
+  const modeSwitched = editing != null && kind === 'recurring' && (editing.percent != null) !== percentMode;
+  const scopeApplies = editing != null && kind === 'recurring' && !modeSwitched;
+
+  const confirmDeleteAmountHistory = (id: string, label: string) => {
+    Alert.alert('Remove this change?', `${label} will be removed — the previous value applies again.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => deleteAmountHistoryRow(id) },
+    ]);
+  };
 
   const addHistoryRow = () => {
     if (!editing) return;
@@ -160,8 +201,6 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
     setNewGroupName('');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
-
-  const percentMode = kind === 'recurring' && isPercent;
 
   const save = () => {
     const trimmed = label.trim();
@@ -216,10 +255,57 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
           info_only: null, percent: null, percent_incl_bonus: null,
         };
 
-    if (editing) updateAllocation(editing.id, fields);
-    else addAllocation(fields);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onClose();
+    const doSave = () => {
+      if (editing && scopeApplies && amountScope === 'from') {
+        // Effective-dated change: the allocation keeps its own base value (other
+        // fields still update); the new value lands in amount history for the
+        // chosen from-month. Skip the row when the value didn't actually change
+        // from what's already in force that month (e.g. a label-only edit).
+        const keepValueFields: Omit<Allocation, 'id'> = percentMode
+          ? { ...fields, percent: editing.percent }
+          : { ...fields, amount: editing.amount };
+        updateAllocation(editing.id, keepValueFields);
+        const effective = percentMode
+          ? allocationBasePercentForMonth(editing, amountFromMonth, amountHistoryAll)
+          : allocationBaseAmountForMonth(editing, amountFromMonth, amountHistoryAll);
+        if (num !== effective) {
+          addAmountHistoryRow({
+            allocation_id: editing.id,
+            from_month: amountFromMonth,
+            amount: percentMode ? null : num,
+            percent: percentMode ? num : null,
+          });
+        }
+      } else if (editing) {
+        updateAllocation(editing.id, fields);
+      } else {
+        addAllocation(fields);
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onClose();
+    };
+
+    // Warn when a mode switch would hide recorded changes from the outgoing mode
+    // (they're kept, not deleted — switching back brings them right back).
+    if (modeSwitched && editing) {
+      const wasPercent = editing.percent != null;
+      const hiddenCount = amountHistoryAll.filter(
+        h => h.allocation_id === editing.id && (wasPercent ? h.percent != null : h.amount != null)
+      ).length;
+      if (hiddenCount > 0) {
+        const target = percentMode ? 'Percentage' : 'Fixed amount';
+        Alert.alert(
+          `Switch to ${target.toLowerCase()}?`,
+          `Your ${hiddenCount} recorded ${wasPercent ? 'percentage' : 'amount'} change${hiddenCount === 1 ? '' : 's'} will be hidden while this is set to ${target} — they're not deleted, and reappear the moment you switch back.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Switch anyway', style: 'destructive', onPress: doSave },
+          ]
+        );
+        return;
+      }
+    }
+    doSave();
   };
 
   const confirmDelete = () => {
@@ -280,6 +366,62 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
                 inputMode="decimal"
               />
 
+              {/* v1.6.5: how a value change applies (existing recurring rows in an
+                  unchanged mode only — a mode switch is structural, always "whole row"). */}
+              {scopeApplies && (
+                <>
+                  <Text selectable={false} style={styles.fieldLabel}>Apply change</Text>
+                  <View style={styles.segmentRow}>
+                    <Pressable
+                      accessibilityLabel="amount-scope-from"
+                      onPress={() => setAmountScope('from')}
+                      style={[styles.segment, amountScope === 'from' && styles.segmentActive]}
+                    >
+                      <Text selectable={false} style={[styles.segmentText, amountScope === 'from' && styles.segmentTextActive]}>
+                        From a month on
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityLabel="amount-scope-always"
+                      onPress={() => setAmountScope('always')}
+                      style={[styles.segment, amountScope === 'always' && styles.segmentActive]}
+                    >
+                      <Text selectable={false} style={[styles.segmentText, amountScope === 'always' && styles.segmentTextActive]}>
+                        Always
+                      </Text>
+                    </Pressable>
+                  </View>
+                  {amountScope === 'from' ? (
+                    <>
+                      <Text selectable={false} style={styles.budgetHint}>
+                        {formatMonthShort(amountFromMonth)} onward uses the new value — earlier months keep what was in force then.
+                      </Text>
+                      <View style={[styles.chipWrap, styles.scopeMonthWrap]}>
+                        {historyMonthChoices().map(m => {
+                          const active = amountFromMonth === m;
+                          return (
+                            <Pressable
+                              key={m}
+                              accessibilityLabel={`amount-from-${m}`}
+                              onPress={() => setAmountFromMonth(m)}
+                              style={[styles.chip, active && styles.chipActive]}
+                            >
+                              <Text selectable={false} style={[styles.chipText, active && styles.chipTextActive]}>
+                                {formatMonthShort(m)}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </>
+                  ) : (
+                    <Text selectable={false} style={styles.budgetHint}>
+                      Rewrites every month, past and future — for fixing a typo, not recording a change.
+                    </Text>
+                  )}
+                </>
+              )}
+
               {/* Kind */}
               <Text selectable={false} style={styles.fieldLabel}>Type</Text>
               <View style={styles.segmentRow}>
@@ -304,7 +446,11 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
                   <View style={styles.segmentRow}>
                     <Pressable
                       accessibilityLabel="mode-fixed"
-                      onPress={() => setIsPercent(false)}
+                      onPress={() => {
+                        // Clear the shared value field on a real switch — "10" meant
+                        // 10%, not SGD 10, and would otherwise save silently.
+                        if (isPercent) { setIsPercent(false); setAmountText(''); }
+                      }}
                       style={[styles.segment, !isPercent && styles.segmentActive]}
                     >
                       <Text selectable={false} style={[styles.segmentText, !isPercent && styles.segmentTextActive]}>
@@ -313,7 +459,9 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
                     </Pressable>
                     <Pressable
                       accessibilityLabel="mode-percent"
-                      onPress={() => setIsPercent(true)}
+                      onPress={() => {
+                        if (!isPercent) { setIsPercent(true); setAmountText(''); }
+                      }}
                       style={[styles.segment, isPercent && styles.segmentActive]}
                     >
                       <Text selectable={false} style={[styles.segmentText, isPercent && styles.segmentTextActive]}>
@@ -501,14 +649,49 @@ export default function AllocationEditSheet({ request, onClose }: Props) {
                       : 'This amount is set aside from Spendable each month.'}
                   </Text>
 
+                  {/* v1.6.5: amount history — the effective-dated changes that DO drive
+                      each month's budget math. Mode-filtered (see amountHistory above). */}
+                  {editing && (
+                    <>
+                      <Text selectable={false} style={styles.fieldLabel}>
+                        {percentMode ? 'Percentage history' : 'Amount history'}
+                      </Text>
+                      {amountHistory.length === 0 ? (
+                        <Text selectable={false} style={styles.emptyHistoryText}>
+                          No changes recorded — the value above applies to every month. Save with
+                          “From a month on” to record a change.
+                        </Text>
+                      ) : (
+                        amountHistory.map(h => (
+                          <View key={h.id} style={styles.historyRowWrap}>
+                            <Text selectable={false} style={styles.historyRow}>
+                              {percentMode ? `${h.percent}%` : fmt(h.amount ?? 0)} · since {formatMonthShort(h.from_month)}
+                            </Text>
+                            <Pressable
+                              accessibilityLabel={`amount-history-delete-${h.from_month}`}
+                              hitSlop={8}
+                              onPress={() => confirmDeleteAmountHistory(
+                                h.id,
+                                `${percentMode ? `${h.percent}%` : fmt(h.amount ?? 0)} since ${formatMonthShort(h.from_month)}`
+                              )}
+                            >
+                              <Text selectable={false} style={styles.historyDelete}>✕</Text>
+                            </Pressable>
+                          </View>
+                        ))
+                      )}
+                    </>
+                  )}
+
                   {/* v1.5.9: recorded history — only for an existing allocation (needs an id
-                      to attach to). Record-only: doesn't change Spendable for any month. */}
+                      to attach to). Record-only: doesn't change Spendable for any month
+                      (unlike the amount history above, which does). */}
                   {editing && (
                     <>
                       <Text selectable={false} style={styles.fieldLabel}>Recorded history</Text>
                       {history.length === 0 && !historyOpen && (
                         <Text selectable={false} style={styles.emptyHistoryText}>
-                          No actual amounts logged yet — the amount above still applies to every month.
+                          No actual amounts logged yet — a note-only record of what you really paid.
                         </Text>
                       )}
                       {history.map(h => (
@@ -748,6 +931,7 @@ const styles = StyleSheet.create({
   cancelText: { fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.textSoft },
 
   emptyHistoryText: { fontFamily: fonts.body, fontSize: 12, color: colors.textSoft, lineHeight: 17 },
+  scopeMonthWrap: { marginTop: 8 },
   historyRowWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 3 },
   historyRow: { flex: 1, fontFamily: fonts.body, fontSize: 13, color: colors.textBrown },
   historyDelete: { fontSize: 12, color: '#C57A6E', padding: 2 },

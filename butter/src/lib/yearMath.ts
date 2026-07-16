@@ -5,7 +5,7 @@
 // past years always use all 12. Callers pass `todayMonth` explicitly so this
 // file stays pure (mirrors incomeMath/allocationMath taking month strings,
 // not calling date.ts themselves).
-import { Allocation, SalaryRow, IncomeEvent, IncomeOverride } from '../db/types';
+import { Allocation, AllocationAmountHistoryRow, SalaryRow, IncomeEvent, IncomeOverride } from '../db/types';
 import { incomeForMonth, baseIncomeForMonth } from './incomeMath';
 import { monthCommitment, MonthIncome } from './allocationMath';
 
@@ -44,6 +44,7 @@ export type YearSummaryInput = {
   overrides: IncomeOverride[];
   events: IncomeEvent[];
   allocations: Allocation[];
+  allocationAmountHistory: AllocationAmountHistoryRow[]; // v1.6.5: effective-dated amounts/percents
   monthlyTotals: { month: string; total: number }[]; // spend per month (any range covering this year)
 };
 
@@ -61,7 +62,7 @@ export function yearSummary(year: number, todayMonth: string, input: YearSummary
     const monthTotal = incomeForMonth(input.base, input.salaryHistory, input.overrides, input.events, month) ?? 0;
     const monthBase = baseIncomeForMonth(input.base, input.salaryHistory, input.overrides, month);
     const monthIncome: MonthIncome = { base: monthBase, total: monthTotal };
-    const commit = monthCommitment(input.allocations, month, monthIncome);
+    const commit = monthCommitment(input.allocations, month, monthIncome, input.allocationAmountHistory);
     const monthSpent = spentByMonth.get(month) ?? 0;
     const monthSpendable = monthTotal - commit.setAside;
 

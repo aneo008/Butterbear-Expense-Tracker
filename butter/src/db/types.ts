@@ -83,15 +83,31 @@ export type SalaryRow = {
 };
 
 // v1.5.9: recorded historical actual for a recurring allocation in a given month
-// (e.g. "Tithe was actually $530 in May 2024"). Record-only — does NOT feed
-// monthCommitment/budgetSummary; today's config (fixed amount or %) still drives
-// Spendable for every month. Purely a stored fact, browsable per-allocation.
+// (e.g. "Tithe was actually $530 in May 2024"). Record-only — THIS ledger does NOT
+// feed monthCommitment/budgetSummary (unlike allocation_amount_history below, which
+// does). Purely a stored fact, browsable per-allocation.
 // At most ONE per (allocation_id, month) — upsert on add/merge.
 export type AllocationHistoryRow = {
   id: string;
   allocation_id: string;
   month: string; // 'YYYY-MM'
   amount: number;
+};
+
+// v1.6.5: effective-dated CONFIG value for a recurring allocation — mirrors
+// salary_history's role (most recent from_month <= M wins; falls back to the
+// allocation's own amount/percent), scoped per-allocation. DOES feed
+// monthCommitment/budgetSummary, so editing a premium "from Aug '26" leaves past
+// months on the old value. Exactly one of amount/percent is set per row (matches
+// the allocation's fixed-vs-percent mode at the time of the change; the resolver
+// only reads the field matching the CURRENT mode, so rows from the other mode lie
+// dormant, never deleted). At most ONE per (allocation_id, from_month) — upsert.
+export type AllocationAmountHistoryRow = {
+  id: string;
+  allocation_id: string;
+  from_month: string;     // 'YYYY-MM' — effective from this month onward, until superseded
+  amount: number | null;  // set when this row records a FIXED-amount change
+  percent: number | null; // set when this row records a PERCENT change
 };
 
 // One-off income tagged to a month (bonus, 13th month, freelance) — many per month.
@@ -127,6 +143,7 @@ export type Snapshot = {
   income_events: IncomeEvent[];
   income_overrides: IncomeOverride[];
   allocation_history: AllocationHistoryRow[];
+  allocation_amount_history: AllocationAmountHistoryRow[];
 };
 
 // Dev-only: directly patch game_state fields (used by the developer panel).

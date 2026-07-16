@@ -22,6 +22,8 @@ import {
   monthCommitment,
   monthlyEquivalent,
   allocationAmountForMonth,
+  allocationBaseAmountForMonth,
+  allocationBasePercentForMonth,
   dueLabel,
   MonthIncome,
 } from '../src/lib/allocationMath';
@@ -48,6 +50,7 @@ export default function MoneyScreen() {
   const salaryHistory = useExpenseStore(s => s.salaryHistory);
   const incomeEvents = useExpenseStore(s => s.incomeEvents);
   const incomeOverrides = useExpenseStore(s => s.incomeOverrides);
+  const allocationAmountHistory = useExpenseStore(s => s.allocationAmountHistory);
   const deleteSalary = useExpenseStore(s => s.deleteSalary);
   const deleteIncomeOverride = useExpenseStore(s => s.deleteIncomeOverride);
 
@@ -104,11 +107,14 @@ export default function MoneyScreen() {
   const monthIncome = incomeForMonth(income, salaryHistory, incomeOverrides, incomeEvents, viewedMonth);
 
   const monthIncomeParts: MonthIncome = { base: monthBaseIncome, total: monthIncome };
-  const commit = monthCommitment(allocations, viewedMonth, monthIncomeParts);
+  const commit = monthCommitment(allocations, viewedMonth, monthIncomeParts, allocationAmountHistory);
   const spendable = monthIncome !== null ? monthIncome - commit.setAside : null;
-  // Monthly cost of a set-aside row (percentage rows resolve against the viewed month's income).
+  // Monthly cost of a set-aside row (percentage rows resolve against the viewed month's income;
+  // fixed rows resolve their effective-dated amount for the viewed month).
   const rowMonthly = (a: Allocation) =>
-    a.percent != null ? allocationAmountForMonth(a, monthIncomeParts) : monthlyEquivalent(a);
+    a.percent != null
+      ? allocationAmountForMonth(a, monthIncomeParts, viewedMonth, allocationAmountHistory)
+      : monthlyEquivalent(a, viewedMonth, allocationAmountHistory);
 
   const groupIcon = (id: string | null): string =>
     allocationGroups.find(g => g.id === id)?.icon ?? '📌';
@@ -154,8 +160,12 @@ export default function MoneyScreen() {
           {!!a.note && <Text selectable={false} style={styles.noteText} numberOfLines={1}>{a.note}</Text>}
         </View>
         <View style={styles.payRight}>
+          {/* v1.6.5: headline resolves the viewed month's effective value, so the row
+              can't disagree with the group subtotal / Set-aside total beside it. */}
           <Text selectable={false} style={styles.payAmount}>
-            {a.percent != null ? `${a.percent}%` : fmt(a.amount)}
+            {a.percent != null
+              ? `${allocationBasePercentForMonth(a, viewedMonth, allocationAmountHistory)}%`
+              : fmt(allocationBaseAmountForMonth(a, viewedMonth, allocationAmountHistory))}
           </Text>
           {a.percent != null ? (
             <Text selectable={false} style={styles.equivText}>
@@ -163,7 +173,7 @@ export default function MoneyScreen() {
               {a.percent_incl_bonus ? '' : ' · of salary'}
             </Text>
           ) : a.cycle === 'yearly' ? (
-            <Text selectable={false} style={styles.equivText}>≈ {fmt(monthlyEquivalent(a))}/mo</Text>
+            <Text selectable={false} style={styles.equivText}>≈ {fmt(monthlyEquivalent(a, viewedMonth, allocationAmountHistory))}/mo</Text>
           ) : null}
         </View>
       </TouchableOpacity>
@@ -172,7 +182,9 @@ export default function MoneyScreen() {
 
   const renderGroupCard = (g: AllocationGroup) => {
     const members = recurring.filter(a => a.group_id === g.id);
-    const monthlyEquivTotal = members.reduce((s, a) => s + rowMonthly(a), 0);
+    // Info-only rows never reduce Spendable (monthCommitment skips them), so the
+    // subtotal must skip them too or it contradicts the Set-aside figure above.
+    const monthlyEquivTotal = members.filter(a => !a.info_only).reduce((s, a) => s + rowMonthly(a), 0);
     return (
       <View key={g.id} style={styles.card}>
         <View style={styles.groupHeader}>
@@ -358,7 +370,10 @@ export default function MoneyScreen() {
                   <Text selectable={false} style={styles.dueIcon}>{groupIcon(a.group_id)}</Text>
                   <Text selectable={false} style={styles.dueLabel} numberOfLines={1}>{a.label}</Text>
                   <Text selectable={false} style={styles.dueWhen}>{formatDateLabel(due)}</Text>
-                  <Text selectable={false} style={styles.dueAmount}>{fmt(a.amount)}</Text>
+                  {/* Amount effective in the month the payment actually falls due. */}
+                  <Text selectable={false} style={styles.dueAmount}>
+                    {fmt(allocationBaseAmountForMonth(a, due.slice(0, 7), allocationAmountHistory))}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>

@@ -15,6 +15,7 @@ export type Backup = {
   income_events: Snapshot['income_events'];
   income_overrides: Snapshot['income_overrides'];
   allocation_history: Snapshot['allocation_history'];
+  allocation_amount_history: Snapshot['allocation_amount_history'];
 };
 
 /** Serialize a full app snapshot into a versioned JSON backup string. */
@@ -32,6 +33,7 @@ export function serializeBackup(snap: Snapshot): string {
     income_events: snap.income_events,
     income_overrides: snap.income_overrides,
     allocation_history: snap.allocation_history,
+    allocation_amount_history: snap.allocation_amount_history,
   };
   return JSON.stringify(backup, null, 2);
 }
@@ -118,6 +120,12 @@ export function parseBackup(text: string): Snapshot {
   checkRows(allocationHistory, 'set-aside history', r =>
     isStr(r.id) && isStr(r.allocation_id) && isStr(r.month) && isNum(r.amount)
   );
+  const allocationAmountHistory = Array.isArray(b.allocation_amount_history) ? b.allocation_amount_history : []; // absent pre-1.6.5
+  // Lenient: at least one of amount/percent must be a number; a row with both is
+  // fine (each resolver only reads its own field — a stray value sits harmlessly).
+  checkRows(allocationAmountHistory, 'set-aside amount changes', r =>
+    isStr(r.id) && isStr(r.allocation_id) && isStr(r.from_month) && (isNum(r.amount) || isNum(r.percent))
+  );
 
   if (b.game_state !== undefined) {
     checkRows([b.game_state], 'progress (game state)', r =>
@@ -137,5 +145,6 @@ export function parseBackup(text: string): Snapshot {
     income_events: incomeEvents,
     income_overrides: incomeOverrides,
     allocation_history: allocationHistory,
+    allocation_amount_history: allocationAmountHistory,
   };
 }
