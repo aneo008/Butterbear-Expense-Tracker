@@ -501,6 +501,22 @@ trend, store-ready perf pass (nothing felt slow at current data sizes).
 - ✅ Double-count escape hatch shipped (`v1.5.1`): the per-payment **"Info only"** flag. If
   double-counting still bites, tune that — don't invent anything bigger.
 
+## Analytics — next increment *(deferred — logged, not built)*
+Both build on the complete Phase 6 dashboard; captured for a future session, nothing shipped yet.
+- **Rolling average line on the spending trend** — overlay a rolling-average line (e.g. 3-month
+  and/or 12-month) on the existing 12-month spending trend bars (`src/components/TrendBars.tsx`
+  / `app/(tabs)/insights.tsx`) so the trajectory reads against a smoothed baseline, not just raw
+  monthly bars. Pairs naturally with the already-backlogged **spendable-line overlay on the
+  trend** (Phase 5 note above) — do them together as one "trend overlays" pass. Pure-math helper
+  would live alongside `getMonthlyTotals()` / `src/lib/yearMath.ts`.
+- **Extend the yearly dashboard** — grow the `v1.6.2` Year-mode analytics beyond the current
+  single "Compared to last year" card: **multi-year comparison** (more than two years side by
+  side), **projections** (trend-based estimate of the current year's full-year total / savings
+  rate, respecting the existing elapsed-months rule — never silently project unset future
+  income), and **per-category trends over time** (how each category's share moves across years).
+  Read-side only, same as `v1.6.2` — no schema change; extend `src/lib/yearMath.ts` +
+  `getYearBreakdown()`.
+
 ## Content & economy backlog — draw from, don't sequence · `v1.7+`
 Per the v1.4.9 review, phases 6–9 were four consecutive "meta-game supply" phases for a
 14-item, pre-native, pre-notification app. Keep them as a **backlog to pull from once there's
