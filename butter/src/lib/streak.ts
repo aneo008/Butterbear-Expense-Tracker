@@ -64,6 +64,18 @@ export const MILESTONE_CHESTS: Record<number, number> = {
   3: 25, 7: 50, 14: 100, 30: 250, 50: 400, 100: 750, 200: 1500, 365: 3000,
 };
 
+/**
+ * v1.7.3: the once-ever ledger (`claimed_chests`) only exists since v1.5.3 — any
+ * milestone passed before that was paid but never recorded. Reaching `longest`
+ * proves every milestone at or below it was passed (and paid), so those days are
+ * treated as claimed. Pure, and shared by the native + web backfills so the two
+ * can't drift. Returns the union with `alreadyClaimed`, ascending.
+ */
+export function backfilledClaims(longest: number, alreadyClaimed: number[]): number[] {
+  const passed = Object.keys(MILESTONE_CHESTS).map(Number).filter(day => day <= longest);
+  return [...new Set([...alreadyClaimed, ...passed])].sort((a, b) => a - b);
+}
+
 // Chest coins awarded for reaching exactly this streak day (0 if not a milestone).
 export function chestFor(streak: number): number {
   return MILESTONE_CHESTS[streak] ?? 0;

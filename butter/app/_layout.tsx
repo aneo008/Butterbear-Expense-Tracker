@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts, Baloo2_600SemiBold, Baloo2_700Bold } from '@expo-google-fonts/baloo-2';
 import { Nunito_400Regular, Nunito_600SemiBold, Nunito_700Bold } from '@expo-google-fonts/nunito';
 import { initDatabase } from '../src/db/database';
+import { backfillClaimedChests } from '../src/db/queries';
 import { reloadIfStale } from '../src/lib/staleness';
 import { useExpenseStore } from '../src/store/useExpenseStore';
 import { DialogHost } from '../src/lib/dialog';
@@ -33,6 +34,10 @@ export default function RootLayout() {
       initDatabase().then(() => {
         // If the app was closed mid dev-sandbox, revert to real data before loading.
         useExpenseStore.getState().recoverDevOrphan();
+        // Then (once ever) record milestones passed before the claimed-chest ledger
+        // existed, so v1.7.2 can't re-offer a gift that was already paid. Must run
+        // after recoverDevOrphan so it writes to REAL data, not a sandbox.
+        backfillClaimedChests();
         loadData();
         setDataReady(true);
       });

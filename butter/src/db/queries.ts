@@ -1,7 +1,7 @@
 import { getDb } from './database';
 import { Category } from '../constants/categories';
 import { todayISO, addDaysISO } from '../lib/date';
-import { coinsForLog, dailyCap, chestFor, WELCOME_GRANT } from '../lib/streak';
+import { coinsForLog, dailyCap, chestFor, backfilledClaims, WELCOME_GRANT } from '../lib/streak';
 import {
   Expense,
   GameState,
@@ -235,6 +235,29 @@ export function updateGameStateAfterLog(): void {
     WHERE id = 1`,
     [newStreak, today, newLongest, actualCoins, coinsEarnedToday + actualCoins, JSON.stringify(claimed), JSON.stringify(pending)]
   );
+}
+
+const CHEST_BACKFILL_KEY = 'chest_backfill_v1';
+
+/**
+ * v1.7.3: one-time backfill for users who predate the `claimed_chests` ledger
+ * (v1.5.3). Their old milestones were paid but never recorded, so v1.7.2 would
+ * offer those gifts again on a rebuilt streak — the exact repeat-reward this
+ * feature exists to prevent. Marks every milestone at or below `longest_streak`
+ * as claimed. Idempotent via an app_meta flag; never pays coins, never touches
+ * pending. NOTE: keep in lockstep with queries.web.ts.
+ */
+export function backfillClaimedChests(): void {
+  if (getMeta(CHEST_BACKFILL_KEY) === '1') return;
+  const db = getDb();
+  const gs = getGameState();
+  let claimed: number[];
+  try { claimed = JSON.parse(gs.claimed_chests || '[]'); } catch { claimed = []; }
+  const next = backfilledClaims(gs.longest_streak, claimed);
+  if (next.length !== claimed.length) {
+    db.runSync('UPDATE game_state SET claimed_chests = ? WHERE id = 1', [JSON.stringify(next)]);
+  }
+  setMeta(CHEST_BACKFILL_KEY, '1');
 }
 
 /**
