@@ -17,6 +17,15 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.7.3',
+    pass: 'Phase 7',
+    title: 'Gifts you already earned stay earned',
+    date: '2026-08-30',
+    items: [
+      { tag: 'fix', text: 'Milestones you passed a long time ago are now recognised as already claimed, so rebuilding a streak past them won\'t offer you the same gift a second time. Your coins are unchanged — nothing is paid out or taken away.' },
+    ],
+  },
+  {
     version: '1.7.2',
     pass: 'Phase 7',
     title: 'Claim your streak gifts',

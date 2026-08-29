@@ -24,7 +24,7 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.7.2` — **Phase 7 COMPLETE**: `v1.7.0` shipped the full due-date calendar behind
+**Current:** `v1.7.3` — **Phase 7 COMPLETE**: `v1.7.0` shipped the full due-date calendar behind
 "Due soon" plus a once-a-day launch reminder for payments due within 3 days (and fixed percentage
 set-asides displaying `SGD 0.00` there); `v1.7.1` replaced the single first-run coachmark with a
 7-card guided tour, replayable from **Settings → Replay tutorial**; `v1.7.2` made milestone
@@ -63,7 +63,7 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | — | **Hardening & trust** (from the v1.4.9 review + since) | ◑ **in progress** — streak, dev data-loss, chests, backup validation, stale-session data loss fixed; IndexedDB / computeLogUpdate / tests queued |
 | **5** | **Budget, charts & ship polish** | ✅ **done (`v1.5.0`–`v1.5.9`)** — Money screen, info-only flag, trend chart, polish & protection, per-month income + override, percentage set-asides, history pages |
 | **6** | **Analytics & income UX** | ✅ **done (`v1.6.0`–`v1.6.2`)** — month-aware Money screen, two-tab data-safety fix, yearly analytics dashboard, **+ `v1.6.3`** (unbounded salary-history list) **+ `v1.6.4`** (stale-cached-bundle guard, web-only, delete on native ship) **+ `v1.6.5`** (effective-dated set-aside amounts/percentages + 3 bundled bug fixes) |
-| **7** | **Due-date visibility, onboarding & interactive rewards** | ✅ **done (`v1.7.0`–`v1.7.2`)** — due-date calendar + launch reminder, guided tutorial, claimable streak gifts |
+| **7** | **Due-date visibility, onboarding & interactive rewards** | ✅ **done (`v1.7.0`–`v1.7.3`)** — due-date calendar + launch reminder, guided tutorial, claimable streak gifts + pre-ledger claim backfill |
 | 8+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
 | — | **Ship native (iOS/Android)** | ⬜ strategic priority (pull forward — unblocks gestures, haptics, reminders) |
 
@@ -303,7 +303,19 @@ native milestone. GitHub Pages serves this SPA with no service worker and no bac
 would mean throwaway infrastructure that native retires. `duePaymentsWithin()` is written pure
 precisely so native scheduling imports it unchanged.
 
-### `v1.7.2` — Claimable streak gifts *(closes Phase 7)*
+### `v1.7.3` — Backfill claims that predate the ledger *(closes Phase 7)*
+- 🐛 **Old milestones now count as claimed.** `claimed_chests` only exists since `v1.5.3`, so a
+  milestone passed before then was paid but never recorded — under `v1.7.2` that would surface as
+  a fresh "Claim your gift" on a rebuilt streak, the very repeat-reward this phase set out to
+  stop. A one-time backfill marks every milestone `<= longest_streak` as claimed (reaching that
+  streak proves the lower ones were passed and paid). Gated on `app_meta.chest_backfill_v1`, pays
+  no coins, never touches `pending_chests`, and runs after `recoverDevOrphan()` so it can only
+  ever write to real data. The pure `backfilledClaims()` helper is shared by both query layers.
+- Verified on a simulated pre-ledger profile (`longest_streak` 30, empty ledger): backfills to
+  `[3,7,14,30]` with coins untouched, rebuilding to day 3 no longer offers a gift, the flag makes
+  it idempotent across launches, and a genuinely new milestone (day 50) still pends normally.
+
+### `v1.7.2` — Claimable streak gifts
 - 🔧 **Milestone chests are now claimed, not credited.** Reaching a milestone parks the chest in
   a new `game_state.pending_chests` ledger (SQLite `ALTER TABLE` on native, defaulted field on
   web); the coins land only when the user taps **Claim**. Dismissing with "Later" keeps it
