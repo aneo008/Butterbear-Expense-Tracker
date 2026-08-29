@@ -13,6 +13,8 @@ import { RELEASES } from '../src/constants/changelog';
 import StreakSheet from '../src/components/StreakSheet';
 import CoinSheet from '../src/components/CoinSheet';
 import WhatsNewSheet from '../src/components/WhatsNewSheet';
+import DueCalendarSheet from '../src/components/DueCalendarSheet';
+import DueReminderSheet from '../src/components/DueReminderSheet';
 import * as Haptics from '../src/lib/haptics';
 import { colors, radius, fonts, cardShadow } from '../src/constants/theme';
 import { VERSION_LABEL, APP_VERSION } from '../src/lib/version';
@@ -69,6 +71,8 @@ export default function DevScreen() {
   const [streakOpen, setStreakOpen] = useState(false);
   const [coinOpen, setCoinOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const [dueCalOpen, setDueCalOpen] = useState(false);
+  const [dueRemOpen, setDueRemOpen] = useState(false);
   const [previewSeen, setPreviewSeen] = useState('1.4.4');
   const [storedSeen, setStoredSeen] = useState<string | null>(getMeta(WHATS_NEW_KEY));
   const refreshStoredSeen = () => setStoredSeen(getMeta(WHATS_NEW_KEY));
@@ -217,6 +221,11 @@ export default function DevScreen() {
             <Btn label="Quick-log $5" onPress={quickLog} />
             <Btn label="Reset onboarding" onPress={resetFlags} />
           </View>
+          <View style={styles.row}>
+            <Btn label="Open DueCalendarSheet" onPress={() => setDueCalOpen(true)} />
+            <Btn label="Preview DueReminderSheet" onPress={() => setDueRemOpen(true)} />
+          </View>
+          <Text style={styles.note}>The reminder preview lists whatever is due within 3 days (empty if nothing is).</Text>
         </Section>
 
         {/* Docs */}
@@ -281,6 +290,8 @@ export default function DevScreen() {
       <StreakSheet visible={streakOpen} onClose={() => setStreakOpen(false)} />
       <CoinSheet visible={coinOpen} onClose={() => setCoinOpen(false)} />
       <WhatsNewSheet forceVisible={whatsNewOpen} onForceClose={() => setWhatsNewOpen(false)} previewSeen={previewSeen} />
+      <DueCalendarSheet visible={dueCalOpen} onClose={() => setDueCalOpen(false)} />
+      <DueReminderSheet forceVisible={dueRemOpen} onForceClose={() => setDueRemOpen(false)} />
     </SafeAreaView>
   );
 }
