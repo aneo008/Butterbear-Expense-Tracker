@@ -17,6 +17,14 @@ const LADDER = STREAK_TIERS.filter(t => t.days > 0);
 
 export default function StreakSheet({ visible, onClose }: Props) {
   const { gameState } = useExpenseStore();
+  const claimChest = useExpenseStore(s => s.claimChest);
+  // v1.7.2: each tier's chest is one of three states — already claimed (muted ✓),
+  // earned but waiting (a Claim button, right here), or not yet reached.
+  const parseDays = (s: string): number[] => {
+    try { return JSON.parse(s || '[]'); } catch { return []; }
+  };
+  const claimedChests = parseDays(gameState.claimed_chests);
+  const pendingChests = parseDays(gameState.pending_chests);
   const loggedToday = gameState.last_log_date === todayISO();
   // Effective (real) streak — 0 once a day is missed. `brokenPrev` is the streak that
   // just ended, so we can acknowledge it kindly instead of silently showing 0.
@@ -72,7 +80,19 @@ export default function StreakSheet({ visible, onClose }: Props) {
                   </Text>
                   <Text style={[styles.rowDays, !reached && styles.rowMuted]}>{tier.days} days</Text>
                   <Text style={[styles.rowMult, !reached && styles.rowMuted]}>×{tier.mult}</Text>
-                  <Text style={[styles.rowChest, !reached && styles.rowMuted]}>🎁 {chestFor(tier.days)}</Text>
+                  {claimedChests.includes(tier.days) ? (
+                    <Text style={[styles.rowChest, styles.rowMuted]}>🎁 ✓</Text>
+                  ) : pendingChests.includes(tier.days) ? (
+                    <Pressable
+                      style={styles.claimPill}
+                      onPress={() => claimChest(tier.days)}
+                      accessibilityLabel={`claim-chest-${tier.days}`}
+                    >
+                      <Text style={styles.claimPillText}>Claim 🎁</Text>
+                    </Pressable>
+                  ) : (
+                    <Text style={[styles.rowChest, !reached && styles.rowMuted]}>🎁 {chestFor(tier.days)}</Text>
+                  )}
                   {isNext && <Text style={styles.rowHint}>{tier.days - streak}d 🔓</Text>}
                 </View>
               );
@@ -165,6 +185,17 @@ const styles = StyleSheet.create({
   rowDays: { fontFamily: fonts.bodyBold, fontSize: 13, color: colors.textBrown, width: 64 },
   rowMult: { fontFamily: fonts.bodyBold, fontSize: 13, color: colors.textBrown, width: 42 },
   rowChest: { fontFamily: fonts.body, fontSize: 12, color: colors.textSoft, flex: 1 },
+  // v1.7.2: sits in the same column as rowChest but sized to its label, so it
+  // reads as a button without dominating the ladder row.
+  claimPill: {
+    flex: 1,
+    maxWidth: 78,
+    backgroundColor: colors.butter,
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  claimPillText: { fontFamily: fonts.bodyBold, fontSize: 11, color: colors.textBrown, textAlign: 'center' },
   rowHint: { fontFamily: fonts.bodyBold, fontSize: 11, color: colors.butterDeep },
   rowMuted: { color: '#BCAF9C' },
 
