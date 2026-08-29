@@ -12,6 +12,7 @@ import {
   deleteExpense,
   addCategory,
   updateGameStateAfterLog,
+  claimChest as claimChestQuery,
   getOwnedItems,
   getEquippedItems,
   buyItem as buyItemQuery,
@@ -58,21 +59,21 @@ import { serializeBackup, parseBackup } from '../lib/backup';
 const DEV_BACKUP_KEY = 'dev_backup';
 import { todayISO } from '../lib/date';
 import { Slot, EquippedMap } from '../constants/storeItems';
-import { dailyCap, chestFor } from '../lib/streak';
+import { dailyCap } from '../lib/streak';
 
 export type CelebrationTier = 'normal' | 'big';
 export type Celebration = {
   tier: CelebrationTier;
   reason: string | null; // milestone label for the speech bubble (big only)
-  coinsEarned: number;    // total coins gained this log (incl. any milestone chest)
+  coinsEarned: number;    // coins gained this log (chests excluded — they pay on claim)
   capReached: boolean;    // this log pushed today's earnings to the scaled daily cap
-  chestCoins: number;     // milestone chest awarded this log (0 if none)
+  chestDay: number | null; // milestone day whose chest went pending this log (null if none)
 };
 
 const STREAK_MILESTONES = [3, 7, 14, 30, 50, 100, 200, 365];
 
-function claimedChests(gs: GameState): number[] {
-  try { return JSON.parse(gs.claimed_chests || '[]'); } catch { return []; }
+function pendingChestsOf(gs: GameState): number[] {
+  try { return JSON.parse(gs.pending_chests || '[]'); } catch { return []; }
 }
 
 // Decide the celebration tier (and cap/chest signals) by diffing game state.
@@ -88,12 +89,13 @@ function computeCelebration(prev: GameState, next: GameState): Celebration {
   // single first log can never fill the cap.
   const cap = dailyCap(next.streak_count);
   const capReached = !firstLogToday && prev.coins_earned_today < cap && next.coins_earned_today >= cap;
-  // A chest was actually paid this log iff its claim was recorded by it (5f:
-  // chests are once-ever, so a re-reached milestone no longer shows chest coins).
-  const chestCoins =
-    claimedChests(next).includes(next.streak_count) && !claimedChests(prev).includes(next.streak_count)
-      ? chestFor(next.streak_count)
-      : 0;
+  // v1.7.2: a chest was EARNED this log iff this log put it into pending — the
+  // coins land later, on the explicit claim. (Chests stay once-ever, so a
+  // re-reached milestone still yields nothing.)
+  const chestDay =
+    pendingChestsOf(next).includes(next.streak_count) && !pendingChestsOf(prev).includes(next.streak_count)
+      ? next.streak_count
+      : null;
 
   let tier: CelebrationTier = 'normal';
   let reason: string | null = null;
@@ -102,7 +104,7 @@ function computeCelebration(prev: GameState, next: GameState): Celebration {
   else if (firstLogToday) { tier = 'big'; reason = 'First log today! 🧈'; }
   else if (crossedCoins) { tier = 'big'; reason = `${Math.floor(next.coins / 100) * 100} coins! 🪙`; }
 
-  return { tier, reason, coinsEarned, capReached, chestCoins };
+  return { tier, reason, coinsEarned, capReached, chestDay };
 }
 
 type ExpenseStore = {
@@ -137,6 +139,9 @@ type ExpenseStore = {
 
   loadData: () => void;
   addExpense: (expense: Omit<Expense, 'id' | 'created_at'>) => void;
+  // v1.7.2: pay out a pending milestone chest. Returns false if it wasn't
+  // pending (already claimed, or stale UI) — callers can skip the celebration.
+  claimChest: (day: number) => boolean;
   editExpense: (id: string, fields: { amount: number; category_id: string; note: string | null; spent_at: string }) => void;
   removeExpense: (id: string) => void;
   createCategory: (fields: { name: string; icon: string; color: string }) => Category;
@@ -205,7 +210,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
   editingExpense: null,
   dataVersion: 0,
   celebrationSignal: 0,
-  lastCelebration: { tier: 'normal', reason: null, coinsEarned: 0, capReached: false, chestCoins: 0 },
+  lastCelebration: { tier: 'normal', reason: null, coinsEarned: 0, capReached: false, chestDay: null },
   devActive: false,
 
   loadData: () => {
@@ -235,6 +240,12 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     const celebration = computeCelebration(prev, next);
     get().loadData();
     set({ celebrationSignal: get().celebrationSignal + 1, lastCelebration: celebration });
+  },
+
+  claimChest: (day) => {
+    const ok = claimChestQuery(day);
+    if (ok) get().loadData();
+    return ok;
   },
 
   editExpense: (id, fields) => {
