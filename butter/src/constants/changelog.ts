@@ -17,6 +17,16 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.7.1',
+    pass: 'Phase 7',
+    title: 'Guided tour for new users',
+    date: '2026-08-30',
+    items: [
+      { tag: 'new', text: 'New users now get a short guided tour of everything Butter can do — logging, streaks & coins, the shop, insights, money set-up and backups.' },
+      { tag: 'new', text: 'Already know your way around? You can replay the tour any time from Settings → Replay tutorial.' },
+    ],
+  },
+  {
     version: '1.7.0',
     pass: 'Phase 7',
     title: 'See every due date',

@@ -24,7 +24,14 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.6.5` — **effective-dated amounts & percentages for recurring set-asides**
+**Current:** `v1.7.1` — **Phase 7 in progress**: `v1.7.0` shipped the full due-date calendar
+behind "Due soon" plus a once-a-day launch reminder for payments due within 3 days (and fixed
+percentage set-asides displaying `SGD 0.00` there); `v1.7.1` replaces the single first-run
+coachmark with a 7-card guided tour, replayable from **Settings → Replay tutorial**. Real phone
+notifications stay OUT of the web build by design — they belong to the native milestone, which
+imports `duePaymentsWithin()` unchanged. Still to come in Phase 7: claimable streak gifts.
+
+Before Phase 7: `v1.6.5` — **effective-dated amounts & percentages for recurring set-asides**
 (`allocation_amount_history`): editing a premium/tithe now defaults to "From a month on," so
 past months keep the value that was true then — the same fix income got via `salary_history`,
 applied per-payment, for both fixed amounts AND percentages. Bundles three bug fixes found in a
@@ -53,7 +60,7 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | — | **Hardening & trust** (from the v1.4.9 review + since) | ◑ **in progress** — streak, dev data-loss, chests, backup validation, stale-session data loss fixed; IndexedDB / computeLogUpdate / tests queued |
 | **5** | **Budget, charts & ship polish** | ✅ **done (`v1.5.0`–`v1.5.9`)** — Money screen, info-only flag, trend chart, polish & protection, per-month income + override, percentage set-asides, history pages |
 | **6** | **Analytics & income UX** | ✅ **done (`v1.6.0`–`v1.6.2`)** — month-aware Money screen, two-tab data-safety fix, yearly analytics dashboard, **+ `v1.6.3`** (unbounded salary-history list) **+ `v1.6.4`** (stale-cached-bundle guard, web-only, delete on native ship) **+ `v1.6.5`** (effective-dated set-aside amounts/percentages + 3 bundled bug fixes) |
-| **7** | **Due-date visibility, onboarding & interactive rewards** | ◑ **in progress (`v1.7.0`–)** — full due-date calendar + launch reminder shipped; guided tutorial and claimable streak gifts next |
+| **7** | **Due-date visibility, onboarding & interactive rewards** | ◑ **in progress (`v1.7.0`–`v1.7.1`)** — due-date calendar + launch reminder and the guided tutorial shipped; claimable streak gifts next |
 | 8+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
 | — | **Ship native (iOS/Android)** | ⬜ strategic priority (pull forward — unblocks gestures, haptics, reminders) |
 
@@ -292,6 +299,16 @@ reset streak left no trace of what had been earned.
 native milestone. GitHub Pages serves this SPA with no service worker and no backend, so push
 would mean throwaway infrastructure that native retires. `duePaymentsWithin()` is written pure
 precisely so native scheduling imports it unchanged.
+
+### `v1.7.1` — Guided tour for new users
+- ✨ **A 7-card guided tour on first launch**, replacing the single "Hi, I'm Butter!" coachmark
+  (now deleted): logging → streaks & coins → shop & closet → insights → money → due dates →
+  backups. Progress dots, Back/Next, and an explicit **Skip**; the overlay is deliberately NOT
+  tap-to-dismiss so a stray tap can't end the tour.
+- ✨ **Replayable any time from Settings → Replay tutorial.**
+- Gating reuses the existing `coachmark_seen` flag, so **existing installs see nothing** and no
+  migration is needed. The tour leads the launch-popup sequence: tutorial → What's New → due
+  reminder.
 
 ### `v1.7.0` — Due-date calendar & launch reminder
 - ✨ **A full due-date calendar behind "Due soon".** The card keeps its five-row preview; its
