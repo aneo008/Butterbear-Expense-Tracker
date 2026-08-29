@@ -751,7 +751,7 @@ export function setMeta(key: string, value: string): void {
 
 const DEV_COLUMNS = [
   'coins', 'streak_count', 'longest_streak', 'last_log_date', 'coins_earned_today',
-  'owned_items', 'equipped_items',
+  'owned_items', 'equipped_items', 'claimed_chests', 'pending_chests',
 ] as const;
 
 /** Directly patch game_state fields (whitelisted columns only). */

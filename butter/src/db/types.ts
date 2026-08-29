@@ -158,4 +158,8 @@ export type DevPatch = Partial<{
   coins_earned_today: number;
   owned_items: string;     // JSON array string
   equipped_items: string;  // JSON object string
+  // v1.7.2: the chest ledgers, so the dev panel can stage a claimable gift and
+  // re-test a milestone (chests are once-ever, so testing needs to clear claims).
+  claimed_chests: string;  // JSON number[] string
+  pending_chests: string;  // JSON number[] string
 }>;

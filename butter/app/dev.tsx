@@ -103,6 +103,23 @@ export default function DevScreen() {
     );
   };
 
+  // v1.7.2 chest testing. A chest only becomes claimable when a LOG reaches a
+  // milestone, so setting a streak alone never produces one — these stage it
+  // directly. Pending also clears that day's past claim, because chests are
+  // once-ever and would otherwise be testable exactly once per profile.
+  const parseDays = (s: string): number[] => {
+    try { return JSON.parse(s || '[]'); } catch { return []; }
+  };
+  const pendingDays = parseDays(gameState.pending_chests);
+  const claimedDays = parseDays(gameState.claimed_chests);
+
+  const pendChest = (day: number) => {
+    devSetGameState({
+      pending_chests: JSON.stringify([...new Set([...pendingDays, day])].sort((a, b) => a - b)),
+      claimed_chests: JSON.stringify(claimedDays.filter(d => d !== day)),
+    });
+  };
+
   const applyNum = (text: string, field: 'coins' | 'streak_count' | 'longest_streak' | 'coins_earned_today') => {
     const n = parseInt(text, 10);
     if (!Number.isFinite(n)) return;
@@ -211,6 +228,36 @@ export default function DevScreen() {
           </View>
         </Section>
 
+        {/* Milestone gifts (v1.7.2) — stage a claimable chest without a real streak */}
+        <Section title="Milestone gifts">
+          <View style={styles.row}>
+            {[3, 7, 14, 30, 100].map(d => (
+              <Btn key={d} label={`Pend ${d}`} onPress={() => pendChest(d)} />
+            ))}
+          </View>
+          <View style={styles.row}>
+            <Btn
+              label="Open claim popup"
+              tone="accent"
+              onPress={() => setChestPreviewOpen(true)}
+            />
+            <Btn label="Clear pending" onPress={() => devSetGameState({ pending_chests: '[]' })} />
+            <Btn label="Clear claimed" onPress={() => devSetGameState({ claimed_chests: '[]' })} />
+          </View>
+          <Text style={styles.note}>
+            pending: {pendingDays.join(', ') || 'none'} · claimed: {claimedDays.join(', ') || 'none'}
+          </Text>
+          <Text style={styles.note}>
+            “Pend” makes a gift claimable right now: the 🎁 badge appears on Home’s streak chip,
+            the streak sheet shows a Claim button, and the popup re-offers it on next launch.
+            A chest is only created naturally when a LOG reaches a milestone — so set the streak
+            to 6 and Quick-log to watch the real day-7 flow end to end.
+          </Text>
+          <Text style={styles.note}>
+            Chests are once-ever, so “Pend” also clears that day’s past claim to make it re-testable.
+          </Text>
+        </Section>
+
         {/* Last log date (streak timing) */}
         <Section title="Last log date">
           <View style={styles.row}>
@@ -263,7 +310,6 @@ export default function DevScreen() {
             <Btn label="Open DueCalendarSheet" onPress={() => setDueCalOpen(true)} />
             <Btn label="Preview DueReminderSheet" onPress={() => setDueRemOpen(true)} />
             <Btn label="Preview TutorialSheet" onPress={() => setTutorialOpen(true)} />
-            <Btn label="Preview ChestClaimSheet (7)" onPress={() => setChestPreviewOpen(true)} />
           </View>
           <Text style={styles.note}>The reminder preview lists whatever is due within 3 days (empty if nothing is).</Text>
         </Section>
@@ -333,9 +379,10 @@ export default function DevScreen() {
       <DueCalendarSheet visible={dueCalOpen} onClose={() => setDueCalOpen(false)} />
       <DueReminderSheet forceVisible={dueRemOpen} onForceClose={() => setDueRemOpen(false)} />
       <TutorialSheet forceVisible={tutorialOpen} onForceClose={() => setTutorialOpen(false)} />
-      {/* Claiming a day that isn't pending is a safe no-op, so the preview can't pay out. */}
+      {/* Offers the highest PENDING gift, so Claim really pays (claiming a day that
+          isn't pending is a no-op — a cosmetic preview would look broken). */}
       <ChestClaimSheet
-        day={chestPreviewOpen ? 7 : null}
+        day={chestPreviewOpen && pendingDays.length > 0 ? Math.max(...pendingDays) : null}
         onClaimed={() => {}}
         onClose={() => setChestPreviewOpen(false)}
       />
