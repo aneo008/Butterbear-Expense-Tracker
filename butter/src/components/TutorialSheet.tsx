@@ -14,7 +14,9 @@ const SEEN_KEY = 'coachmark_seen';
 type Step = { emoji: string; title: string; body: string };
 
 const STEPS: Step[] = [
-  { emoji: '🧈', title: "Hi, I'm Butter!", body: 'Tap me on the Home screen whenever you spend something — logging an expense takes just a few seconds 🐻' },
+  // 🐻 not 🧈: this card tells the user what to TAP, and the thing to tap on Home
+  // is the bear — a butter icon sends them looking for the wrong target.
+  { emoji: '🐻', title: "Hi, I'm Butter!", body: "I'm the bear on the Home screen — tap me whenever you spend something. Logging an expense takes just a few seconds." },
   { emoji: '🔥', title: 'Streaks & coins', body: 'Every log earns coins, and logging daily builds a streak that multiplies them. Tap the 🔥 and 🪙 chips up top to see how it works.' },
   { emoji: '🛍️', title: 'Shop & closet', body: 'Spend your coins in the Shop on outfits and goodies for me, then dress me up in the Closet (the 🧥 chip).' },
   { emoji: '📊', title: 'Insights', body: 'The Insights tab shows where your money goes — daily trends, category breakdowns, and monthly or yearly views.' },
