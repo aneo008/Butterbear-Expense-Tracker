@@ -594,6 +594,46 @@ Both build on the complete Phase 6 dashboard; captured for a future session, not
   Read-side only, same as `v1.6.2` — no schema change; extend `src/lib/yearMath.ts` +
   `getYearBreakdown()`.
 
+## Import from another app (CSV) — *(deferred — logged, not built)*
+The one **hard requirement** from `SPEC.md` §9 that never shipped: Phase 3 delivered the lean
+slice (CSV **export**, JSON backup/restore) and CSV *import* was descoped — there is no CSV
+parser anywhere in the codebase today. The only way in from another expense app is the manual
+workaround noted under `v1.5.4`: hand-convert that app's export into a Butter backup JSON, then
+Merge. **This item automates exactly that conversion step.** Scope: a generic importer with
+smart auto-detect (not per-app presets), covering **expenses + income**.
+
+Flow — Settings → **"Import from another app"**, kept separate from the existing JSON Restore:
+1. **Pick a `.csv`** — reuse the picker plumbing in `src/lib/fileio.ts` (already handles the web
+   `change`/`cancel` race fixed in `v1.4.7`); `expo-document-picker` is already a dependency.
+2. **Parse** — new pure `src/lib/csvImport.ts` (hand-rolled RFC4180-ish reader, no new dep,
+   mirroring the export-side `src/lib/csv.ts`): quoted fields, embedded commas/newlines, BOM,
+   `;` delimiter.
+3. **Column mapping** — auto-detect the usual headers (`date`/`when`, `amount`/`value`/`price`,
+   `category`, `note`/`description`/`memo`/`payee`), each overridable via a picker. Normalize
+   currency symbols and thousand separators; resolve `DD/MM/YYYY` vs `MM/DD/YYYY` vs ISO (ask
+   only when genuinely ambiguous); read the **sign convention** (many apps export expenses
+   negative, or carry a `type` column) — that same signal splits **expense vs income** rows.
+4. **Category mapping** — list the file's distinct categories; map each to an existing Butter
+   category, auto-create one (emoji + colour from `src/constants/categories`), or skip.
+5. **Preview + duplicate check** — "N expenses · M income · K unparseable · J look like
+   duplicates", confirmed before anything is written (the preview `SPEC.md` §9 asks for).
+6. **Write through the hardened path** — build a `Snapshot` and hand it to **`mergeData()`**
+   (`src/db/queries.ts` + `queries.web.ts`) instead of inserting directly. Free wins: native
+   `withTransactionSync` atomicity, web `resync()` (the `v1.6.1` two-tab fix), id-based dedupe,
+   and a `MergeResult` whose per-table counts become the summary. Merge already leaves
+   coins/streak/wardrobe alone, so an import can't disturb game state.
+
+- ⚠️ **Deterministic ids are the crux.** `mergeData` dedupes expenses **by id** and a foreign CSV
+  has none — so derive each id from a stable hash of the row's content
+  (`date|amount|category|note`). Re-importing the same file then becomes a no-op through the
+  existing id-dedupe instead of silently doubling every row. Also content-match against
+  *existing* expenses (same facts, different id) to catch rows the user already entered by hand.
+- 🔒 **Guardrails:** validate every row with the same per-row discipline as `parseBackup`
+  (`src/lib/backup.ts`); nudge a JSON backup first; the import is **strictly additive** — it
+  offers no Replace path.
+- **Deliberately out of scope** (don't widen without a fresh decision): recurring payments /
+  set-asides (few apps export a comparable shape) and any non-CSV format.
+
 ## Content & economy backlog — draw from, don't sequence · `v1.8+`
 Per the v1.4.9 review, phases 6–9 were four consecutive "meta-game supply" phases for a
 14-item, pre-native, pre-notification app. Keep them as a **backlog to pull from once there's
