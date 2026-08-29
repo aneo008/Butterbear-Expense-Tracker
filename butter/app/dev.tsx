@@ -5,7 +5,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useExpenseStore } from '../src/store/useExpenseStore';
 import { STORE_ITEMS } from '../src/constants/storeItems';
-import { dailyCap, streakMultiplier } from '../src/lib/streak';
+import { dailyCap, streakMultiplier, effectiveStreak } from '../src/lib/streak';
 import { todayISO, addDaysISO } from '../src/lib/date';
 import { getMeta, setMeta } from '../src/db/queries';
 import { backOrHome } from '../src/lib/nav';
@@ -87,9 +87,27 @@ export default function DevScreen() {
   useEffect(() => { setLongest(String(gameState.longest_streak)); }, [gameState.longest_streak]);
   useEffect(() => { setEarned(String(gameState.coins_earned_today)); }, [gameState.coins_earned_today]);
 
+  // A streak is the PAIR (streak_count, last_log_date): effectiveStreak() — which
+  // every display uses — reports 0 unless the last log was today or yesterday.
+  // Setting the count alone left last_log_date null/stale, so the streak read as 0
+  // everywhere and this setter looked like it did nothing. Write both, anchoring to
+  // YESTERDAY: the streak shows as live AND the next log advances it, so you can set
+  // 6, quick-log once, and watch the day-7 milestone fire.
+  const applyStreak = (n: number) => {
+    const days = Math.max(0, n);
+    setStreak(String(days));
+    devSetGameState(
+      days > 0
+        ? { streak_count: days, last_log_date: addDaysISO(todayISO(), -1) }
+        : { streak_count: 0 }
+    );
+  };
+
   const applyNum = (text: string, field: 'coins' | 'streak_count' | 'longest_streak' | 'coins_earned_today') => {
     const n = parseInt(text, 10);
-    if (Number.isFinite(n)) devSetGameState({ [field]: Math.max(0, n) });
+    if (!Number.isFinite(n)) return;
+    if (field === 'streak_count') { applyStreak(n); return; }
+    devSetGameState({ [field]: Math.max(0, n) });
   };
 
   // Read fresh coins each tap so rapid quick-adds accumulate (avoids a stale closure).
@@ -157,10 +175,20 @@ export default function DevScreen() {
           </View>
           <View style={styles.row}>
             {[0, 3, 7, 14, 30, 100].map(d => (
-              <Btn key={d} label={`${d}`} onPress={() => { setStreak(String(d)); devSetGameState({ streak_count: d }); }} />
+              <Btn key={d} label={`${d}`} onPress={() => applyStreak(d)} />
             ))}
           </View>
           <Text style={styles.note}>→ ×{streakMultiplier(gameState.streak_count)} multiplier · cap {dailyCap(gameState.streak_count)}/day</Text>
+          <Text style={styles.note}>
+            Shown everywhere: {effectiveStreak(gameState.streak_count, gameState.last_log_date, todayISO())}
+            {effectiveStreak(gameState.streak_count, gameState.last_log_date, todayISO()) !== gameState.streak_count
+              ? ` ⚠️ stored ${gameState.streak_count} is stale — last log too old, so displays read 0`
+              : ' ✓'}
+          </Text>
+          <Text style={styles.note}>
+            Setting a streak also sets “last log” to yesterday, so it reads as live and the next log advances it.
+            Override below to test a paused streak.
+          </Text>
         </Section>
 
         {/* Longest streak */}
