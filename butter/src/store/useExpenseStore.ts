@@ -189,6 +189,7 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     coins: 0,
     coins_earned_today: 0,
     claimed_chests: '[]',
+    pending_chests: '[]',
   },
   ownedItems: [],
   equippedItems: {},

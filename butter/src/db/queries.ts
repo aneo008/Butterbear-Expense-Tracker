@@ -182,6 +182,7 @@ export function getGameState(): GameState {
     coins: WELCOME_GRANT,
     coins_earned_today: 0,
     claimed_chests: '[]',
+    pending_chests: '[]',
   };
 }
 
@@ -518,6 +519,7 @@ export function getGameStateFull(): GameStateFull {
     coins: 0,
     coins_earned_today: 0,
     claimed_chests: '[]',
+    pending_chests: '[]',
     owned_items: '[]',
     equipped_items: '{}',
     story_progress: 0,
@@ -572,12 +574,12 @@ export function replaceAllData(snap: Snapshot): void {
         `UPDATE game_state SET
           streak_count = ?, last_log_date = ?, longest_streak = ?,
           total_entries = ?, coins = ?, coins_earned_today = ?, claimed_chests = ?,
-          owned_items = ?, equipped_items = ?, story_progress = ?
+          pending_chests = ?, owned_items = ?, equipped_items = ?, story_progress = ?
         WHERE id = 1`,
         [
           gs.streak_count, gs.last_log_date, gs.longest_streak,
           gs.total_entries, gs.coins, gs.coins_earned_today, gs.claimed_chests ?? '[]',
-          gs.owned_items ?? '[]', gs.equipped_items ?? '{}', gs.story_progress ?? 0,
+          gs.pending_chests ?? '[]', gs.owned_items ?? '[]', gs.equipped_items ?? '{}', gs.story_progress ?? 0,
         ]
       );
     }
@@ -757,7 +759,7 @@ export function devResetAll(preserveMetaKeys: string[] = []): void {
   db.runSync(
     `UPDATE game_state SET streak_count = 0, last_log_date = NULL, longest_streak = 0,
       total_entries = 0, coins = ?, coins_earned_today = 0, claimed_chests = '[]',
-      owned_items = '[]', equipped_items = '{}' WHERE id = 1`,
+      pending_chests = '[]', owned_items = '[]', equipped_items = '{}' WHERE id = 1`,
     [WELCOME_GRANT]
   );
 }

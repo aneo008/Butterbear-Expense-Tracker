@@ -50,6 +50,7 @@ function defaultGameState(): GameStateFull {
     coins: WELCOME_GRANT,
     coins_earned_today: 0,
     claimed_chests: '[]',
+    pending_chests: '[]',
     owned_items: '[]',
     equipped_items: '{}',
     story_progress: 0,
@@ -319,6 +320,7 @@ export function getGameState(): GameState {
     coins: g.coins,
     coins_earned_today: g.coins_earned_today,
     claimed_chests: g.claimed_chests ?? '[]',
+    pending_chests: g.pending_chests ?? '[]',
   };
 }
 
@@ -758,6 +760,7 @@ export function devResetAll(preserveMetaKeys: string[] = []): void {
   db.game_state.coins = WELCOME_GRANT;
   db.game_state.coins_earned_today = 0;
   db.game_state.claimed_chests = '[]';
+  db.game_state.pending_chests = '[]';
   db.game_state.owned_items = '[]';
   db.game_state.equipped_items = '{}';
   persist();

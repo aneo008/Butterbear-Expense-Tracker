@@ -21,6 +21,9 @@ export type GameState = {
   coins_earned_today: number;
   // JSON number[] of milestone days whose chest was already paid (once-ever).
   claimed_chests: string;
+  // v1.7.2: JSON number[] of milestone days earned but not yet claimed — chests
+  // now wait for an explicit claim instead of paying out silently on log.
+  pending_chests: string;
 };
 
 export type CategoryBreakdownRow = {

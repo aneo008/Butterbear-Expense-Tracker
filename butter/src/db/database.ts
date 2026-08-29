@@ -126,6 +126,13 @@ export async function initDatabase(): Promise<void> {
     // Column already exists.
   }
 
+  // v1.7.2: interactive chests — earned milestones wait here until claimed.
+  try {
+    database.execSync("ALTER TABLE game_state ADD COLUMN pending_chests TEXT DEFAULT '[]';");
+  } catch {
+    // Column already exists.
+  }
+
   // Seed default categories if empty
   const count = database.getFirstSync<{ c: number }>('SELECT COUNT(*) as c FROM categories');
   if ((count?.c ?? 0) === 0) {
