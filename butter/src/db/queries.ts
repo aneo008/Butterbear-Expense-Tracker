@@ -211,15 +211,15 @@ export function updateGameStateAfterLog(): void {
   const actualCoins = Math.min(coinsEarned, Math.max(0, cap - coinsEarnedToday));
 
   // Once-EVER milestone chest on the first log of a milestone day (Phase 5f:
-  // claims are recorded so cycling streaks can't re-farm them). Bypasses the
-  // cap and is NOT counted toward coins_earned_today (so it never suppresses income).
+  // claims are recorded so cycling streaks can't re-farm them). v1.7.2: the chest
+  // now goes PENDING — coins land only when the user claims it (ChestClaimSheet /
+  // StreakSheet), so the reward is an action, not a silent credit.
   // NOTE: keep this logic in lockstep with queries.web.ts.
-  let claimed: number[];
+  let claimed: number[]; let pending: number[];
   try { claimed = JSON.parse(gs.claimed_chests || '[]'); } catch { claimed = []; }
-  let chest = 0;
-  if (isFirstLogToday && !claimed.includes(newStreak)) {
-    chest = chestFor(newStreak);
-    if (chest > 0) claimed.push(newStreak);
+  try { pending = JSON.parse(gs.pending_chests || '[]'); } catch { pending = []; }
+  if (isFirstLogToday && !claimed.includes(newStreak) && !pending.includes(newStreak) && chestFor(newStreak) > 0) {
+    pending.push(newStreak);
   }
 
   db.runSync(
@@ -230,10 +230,31 @@ export function updateGameStateAfterLog(): void {
       total_entries = total_entries + 1,
       coins = coins + ?,
       coins_earned_today = ?,
-      claimed_chests = ?
+      claimed_chests = ?,
+      pending_chests = ?
     WHERE id = 1`,
-    [newStreak, today, newLongest, actualCoins + chest, coinsEarnedToday + actualCoins, JSON.stringify(claimed)]
+    [newStreak, today, newLongest, actualCoins, coinsEarnedToday + actualCoins, JSON.stringify(claimed), JSON.stringify(pending)]
   );
+}
+
+/**
+ * v1.7.2: claim a pending milestone chest — moves the day pending → claimed and
+ * pays its coins. Returns false (no-op) if it isn't pending or was already
+ * claimed, so double-taps and stale UI can never double-pay.
+ * NOTE: keep in lockstep with queries.web.ts.
+ */
+export function claimChest(day: number): boolean {
+  const db = getDb();
+  const gs = getGameState();
+  let claimed: number[]; let pending: number[];
+  try { claimed = JSON.parse(gs.claimed_chests || '[]'); } catch { claimed = []; }
+  try { pending = JSON.parse(gs.pending_chests || '[]'); } catch { pending = []; }
+  if (!pending.includes(day) || claimed.includes(day)) return false;
+  db.runSync(
+    'UPDATE game_state SET coins = coins + ?, pending_chests = ?, claimed_chests = ? WHERE id = 1',
+    [chestFor(day), JSON.stringify(pending.filter(d => d !== day)), JSON.stringify([...claimed, day])]
+  );
+  return true;
 }
 
 // ---------------------------------------------------------------------------

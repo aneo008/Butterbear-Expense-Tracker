@@ -347,24 +347,45 @@ export function updateGameStateAfterLog(): void {
   const actualCoins = Math.min(coinsEarned, Math.max(0, cap - coinsEarnedToday));
 
   // Once-EVER milestone chest (Phase 5f: claims recorded so cycling streaks
-  // can't re-farm them). Bypasses the cap; not counted toward the daily total.
+  // can't re-farm them). v1.7.2: the chest now goes PENDING — coins land only
+  // when the user claims it, so the reward is an action, not a silent credit.
   // NOTE: keep this logic in lockstep with queries.ts.
-  let claimed: number[];
+  let claimed: number[]; let pending: number[];
   try { claimed = JSON.parse(gs.claimed_chests || '[]'); } catch { claimed = []; }
-  let chest = 0;
-  if (isFirstLogToday && !claimed.includes(newStreak)) {
-    chest = chestFor(newStreak);
-    if (chest > 0) claimed.push(newStreak);
+  try { pending = JSON.parse(gs.pending_chests || '[]'); } catch { pending = []; }
+  if (isFirstLogToday && !claimed.includes(newStreak) && !pending.includes(newStreak) && chestFor(newStreak) > 0) {
+    pending.push(newStreak);
   }
 
   gs.streak_count = newStreak;
   gs.last_log_date = today;
   gs.longest_streak = newLongest;
   gs.total_entries = gs.total_entries + 1;
-  gs.coins = gs.coins + actualCoins + chest;
+  gs.coins = gs.coins + actualCoins;
   gs.coins_earned_today = coinsEarnedToday + actualCoins;
   gs.claimed_chests = JSON.stringify(claimed);
+  gs.pending_chests = JSON.stringify(pending);
   persist();
+}
+
+/**
+ * v1.7.2: claim a pending milestone chest — moves the day pending → claimed and
+ * pays its coins. Returns false (no-op) if it isn't pending or was already
+ * claimed, so double-taps and stale UI can never double-pay.
+ * NOTE: keep in lockstep with queries.ts.
+ */
+export function claimChest(day: number): boolean {
+  resync();
+  const gs = db.game_state;
+  let claimed: number[]; let pending: number[];
+  try { claimed = JSON.parse(gs.claimed_chests || '[]'); } catch { claimed = []; }
+  try { pending = JSON.parse(gs.pending_chests || '[]'); } catch { pending = []; }
+  if (!pending.includes(day) || claimed.includes(day)) return false;
+  gs.coins += chestFor(day);
+  gs.pending_chests = JSON.stringify(pending.filter(d => d !== day));
+  gs.claimed_chests = JSON.stringify([...claimed, day]);
+  persist();
+  return true;
 }
 
 // ---- Phase 3: portability ----
