@@ -17,6 +17,17 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.7.0',
+    pass: 'Phase 7',
+    title: 'See every due date',
+    date: '2026-08-30',
+    items: [
+      { tag: 'new', text: 'Tap "View all" on the Money page\'s Due soon card to open a full due-date calendar — every recurring payment grouped by month, with past dates greyed out so you can see what\'s already gone by.' },
+      { tag: 'new', text: 'If a payment is due in the next 3 days, the app now reminds you when you open it — at most once a day. (Real phone notifications arrive with the native app.)' },
+      { tag: 'fix', text: 'Due soon showed SGD 0.00 for percentage set-asides like a tithe. It now shows what they actually come to in the month they fall due.' },
+    ],
+  },
+  {
     version: '1.6.5',
     pass: 'Phase 6',
     title: 'Set-aside changes with a start date',

@@ -53,7 +53,8 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | — | **Hardening & trust** (from the v1.4.9 review + since) | ◑ **in progress** — streak, dev data-loss, chests, backup validation, stale-session data loss fixed; IndexedDB / computeLogUpdate / tests queued |
 | **5** | **Budget, charts & ship polish** | ✅ **done (`v1.5.0`–`v1.5.9`)** — Money screen, info-only flag, trend chart, polish & protection, per-month income + override, percentage set-asides, history pages |
 | **6** | **Analytics & income UX** | ✅ **done (`v1.6.0`–`v1.6.2`)** — month-aware Money screen, two-tab data-safety fix, yearly analytics dashboard, **+ `v1.6.3`** (unbounded salary-history list) **+ `v1.6.4`** (stale-cached-bundle guard, web-only, delete on native ship) **+ `v1.6.5`** (effective-dated set-aside amounts/percentages + 3 bundled bug fixes) |
-| 7+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
+| **7** | **Due-date visibility, onboarding & interactive rewards** | ◑ **in progress (`v1.7.0`–)** — full due-date calendar + launch reminder shipped; guided tutorial and claimable streak gifts next |
+| 8+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
 | — | **Ship native (iOS/Android)** | ⬜ strategic priority (pull forward — unblocks gestures, haptics, reminders) |
 
 ---
@@ -281,6 +282,35 @@ what's left to actually spend.
 - 🔧 Under the hood: additive `allocations.info_only` column (old data/backups unaffected);
   the skip lives in `monthCommitment()` so the Money summary and Insights card both honour it.
 
+## Phase 7 — Due-date visibility, onboarding & interactive rewards · `v1.7` *(in progress)*
+Three things surfaced from daily phone use: "Due soon" showed only the next five payments with
+no way to see the rest or what had already gone by; new users got a single coachmark and had to
+discover everything else themselves; and milestone streak gifts were credited silently, so a
+reset streak left no trace of what had been earned.
+
+**Scope fence:** real **phone notifications stay OUT of the web build** and remain under the
+native milestone. GitHub Pages serves this SPA with no service worker and no backend, so push
+would mean throwaway infrastructure that native retires. `duePaymentsWithin()` is written pure
+precisely so native scheduling imports it unchanged.
+
+### `v1.7.0` — Due-date calendar & launch reminder
+- ✨ **A full due-date calendar behind "Due soon".** The card keeps its five-row preview; its
+  header now opens `DueCalendarSheet` — every recurring payment grouped by month, three months
+  back through twelve forward (twelve guarantees each yearly payment appears exactly once).
+  Past months grey out entirely and, in the current month, so does anything dated before today.
+  "Past" is **time-based**: the app records when a payment recurs, never whether it was paid.
+  Yearly rows show their **full** amount in their due month — this is a payment calendar, not
+  the ÷12 display equivalent.
+- ✨ **A launch reminder for payments due within 3 days**, at most once per calendar day
+  (`app_meta.due_reminder_last_shown`). It joins a new launch-popup sequence: each popup calls
+  `onSettled` when it's done, so What's New and the reminder never stack.
+- 🐛 **Fix: "Due soon" showed `SGD 0.00` for percentage set-asides.** The preview resolved every
+  row through the fixed-amount path, which is 0 for percent rows — the same class of bug as the
+  percent+yearly one fixed in `v1.6.5`, and newly obvious next to the calendar's correct figure.
+- New pure helpers in `allocationMath.ts`: `dueDateInMonth()` (a payment's date in any given
+  month, not anchored to today) and `duePaymentsWithin()` (the shared reminder selection logic),
+  plus `addMonths()` in `date.ts`.
+
 ## Phase 6 — Analytics & income UX · `v1.6` *(✅ COMPLETE)*
 Two things surfaced from real daily phone usage: the Money screen couldn't show a past month
 (tapping March's Insights budget card silently opened today's Money instead), and there was no
@@ -501,7 +531,7 @@ trend, store-ready perf pass (nothing felt slow at current data sizes).
 - ✅ Double-count escape hatch shipped (`v1.5.1`): the per-payment **"Info only"** flag. If
   double-counting still bites, tune that — don't invent anything bigger.
 
-## Content & economy backlog — draw from, don't sequence · `v1.7+`
+## Content & economy backlog — draw from, don't sequence · `v1.8+`
 Per the v1.4.9 review, phases 6–9 were four consecutive "meta-game supply" phases for a
 14-item, pre-native, pre-notification app. Keep them as a **backlog to pull from once there's
 a retained audience**, not a fixed sequence — ship whatever best serves the current player.
