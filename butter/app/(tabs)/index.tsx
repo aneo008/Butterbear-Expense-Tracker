@@ -15,6 +15,7 @@ import Mascot, { MascotHandle } from '../../src/components/Mascot';
 import TutorialSheet from '../../src/components/TutorialSheet';
 import WhatsNewSheet from '../../src/components/WhatsNewSheet';
 import DueReminderSheet from '../../src/components/DueReminderSheet';
+import ChestClaimSheet from '../../src/components/ChestClaimSheet';
 import StreakSheet from '../../src/components/StreakSheet';
 import CoinSheet from '../../src/components/CoinSheet';
 import ConfettiBurst from '../../src/components/ConfettiBurst';
@@ -44,6 +45,12 @@ export default function HomeScreen() {
   // onSettled when it's done (shown-and-dismissed, or skipped) to admit the next.
   const [popupPhase, setPopupPhase] = useState(0);
 
+  // v1.7.2: milestone day whose gift is currently on offer (null = no popup).
+  const [chestOffer, setChestOffer] = useState<number | null>(null);
+  const pendingChests: number[] = useMemo(() => {
+    try { return JSON.parse(gameState.pending_chests || '[]'); } catch { return []; }
+  }, [gameState.pending_chests]);
+
   // Show the streak the user actually has now (0 once a day is missed), not the stale
   // stored count that only resets on the next log.
   const streakNow = effectiveStreak(gameState.streak_count, gameState.last_log_date, todayISO());
@@ -69,15 +76,35 @@ export default function HomeScreen() {
     // Crossing today's coin limit auto-opens the coin popup (in its maxed state).
     if (lastCelebration.capReached) setCoinOpen(true);
 
+    // Both timers are held together so one cleanup clears whichever were set.
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
     if (big) {
       setConfettiKey(k => k + 1);
       if (lastCelebration.reason) {
         setMilestoneLine(lastCelebration.reason);
-        const t = setTimeout(() => setMilestoneLine(null), 2600);
-        return () => clearTimeout(t);
+        timers.push(setTimeout(() => setMilestoneLine(null), 2600));
       }
     }
+
+    // v1.7.2: a milestone chest earned by this log is offered once the confetti
+    // has had its moment. Dismissing keeps it pending, never lost.
+    if (lastCelebration.chestDay != null) {
+      const day = lastCelebration.chestDay;
+      timers.push(setTimeout(() => setChestOffer(day), 1400));
+    }
+
+    if (timers.length > 0) return () => timers.forEach(clearTimeout);
   }, [celebrationSignal]);
+
+  // v1.7.2: re-offer an unclaimed gift once per launch, after the other popups
+  // have had their turn — so a "Later" is never the last word on it.
+  const reofferedOnLaunch = useRef(false);
+  useEffect(() => {
+    if (popupPhase < 3 || reofferedOnLaunch.current || pendingChests.length === 0) return;
+    reofferedOnLaunch.current = true;
+    setChestOffer(Math.max(...pendingChests));
+  }, [popupPhase, pendingChests]);
 
   // Hide the persistent hint once the user has logged a few times.
   const showHint = gameState.total_entries < 3;
@@ -99,7 +126,8 @@ export default function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel="View streak"
           >
-            <Text style={styles.statText}>🔥 {streakNow}</Text>
+            {/* 🎁 marks an unclaimed milestone gift waiting in the streak sheet. */}
+            <Text style={styles.statText}>🔥 {streakNow}{pendingChests.length > 0 ? ' 🎁' : ''}</Text>
           </Pressable>
           <Pressable
             onPress={() => setCoinOpen(true)}
@@ -158,7 +186,12 @@ export default function HomeScreen() {
 
       <TutorialSheet onSettled={() => setPopupPhase(p => Math.max(p, 1))} />
       {popupPhase >= 1 && <WhatsNewSheet onSettled={() => setPopupPhase(p => Math.max(p, 2))} />}
-      {popupPhase >= 2 && <DueReminderSheet />}
+      {popupPhase >= 2 && <DueReminderSheet onSettled={() => setPopupPhase(p => Math.max(p, 3))} />}
+      <ChestClaimSheet
+        day={chestOffer}
+        onClaimed={() => setCoinKey(k => k + 1)} // coin-fly on claim
+        onClose={() => setChestOffer(null)}
+      />
       <StreakSheet visible={streakOpen} onClose={() => setStreakOpen(false)} />
       <CoinSheet visible={coinOpen} onClose={() => setCoinOpen(false)} />
     </SafeAreaView>
