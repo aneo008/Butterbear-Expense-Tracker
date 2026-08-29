@@ -17,6 +17,16 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    version: '1.7.2',
+    pass: 'Phase 7',
+    title: 'Claim your streak gifts',
+    date: '2026-08-30',
+    items: [
+      { tag: 'change', text: 'Streak milestone gifts are now claimed by you, not added silently — hit a milestone and a popup lets you claim your coins. Not now? A 🎁 on the streak chip keeps it waiting; nothing is ever lost.' },
+      { tag: 'new', text: 'The streak popup now shows which gifts you\'ve already claimed (🎁 ✓) and lets you claim any waiting ones right there — so after a streak resets you can see exactly what you\'ve earned before.' },
+    ],
+  },
+  {
     version: '1.7.1',
     pass: 'Phase 7',
     title: 'Guided tour for new users',

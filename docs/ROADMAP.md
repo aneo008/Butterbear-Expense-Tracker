@@ -24,12 +24,15 @@ the **Changelog** sections below are written to feed it (user-facing wording +
 Source of truth: `butter/app.json` (`version` + `ios.buildNumber` / `android.versionCode`),
 shown in **Settings → version footer** (`src/lib/version.ts`).
 
-**Current:** `v1.7.1` — **Phase 7 in progress**: `v1.7.0` shipped the full due-date calendar
-behind "Due soon" plus a once-a-day launch reminder for payments due within 3 days (and fixed
-percentage set-asides displaying `SGD 0.00` there); `v1.7.1` replaces the single first-run
-coachmark with a 7-card guided tour, replayable from **Settings → Replay tutorial**. Real phone
-notifications stay OUT of the web build by design — they belong to the native milestone, which
-imports `duePaymentsWithin()` unchanged. Still to come in Phase 7: claimable streak gifts.
+**Current:** `v1.7.2` — **Phase 7 COMPLETE**: `v1.7.0` shipped the full due-date calendar behind
+"Due soon" plus a once-a-day launch reminder for payments due within 3 days (and fixed percentage
+set-asides displaying `SGD 0.00` there); `v1.7.1` replaced the single first-run coachmark with a
+7-card guided tour, replayable from **Settings → Replay tutorial**; `v1.7.2` made milestone
+streak gifts **claimable** — earned chests wait in `pending_chests` until tapped, and the streak
+ladder shows what's already been claimed. Real phone notifications stay OUT of the web build by
+design — they belong to the native milestone, which imports `duePaymentsWithin()` unchanged.
+**Next: ship native** (strategic priority — unblocks the daily-logging reminder AND the due-date
+reminders this phase set up, AND retires the `v1.6.4` stale-bundle workaround).
 
 Before Phase 7: `v1.6.5` — **effective-dated amounts & percentages for recurring set-asides**
 (`allocation_amount_history`): editing a premium/tithe now defaults to "From a month on," so
@@ -60,7 +63,7 @@ Repo: `github.com/aneo008/Butterbear-Expense-Tracker` · Live (web): `aneo008.gi
 | — | **Hardening & trust** (from the v1.4.9 review + since) | ◑ **in progress** — streak, dev data-loss, chests, backup validation, stale-session data loss fixed; IndexedDB / computeLogUpdate / tests queued |
 | **5** | **Budget, charts & ship polish** | ✅ **done (`v1.5.0`–`v1.5.9`)** — Money screen, info-only flag, trend chart, polish & protection, per-month income + override, percentage set-asides, history pages |
 | **6** | **Analytics & income UX** | ✅ **done (`v1.6.0`–`v1.6.2`)** — month-aware Money screen, two-tab data-safety fix, yearly analytics dashboard, **+ `v1.6.3`** (unbounded salary-history list) **+ `v1.6.4`** (stale-cached-bundle guard, web-only, delete on native ship) **+ `v1.6.5`** (effective-dated set-aside amounts/percentages + 3 bundled bug fixes) |
-| **7** | **Due-date visibility, onboarding & interactive rewards** | ◑ **in progress (`v1.7.0`–`v1.7.1`)** — due-date calendar + launch reminder and the guided tutorial shipped; claimable streak gifts next |
+| **7** | **Due-date visibility, onboarding & interactive rewards** | ✅ **done (`v1.7.0`–`v1.7.2`)** — due-date calendar + launch reminder, guided tutorial, claimable streak gifts |
 | 8+ | Content & economy backlog (consumables, invest/honey-jar, collections, seasonal, room decor) | ⬜ backlog — draw from, not sequenced |
 | — | **Ship native (iOS/Android)** | ⬜ strategic priority (pull forward — unblocks gestures, haptics, reminders) |
 
@@ -299,6 +302,21 @@ reset streak left no trace of what had been earned.
 native milestone. GitHub Pages serves this SPA with no service worker and no backend, so push
 would mean throwaway infrastructure that native retires. `duePaymentsWithin()` is written pure
 precisely so native scheduling imports it unchanged.
+
+### `v1.7.2` — Claimable streak gifts *(closes Phase 7)*
+- 🔧 **Milestone chests are now claimed, not credited.** Reaching a milestone parks the chest in
+  a new `game_state.pending_chests` ledger (SQLite `ALTER TABLE` on native, defaulted field on
+  web); the coins land only when the user taps **Claim**. Dismissing with "Later" keeps it
+  pending — a 🎁 badge on the 🔥 chip and a Claim button in the streak sheet mean it can't be
+  lost. `claimChest()` refuses a day that isn't pending, so double-taps and stale UI can never
+  double-pay.
+- ✨ **The streak ladder now shows chest state**: claimed tiers read `🎁 ✓`, a waiting one shows
+  an inline **Claim 🎁** button, unreached ones show their value as before. This is what makes a
+  broken streak legible — you can see what you already earned instead of a bare number.
+- Chests remain **once-ever** (unchanged since `v1.5.0`'s Phase 5f `claimed_chests`): re-reaching
+  a milestone after a reset awards nothing and shows no popup — verified end-to-end.
+- Backups: the new field rides inside `game_state`. Old backups (and old stored web data) lacking
+  it default to `[]` on both platforms — verified by loading a pre-`v1.7.2` record.
 
 ### `v1.7.1` — Guided tour for new users
 - ✨ **A 7-card guided tour on first launch**, replacing the single "Hi, I'm Butter!" coachmark
