@@ -53,6 +53,15 @@ export function monthRange(start: string | null, end: string): string[] {
   return months;
 }
 
+/** Add (or subtract) whole months to a YYYY-MM string. */
+export function addMonths(month: string, delta: number): string {
+  let [y, m] = month.split('-').map(Number);
+  m += delta;
+  while (m > 12) { m -= 12; y += 1; }
+  while (m < 1) { m += 12; y -= 1; }
+  return `${y}-${m < 10 ? '0' + m : m}`;
+}
+
 /** Compact month label for the strip, e.g. "May '26". */
 export function formatMonthShort(month: string): string {
   const [y, m] = month.split('-').map(Number);

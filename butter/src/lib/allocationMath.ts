@@ -10,6 +10,7 @@
 //   allocation_amount_history (most recent from_month <= M wins, falling back to
 //   the allocation's own value) — mirrors salary_history, scoped per-allocation.
 import { Allocation, AllocationAmountHistoryRow } from '../db/types';
+import { addDaysISO } from './date';
 
 /** Days in a month. `month` is 1–12. */
 export function daysInMonth(year: number, month: number): number {
@@ -47,6 +48,42 @@ export function nextDueISO(a: Allocation, todayISO: string): string | null {
   const nextY = monthNum === 12 ? year + 1 : year;
   const nextM = monthNum === 12 ? 1 : monthNum + 1;
   return clampedISO(nextY, nextM, a.due_day);
+}
+
+/**
+ * v1.7.0: the due date (YYYY-MM-DD) a recurring payment has IN a given month,
+ * or null if it has none there. Monthly rows land in every month; yearly rows
+ * only in their due_month. Unlike nextDueISO this is not anchored to today —
+ * it powers the due-calendar sheet (past months included).
+ */
+export function dueDateInMonth(a: Allocation, month: string): string | null {
+  if (a.kind !== 'recurring' || a.due_day == null) return null;
+  const year = Number(month.slice(0, 4));
+  const monthNum = Number(month.slice(5, 7));
+  if (a.cycle === 'yearly') {
+    if (a.due_month !== monthNum) return null;
+    return clampedISO(year, monthNum, a.due_day);
+  }
+  return clampedISO(year, monthNum, a.due_day);
+}
+
+export type DuePayment = { a: Allocation; due: string };
+
+/**
+ * v1.7.0: recurring payments due within [today, today + horizonDays], soonest
+ * first. Pure — the launch popup uses it now; native reminder scheduling will
+ * import it unchanged later.
+ */
+export function duePaymentsWithin(
+  allocations: Allocation[],
+  todayISO: string,
+  horizonDays: number
+): DuePayment[] {
+  const limit = addDaysISO(todayISO, horizonDays);
+  return allocations
+    .map(a => ({ a, due: nextDueISO(a, todayISO) }))
+    .filter((x): x is DuePayment => x.due !== null && x.due <= limit)
+    .sort((x, y) => x.due.localeCompare(y.due));
 }
 
 /**
