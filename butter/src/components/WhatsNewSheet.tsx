@@ -16,6 +16,9 @@ type Props = {
   onForceClose?: () => void;
   // Dev preview: simulate the user's last-seen version ('' = up to date, nothing shown).
   previewSeen?: string;
+  // v1.7.0: launch-popup chaining — fires once this sheet is done for this launch
+  // (shown-and-dismissed, or decided not to show). Never fires in dev mode.
+  onSettled?: () => void;
 };
 
 const TAG_META: Record<ChangeTag, { label: string; bg: string; fg: string }> = {
@@ -26,7 +29,7 @@ const TAG_META: Record<ChangeTag, { label: string; bg: string; fg: string }> = {
 
 // Tapping the 🪙/🔥 chips, etc. don't trigger this — it fires itself on launch
 // (from Home) when the app is newer than what the user last saw.
-export default function WhatsNewSheet({ forceVisible, onForceClose, previewSeen }: Props) {
+export default function WhatsNewSheet({ forceVisible, onForceClose, previewSeen, onSettled }: Props) {
   const controlled = forceVisible !== undefined;
 
   const [autoVisible, setAutoVisible] = useState(false);
@@ -43,12 +46,14 @@ export default function WhatsNewSheet({ forceVisible, onForceClose, previewSeen 
     // end of Phase 5 as planned.)
     if (!coachmarkSeen || !seen) {
       setMeta(SEEN_KEY, APP_VERSION);
+      onSettled?.();
       return;
     }
 
     const rels = releasesSince(seen);
     if (rels.length === 0) {
       setMeta(SEEN_KEY, APP_VERSION); // nothing new; advance the marker
+      onSettled?.();
       return;
     }
 
@@ -68,6 +73,7 @@ export default function WhatsNewSheet({ forceVisible, onForceClose, previewSeen 
     }
     setMeta(SEEN_KEY, APP_VERSION);
     setAutoVisible(false);
+    onSettled?.();
   };
 
   // In dev (controlled) mode, simulate the chosen last-seen version.

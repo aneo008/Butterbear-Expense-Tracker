@@ -14,6 +14,7 @@ import { todayISO } from '../../src/lib/date';
 import Mascot, { MascotHandle } from '../../src/components/Mascot';
 import Coachmark from '../../src/components/Coachmark';
 import WhatsNewSheet from '../../src/components/WhatsNewSheet';
+import DueReminderSheet from '../../src/components/DueReminderSheet';
 import StreakSheet from '../../src/components/StreakSheet';
 import CoinSheet from '../../src/components/CoinSheet';
 import ConfettiBurst from '../../src/components/ConfettiBurst';
@@ -38,6 +39,10 @@ export default function HomeScreen() {
   const [milestoneLine, setMilestoneLine] = useState<string | null>(null);
   const [streakOpen, setStreakOpen] = useState(false);
   const [coinOpen, setCoinOpen] = useState(false);
+
+  // v1.7.0: launch popups run in sequence so they never stack — each one calls
+  // onSettled when it's done (shown-and-dismissed, or skipped) to admit the next.
+  const [popupPhase, setPopupPhase] = useState(0);
 
   // Show the streak the user actually has now (0 once a day is missed), not the stale
   // stored count that only resets on the next log.
@@ -152,7 +157,8 @@ export default function HomeScreen() {
       <CoinFly playKey={coinKey} from={{ x: 200, y: 320 }} to={{ x: 250, y: 30 }} />
 
       <Coachmark />
-      <WhatsNewSheet />
+      <WhatsNewSheet onSettled={() => setPopupPhase(p => Math.max(p, 1))} />
+      {popupPhase >= 1 && <DueReminderSheet />}
       <StreakSheet visible={streakOpen} onClose={() => setStreakOpen(false)} />
       <CoinSheet visible={coinOpen} onClose={() => setCoinOpen(false)} />
     </SafeAreaView>
