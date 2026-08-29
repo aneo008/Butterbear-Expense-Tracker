@@ -140,6 +140,12 @@ export default function DevScreen() {
         {/* Sandbox */}
         <Section title="Sandbox">
           <Text style={styles.note}>Changes here (and across the app) are discarded — use “Exit ✕” in the top banner to leave.</Text>
+          <Text style={styles.note}>
+            ⚠️ A page RELOAD also discards them (real data is restored on cold start so dev edits
+            can never leak). On web that includes a Metro fast-refresh, pull-to-refresh, or the
+            stale-bundle auto-reload — so finish a test in one sitting. If the banner above is
+            gone, the sandbox already reverted.
+          </Text>
         </Section>
 
         {/* Coins */}
