@@ -12,7 +12,7 @@ import { moodFromState, speechLine } from '../../src/lib/mascotMood';
 import { effectiveStreak } from '../../src/lib/streak';
 import { todayISO } from '../../src/lib/date';
 import Mascot, { MascotHandle } from '../../src/components/Mascot';
-import Coachmark from '../../src/components/Coachmark';
+import TutorialSheet from '../../src/components/TutorialSheet';
 import WhatsNewSheet from '../../src/components/WhatsNewSheet';
 import DueReminderSheet from '../../src/components/DueReminderSheet';
 import StreakSheet from '../../src/components/StreakSheet';
@@ -156,9 +156,9 @@ export default function HomeScreen() {
       {/* coin-fly: from the mascot up to the coin chip in the header (screen coords) */}
       <CoinFly playKey={coinKey} from={{ x: 200, y: 320 }} to={{ x: 250, y: 30 }} />
 
-      <Coachmark />
-      <WhatsNewSheet onSettled={() => setPopupPhase(p => Math.max(p, 1))} />
-      {popupPhase >= 1 && <DueReminderSheet />}
+      <TutorialSheet onSettled={() => setPopupPhase(p => Math.max(p, 1))} />
+      {popupPhase >= 1 && <WhatsNewSheet onSettled={() => setPopupPhase(p => Math.max(p, 2))} />}
+      {popupPhase >= 2 && <DueReminderSheet />}
       <StreakSheet visible={streakOpen} onClose={() => setStreakOpen(false)} />
       <CoinSheet visible={coinOpen} onClose={() => setCoinOpen(false)} />
     </SafeAreaView>
