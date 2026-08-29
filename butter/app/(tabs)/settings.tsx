@@ -25,6 +25,7 @@ import {
   getMeta,
   setMeta,
 } from '../../src/db/queries';
+import TutorialSheet from '../../src/components/TutorialSheet';
 import { serializeBackup, parseBackup } from '../../src/lib/backup';
 import { expensesToCSV } from '../../src/lib/csv';
 import { writeAndShare, pickAndReadText } from '../../src/lib/fileio';
@@ -60,6 +61,7 @@ export default function SettingsScreen() {
 
   const [busy, setBusy] = useState(false);
   const [lastBackup, setLastBackup] = useState<string | null>(null);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
 
   // Dev-mode unlock: tap the version footer 7×.
   const [devUnlocked, setDevUnlocked] = useState(() => getMeta(DEV_KEY) === '1');
@@ -267,6 +269,17 @@ export default function SettingsScreen() {
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
 
+        {/* Help (v1.7.1) — the first-run tour, on demand */}
+        <Text style={styles.sectionHeader}>Help</Text>
+        <TouchableOpacity style={styles.action} onPress={() => setTutorialOpen(true)}>
+          <Text style={styles.actionIcon}>🎓</Text>
+          <View style={styles.actionMid}>
+            <Text style={styles.actionTitle}>Replay tutorial</Text>
+            <Text style={styles.actionSub}>A quick tour of everything Butter can do</Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+
         {/* Export */}
         <Text style={styles.sectionHeader}>Back up & export</Text>
         <TouchableOpacity style={styles.action} onPress={exportBackup} disabled={busy}>
@@ -342,6 +355,8 @@ export default function SettingsScreen() {
         </Pressable>
         {tapHint && <Text style={styles.tapHint}>{tapHint}</Text>}
       </ScrollView>
+
+      <TutorialSheet forceVisible={tutorialOpen} onForceClose={() => setTutorialOpen(false)} />
     </SafeAreaView>
   );
 }

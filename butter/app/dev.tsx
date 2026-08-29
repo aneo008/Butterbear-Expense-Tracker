@@ -15,6 +15,7 @@ import CoinSheet from '../src/components/CoinSheet';
 import WhatsNewSheet from '../src/components/WhatsNewSheet';
 import DueCalendarSheet from '../src/components/DueCalendarSheet';
 import DueReminderSheet from '../src/components/DueReminderSheet';
+import TutorialSheet from '../src/components/TutorialSheet';
 import * as Haptics from '../src/lib/haptics';
 import { colors, radius, fonts, cardShadow } from '../src/constants/theme';
 import { VERSION_LABEL, APP_VERSION } from '../src/lib/version';
@@ -73,6 +74,7 @@ export default function DevScreen() {
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [dueCalOpen, setDueCalOpen] = useState(false);
   const [dueRemOpen, setDueRemOpen] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
   const [previewSeen, setPreviewSeen] = useState('1.4.4');
   const [storedSeen, setStoredSeen] = useState<string | null>(getMeta(WHATS_NEW_KEY));
   const refreshStoredSeen = () => setStoredSeen(getMeta(WHATS_NEW_KEY));
@@ -224,6 +226,7 @@ export default function DevScreen() {
           <View style={styles.row}>
             <Btn label="Open DueCalendarSheet" onPress={() => setDueCalOpen(true)} />
             <Btn label="Preview DueReminderSheet" onPress={() => setDueRemOpen(true)} />
+            <Btn label="Preview TutorialSheet" onPress={() => setTutorialOpen(true)} />
           </View>
           <Text style={styles.note}>The reminder preview lists whatever is due within 3 days (empty if nothing is).</Text>
         </Section>
@@ -292,6 +295,7 @@ export default function DevScreen() {
       <WhatsNewSheet forceVisible={whatsNewOpen} onForceClose={() => setWhatsNewOpen(false)} previewSeen={previewSeen} />
       <DueCalendarSheet visible={dueCalOpen} onClose={() => setDueCalOpen(false)} />
       <DueReminderSheet forceVisible={dueRemOpen} onForceClose={() => setDueRemOpen(false)} />
+      <TutorialSheet forceVisible={tutorialOpen} onForceClose={() => setTutorialOpen(false)} />
     </SafeAreaView>
   );
 }
