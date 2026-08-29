@@ -15,6 +15,7 @@ import AllocationEditSheet, { EditSheetRequest } from '../src/components/Allocat
 import GroupEditSheet from '../src/components/GroupEditSheet';
 import IncomeEventSheet, { IncomeSheetRequest } from '../src/components/IncomeEventSheet';
 import IncomeEditSheet from '../src/components/IncomeEditSheet';
+import DueCalendarSheet from '../src/components/DueCalendarSheet';
 import { incomeForMonth, baseIncomeForMonth, eventsForMonth } from '../src/lib/incomeMath';
 import { Alert } from '../src/lib/dialog';
 import {
@@ -58,6 +59,7 @@ export default function MoneyScreen() {
   const [editingGroup, setEditingGroup] = useState<AllocationGroup | null>(null);
   const [incomeSheet, setIncomeSheet] = useState<IncomeSheetRequest | null>(null);
   const [incomeEditOpen, setIncomeEditOpen] = useState(false);
+  const [dueCalOpen, setDueCalOpen] = useState(false);
 
   const today = todayISO();
   // v1.6.0: Money is month-aware via ?month= (e.g. tapping an old month's Insights budget
@@ -115,6 +117,23 @@ export default function MoneyScreen() {
     a.percent != null
       ? allocationAmountForMonth(a, monthIncomeParts, viewedMonth, allocationAmountHistory)
       : monthlyEquivalent(a, viewedMonth, allocationAmountHistory);
+
+  // v1.7.0: amount for a Due-soon row, resolved in the month the payment actually
+  // falls due. Percentage rows resolve against THAT month's income — before this
+  // they went through the fixed-amount path and always displayed 0.
+  const dueRowAmount = (a: Allocation, due: string): number => {
+    const m = due.slice(0, 7);
+    if (a.percent == null) return allocationBaseAmountForMonth(a, m, allocationAmountHistory);
+    return allocationAmountForMonth(
+      a,
+      {
+        base: baseIncomeForMonth(income, salaryHistory, incomeOverrides, m),
+        total: incomeForMonth(income, salaryHistory, incomeOverrides, incomeEvents, m),
+      },
+      m,
+      allocationAmountHistory
+    );
+  };
 
   const groupIcon = (id: string | null): string =>
     allocationGroups.find(g => g.id === id)?.icon ?? '📌';
@@ -358,7 +377,15 @@ export default function MoneyScreen() {
         {/* Due soon */}
         {dueSoon.length > 0 && (
           <>
-            <Text selectable={false} style={styles.sectionHeader}>Due soon</Text>
+            {/* v1.7.0: the preview stays 5 rows; the header opens the full calendar. */}
+            <TouchableOpacity
+              accessibilityLabel="due-view-all"
+              style={styles.dueHeaderRow}
+              onPress={() => setDueCalOpen(true)}
+            >
+              <Text selectable={false} style={styles.sectionHeader}>Due soon</Text>
+              <Text selectable={false} style={styles.dueViewAll}>View all ›</Text>
+            </TouchableOpacity>
             <View style={styles.card}>
               {dueSoon.map(({ a, due }) => (
                 <TouchableOpacity
@@ -372,7 +399,7 @@ export default function MoneyScreen() {
                   <Text selectable={false} style={styles.dueWhen}>{formatDateLabel(due)}</Text>
                   {/* Amount effective in the month the payment actually falls due. */}
                   <Text selectable={false} style={styles.dueAmount}>
-                    {fmt(allocationBaseAmountForMonth(a, due.slice(0, 7), allocationAmountHistory))}
+                    {fmt(dueRowAmount(a, due))}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -455,6 +482,7 @@ export default function MoneyScreen() {
       <GroupEditSheet group={editingGroup} onClose={() => setEditingGroup(null)} />
       <IncomeEventSheet request={incomeSheet} onClose={() => setIncomeSheet(null)} />
       <IncomeEditSheet visible={incomeEditOpen} initialMonth={viewedMonth} onClose={() => setIncomeEditOpen(false)} />
+      <DueCalendarSheet visible={dueCalOpen} onClose={() => setDueCalOpen(false)} />
     </SafeAreaView>
   );
 }
@@ -533,6 +561,18 @@ const styles = StyleSheet.create({
   },
   addChipText: { fontFamily: fonts.bodyBold, fontSize: 13, color: colors.textBrown },
   viewPast: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.butterDeep },
+
+  // v1.7.0: Due-soon header row — "View all" carries sectionHeader's own margins
+  // so the header keeps its original spacing.
+  dueHeaderRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  dueViewAll: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    color: colors.butterDeep,
+    marginTop: 16,
+    marginBottom: 8,
+    marginRight: 4,
+  },
 
   // payment rows
   payRow: {

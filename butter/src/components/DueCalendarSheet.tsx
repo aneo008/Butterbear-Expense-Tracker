@@ -63,15 +63,19 @@ export default function DueCalendarSheet({ visible, onClose }: Props) {
       .filter(s => s.rows.length > 0);
   }, [allocations, thisMonth]);
 
-  // Open scrolled to the current month (or the first future one if this month is empty).
+  // Open scrolled to the current month (or the first future one if this month is
+  // empty). Driven by the anchor section's own onLayout rather than a timer —
+  // its y is only known once laid out, and a timer races that. `didScroll` keeps
+  // it to once per opening so it never fights the user's own scrolling.
   const scrollRef = useRef<ScrollView>(null);
-  const currentY = useRef(0);
-  useEffect(() => {
-    if (!visible) return;
-    const t = setTimeout(() => scrollRef.current?.scrollTo({ y: currentY.current, animated: false }), 60);
-    return () => clearTimeout(t);
-  }, [visible]);
+  const didScroll = useRef(false);
+  useEffect(() => { if (!visible) didScroll.current = false; }, [visible]);
   const anchorMonth = sections.find(s => s.month >= thisMonth)?.month;
+  const onAnchorLayout = (e: { nativeEvent: { layout: { y: number } } }) => {
+    if (didScroll.current) return;
+    didScroll.current = true;
+    scrollRef.current?.scrollTo({ y: e.nativeEvent.layout.y, animated: false });
+  };
 
   if (!visible) return null;
 
@@ -92,7 +96,7 @@ export default function DueCalendarSheet({ visible, onClose }: Props) {
                   <View
                     key={s.month}
                     style={styles.section}
-                    onLayout={s.month === anchorMonth ? e => { currentY.current = e.nativeEvent.layout.y; } : undefined}
+                    onLayout={s.month === anchorMonth ? onAnchorLayout : undefined}
                   >
                     <Text style={[styles.monthHeader, pastMonth && styles.mutedText]}>
                       {formatMonthLong(s.month)}
