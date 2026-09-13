@@ -303,6 +303,16 @@ native milestone. GitHub Pages serves this SPA with no service worker and no bac
 would mean throwaway infrastructure that native retires. `duePaymentsWithin()` is written pure
 precisely so native scheduling imports it unchanged.
 
+### `v1.7.4` — Polish *(⚠️ UNRELEASED — accumulating; bump `app.json` + mirror into `src/constants/changelog.ts` when cut)*
+- 🐛 **Note field on Add Expense had no breathing room.** The note input set `paddingVertical`
+  but no horizontal padding, so its text sat hard against the input's content edge — plainly
+  visible on Android, where a focused `TextInput` draws a highlight box tight around the padding
+  box, leaving the first letter touching the border. Added `paddingHorizontal: 12`
+  (`src/components/AddExpenseSheet.tsx`), the inner-padding value already used by `dateChip`
+  in `DateField.tsx` and the sibling controls in the same StyleSheet. Verified in a real web
+  export driven at 412px phone width: computed `paddingLeft` is `12px` and the rendered text
+  clears the focus outline.
+
 ### `v1.7.3` — Backfill claims that predate the ledger *(closes Phase 7)*
 - 🐛 **Old milestones now count as claimed.** `claimed_chests` only exists since `v1.5.3`, so a
   milestone passed before then was paid but never recorded — under `v1.7.2` that would surface as
