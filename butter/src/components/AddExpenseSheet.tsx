@@ -552,6 +552,7 @@ const styles = StyleSheet.create({
 
   noteInput: {
     marginHorizontal: 20,
+    paddingHorizontal: 12,
     paddingVertical: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: '#E3C49A44',
