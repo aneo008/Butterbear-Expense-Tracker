@@ -6,10 +6,11 @@
 // TODAY's code can patch a bundle that's already downloaded and frozen — the only
 // real fix is detecting staleness before that bundle ever touches localStorage.
 //
-// ⚠️ WEB-ONLY WORKAROUND for GitHub Pages' lack of cache-control — see the ROADMAP
-// note next to "ship native". Delete this file (+ staleness.ts + the version.json
-// step in inject-web-head.mjs + the call site in app/_layout.tsx) once native ships;
-// native has no static-HTML-caching concept, so this problem can't occur there.
+// This is a PERMANENT part of the web build. It was first written as a temporary
+// workaround to delete "once native ships"; since the 2026-11-12 web-first decision
+// (docs/ROADMAP.md → Direction) it stays for as long as the app is served from
+// GitHub Pages with no cache-control or service-worker layer. It only fires when
+// the build number in app.json goes up, so every release must bump it.
 import { BUILD_NUMBER, BASE_PATH } from './version';
 
 const RELOAD_FLAG = 'butter.staleReloadAttempted';

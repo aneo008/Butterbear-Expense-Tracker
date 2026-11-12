@@ -1,5 +1,5 @@
 // User-facing changelog that feeds the "What's New" popup (WhatsNewSheet).
-// Hand-authored mirror of docs/ROADMAP.md's Changelog — keep the two in sync as
+// Hand-authored mirror of docs/CHANGELOG.md — keep the two in sync as
 // each pass ships. Entries are ordered NEWEST FIRST; `version` must be SemVer
 // MAJOR.MINOR.PATCH (= product.phase.pass) so releasesSince() can compare them.
 
